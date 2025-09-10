@@ -83,7 +83,7 @@ jobs:
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v6
       with:
-        version: latest
+        version: v1.66.0
         args: --timeout=5m
 
   security:
@@ -101,7 +101,7 @@ jobs:
         
     - name: Run Gosec Security Scanner
       run: |
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
         gosec -no-fail -fmt sarif -out results.sarif ./...
         
     - name: Upload SARIF file

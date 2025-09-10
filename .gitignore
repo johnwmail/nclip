@@ -16,6 +16,9 @@ nclip-*
 coverage.out
 coverage.html
 
+# Security scanning results
+results.sarif
+
 # Data directories
 pastes/
 data/
