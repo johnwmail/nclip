@@ -8,7 +8,7 @@ on:
     branches: [ main, dev ]
 
 env:
-  GO_VERSION: '1.23'
+  GO_VERSION: '1.25'
 
 jobs:
   test:
@@ -17,7 +17,7 @@ jobs:
     
     strategy:
       matrix:
-        go-version: ['1.23', '1.22']
+        go-version: ['1.25', '1.24']
     
     steps:
     - name: Checkout code
@@ -59,7 +59,7 @@ jobs:
       run: go test -v -race -coverprofile=coverage.out ./...
       
     - name: Upload coverage to Codecov
-      if: matrix.go-version == '1.23'
+      if: matrix.go-version == '1.25'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.out
@@ -83,7 +83,7 @@ jobs:
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v6
       with:
-        version: latest
+        version: v1.66.0
         args: --timeout=5m
 
   security:
