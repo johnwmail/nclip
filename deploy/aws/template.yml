@@ -1,0 +1,188 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'nclip - Modern netcat-to-clipboard service on AWS Lambda'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: staging
+    AllowedValues: [staging, production]
+    Description: Environment name
+  
+  Domain:
+    Type: String
+    Default: ''
+    Description: Custom domain for the API (optional)
+    
+  ExpireDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 365
+    Description: Number of days before pastes expire
+    
+  RateLimit:
+    Type: String
+    Default: '20/min'
+    Description: Rate limit per IP address
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: provided.al2023
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        PASTEBIN_STORAGE_TYPE: dynamodb
+        PASTEBIN_EXPIRE_DAYS: !Ref ExpireDays
+        PASTEBIN_LOG_LEVEL: info
+        PASTEBIN_RATE_LIMIT: !Ref RateLimit
+        PASTEBIN_BUFFER_SIZE_MB: 10
+
+Resources:
+  # DynamoDB Table for storing pastes
+  PastesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'nclip-pastes-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: nclip
+      DeletionProtectionEnabled: !If [IsProduction, true, false]
+
+  # Lambda Function
+  NClipFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'nclip-${Environment}'
+      CodeUri: ../../dist/lambda.zip
+      Handler: bootstrap
+      Description: !Sub 'nclip paste service - ${Environment}'
+      Environment:
+        Variables:
+          PASTEBIN_DYNAMODB_TABLE: !Ref PastesTable
+          PASTEBIN_DOMAIN: !If [HasDomain, !Ref Domain, !Sub '${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com']
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PastesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+        RootEvent:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+      Tags:
+        Environment: !Ref Environment
+        Application: nclip
+
+  # API Gateway Custom Domain (optional)
+  ApiDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Condition: HasDomain
+    Properties:
+      DomainName: !Ref Domain
+      CertificateArn: !Ref SSLCertificateArn
+      SecurityPolicy: TLS_1_2
+
+  ApiBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Condition: HasDomain
+    Properties:
+      DomainName: !Ref ApiDomainName
+      RestApiId: !Ref ServerlessRestApi
+      Stage: !Ref ServerlessRestApiProdStage
+
+  # CloudWatch Log Group
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/nclip-${Environment}'
+      RetentionInDays: !If [IsProduction, 30, 7]
+
+  # CloudWatch Alarms
+  ErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'nclip-${Environment}-errors'
+      AlarmDescription: 'High error rate for nclip Lambda function'
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref NClipFunction
+      TreatMissingData: notBreaching
+
+  DurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'nclip-${Environment}-duration'
+      AlarmDescription: 'High duration for nclip Lambda function'
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 25000  # 25 seconds
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref NClipFunction
+      TreatMissingData: notBreaching
+
+Conditions:
+  HasDomain: !Not [!Equals [!Ref Domain, '']]
+  IsProduction: !Equals [!Ref Environment, 'production']
+
+Outputs:
+  ApiUrl:
+    Description: 'API Gateway endpoint URL'
+    Value: !If 
+      - HasDomain
+      - !Sub 'https://${Domain}'
+      - !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+
+  FunctionName:
+    Description: 'Lambda Function Name'
+    Value: !Ref NClipFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionName'
+
+  TableName:
+    Description: 'DynamoDB Table Name'
+    Value: !Ref PastesTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TableName'
+
+  LogGroupName:
+    Description: 'CloudWatch Log Group Name'
+    Value: !Ref LogGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-LogGroup'

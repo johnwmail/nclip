@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: nclip-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: nclip
+      MONGO_INITDB_ROOT_PASSWORD: secure_password_123
+      MONGO_INITDB_DATABASE: nclip
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongodb-init.js:/docker-entrypoint-initdb.d/init.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - nclip-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/nclip --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+
+  # nclip Application  
+  nclip:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nclip-app
+    restart: unless-stopped
+    environment:
+      NCLIP_STORAGE_TYPE: mongodb
+      NCLIP_MONGODB_URI: mongodb://nclip:secure_password_123@mongodb:27017/nclip?authSource=admin
+      NCLIP_MONGODB_DATABASE: nclip
+      NCLIP_MONGODB_COLLECTION: pastes
+      
+      # Application Configuration
+      NCLIP_DOMAIN: localhost
+      NCLIP_HTTP_PORT: 8080
+      NCLIP_TCP_PORT: 9999
+      NCLIP_EXPIRE_DAYS: 30
+      NCLIP_LOG_LEVEL: info
+      NCLIP_ENABLE_METRICS: "true"
+      NCLIP_ENABLE_WEBUI: "true"
+      NCLIP_RATE_LIMIT: "20/min"
+    ports:
+      - "8080:8080"   # HTTP interface
+      - "9999:9999"   # TCP netcat interface
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - nclip-network
+    volumes:
+      # Optional: filesystem fallback
+      - nclip_files:/app/pastes
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB Admin Interface (optional)
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: nclip-mongo-admin
+    restart: unless-stopped
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: nclip
+      ME_CONFIG_MONGODB_ADMINPASSWORD: secure_password_123
+      ME_CONFIG_MONGODB_URL: mongodb://nclip:secure_password_123@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongodb
+    networks:
+      - nclip-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  nclip_files:
+    driver: local
+
+networks:
+  nclip-network:
+    driver: bridge
+
+# Production deployment notes:
+# 1. Change all passwords in production
+# 2. Use Docker secrets for sensitive data
+# 3. Configure SSL/TLS for external access
+# 4. Set up backup strategies for persistent volumes
+# 5. Configure monitoring and logging
