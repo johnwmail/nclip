@@ -8,7 +8,7 @@ on:
     branches: [ main, dev ]
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.23'
 
 jobs:
   test:
@@ -17,7 +17,7 @@ jobs:
     
     strategy:
       matrix:
-        go-version: ['1.25', '1.24']
+        go-version: ['1.23', '1.22']
     
     steps:
     - name: Checkout code
@@ -59,7 +59,7 @@ jobs:
       run: go test -v -race -coverprofile=coverage.out ./...
       
     - name: Upload coverage to Codecov
-      if: matrix.go-version == '1.25'
+      if: matrix.go-version == '1.23'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.out
@@ -101,7 +101,7 @@ jobs:
         
     - name: Run Gosec Security Scanner
       run: |
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
         gosec -no-fail -fmt sarif -out results.sarif ./...
         
     - name: Upload SARIF file
