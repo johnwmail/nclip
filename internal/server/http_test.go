@@ -42,7 +42,7 @@ func TestHTTPServer_HandlePost(t *testing.T) {
 	// Setup
 	cfg := config.DefaultConfig()
 	cfg.OutputDir = t.TempDir()
-	cfg.Domain = "test.example.com"
+	cfg.BaseURL = "http://test.example.com:8080/"
 	cfg.HTTPPort = 8080
 
 	store, err := storage.NewFilesystemStorage(cfg.OutputDir)

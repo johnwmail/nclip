@@ -122,26 +122,28 @@ kubectl apply -f k8s/nclip-dynamodb.yaml
 | **MongoDB** | ✅ Ready | Production, rich queries | Native TTL |
 | **DynamoDB** | ✅ Ready | AWS serverless | Native TTL |
 
-## ⚙️ Configuration Options
+## ⚙️ Configuration
 
+nclip supports configuration via environment variables and CLI flags. 
+
+### Quick Configuration Examples
 ```bash
-# Storage configuration
--storage-type string     Storage backend: filesystem, mongodb, dynamodb
--output-dir string       Directory for filesystem storage
--mongodb-uri string      MongoDB connection URI
--dynamodb-table string   DynamoDB table name
+# Basic usage with custom URL
+./nclip --url https://paste.example.com/clips/
 
-# Server configuration  
--http-port int          HTTP port (default 8080)
--tcp-port int           TCP port for netcat (default 9999)
--domain string          Domain for generated URLs
--https                  Use HTTPS in URLs
+# MongoDB storage
+./nclip --storage-type mongodb --mongodb-uri mongodb://localhost:27017
 
-# Application settings
--expire-days int        Auto-delete after N days (default 1)
--rate-limit string      Rate limit per IP (default 10/min)
--buffer-size-mb int     Maximum paste size in MB (default 1)
+# DynamoDB storage  
+./nclip --storage-type dynamodb --dynamodb-table nclip-pastes
+
+# Environment variables
+export NCLIP_URL=https://nclip.app/paste/
+export NCLIP_STORAGE_TYPE=mongodb
+./nclip
 ```
+
+📋 **[Complete Parameter Reference](docs/PARAMETER_REFERENCE.md)** - All environment variables, CLI flags, and configuration examples
 
 ## 🚀 Production Deployment
 

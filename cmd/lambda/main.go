@@ -35,7 +35,10 @@ func init() {
 		cfg.StorageType = storageType
 	}
 	if domain := os.Getenv("PASTEBIN_DOMAIN"); domain != "" {
-		cfg.Domain = domain
+		cfg.BaseURL = domain
+	}
+	if url := os.Getenv("NCLIP_URL"); url != "" {
+		cfg.BaseURL = url
 	}
 	if tableName := os.Getenv("PASTEBIN_DYNAMODB_TABLE"); tableName != "" {
 		cfg.DynamoDBTable = tableName
@@ -63,7 +66,7 @@ func init() {
 
 	logger.Info("Lambda function initialized",
 		"storage_type", cfg.StorageType,
-		"domain", cfg.Domain,
+		"base_url", cfg.BaseURL,
 		"expire_days", cfg.ExpireDays)
 }
 

@@ -33,7 +33,7 @@ func TestTCPServer_Integration(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.OutputDir = t.TempDir()
 	cfg.TCPPort = 0 // Let the OS choose a free port
-	cfg.Domain = "localhost"
+	cfg.BaseURL = "http://localhost:8080/"
 
 	store, err := storage.NewFilesystemStorage(cfg.OutputDir)
 	if err != nil {
@@ -161,7 +161,7 @@ func TestTCPServer_ConcurrentConnections(t *testing.T) {
 	// Setup
 	cfg := config.DefaultConfig()
 	cfg.OutputDir = t.TempDir()
-	cfg.Domain = "localhost"
+	cfg.BaseURL = "http://localhost:8080/"
 
 	store, err := storage.NewFilesystemStorage(cfg.OutputDir)
 	if err != nil {

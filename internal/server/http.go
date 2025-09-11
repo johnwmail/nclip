@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -33,6 +34,22 @@ func NewHTTPServer(cfg *config.Config, storage storage.Storage, logger *slog.Log
 		slugGen: slug.New(cfg.SlugLength),
 		logger:  logger,
 	}
+}
+
+// getHostFromURL extracts the hostname from the BaseURL for netcat examples
+func (s *HTTPServer) getHostFromURL() string {
+	parsedURL, err := url.Parse(s.config.BaseURL)
+	if err != nil {
+		// Fallback to localhost if URL parsing fails
+		return "localhost"
+	}
+
+	// Return just the hostname without port
+	if parsedURL.Hostname() != "" {
+		return parsedURL.Hostname()
+	}
+
+	return "localhost"
 }
 
 // Start starts the HTTP server
@@ -128,8 +145,8 @@ func (s *HTTPServer) handleIndex(w http.ResponseWriter, r *http.Request) {
             <h3>📡 Netcat (Terminal)</h3>
             <p>Use netcat to paste from terminal:</p>
             <div class="code">
-                echo "Hello World" | nc {{.Domain}} {{.TCPPort}}<br>
-                cat file.txt | nc {{.Domain}} {{.TCPPort}}
+                echo "Hello World" | nc {{.Host}} {{.TCPPort}}<br>
+                cat file.txt | nc {{.Host}} {{.TCPPort}}
             </div>
         </div>
         
@@ -156,11 +173,11 @@ func (s *HTTPServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Domain  string
+		Host    string
 		TCPPort int
 		BaseURL string
 	}{
-		Domain:  s.config.Domain,
+		Host:    s.getHostFromURL(),
 		TCPPort: s.config.TCPPort,
 		BaseURL: s.config.GetBaseURL(),
 	}
@@ -278,7 +295,7 @@ func (s *HTTPServer) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate URL
-	url := fmt.Sprintf("%s/%s", s.config.GetBaseURL(), slugStr)
+	url := fmt.Sprintf("%s%s", s.config.GetBaseURL(), slugStr)
 
 	// Return URL (with newline for terminal compatibility)
 	w.Header().Set("Content-Type", "text/plain")

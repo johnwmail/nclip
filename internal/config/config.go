@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -11,7 +12,7 @@ import (
 // Config holds all configuration options for the nclip server
 type Config struct {
 	// Server configuration
-	Domain   string
+	BaseURL  string
 	TCPPort  int
 	HTTPPort int
 
@@ -44,12 +45,13 @@ type Config struct {
 // DefaultConfig returns a configuration with sensible defaults
 func DefaultConfig() *Config {
 	return &Config{
-		Domain:            "localhost",
+		// Server defaults
+		BaseURL:           "http://localhost:8080/",
 		TCPPort:           9999,
 		HTTPPort:          8080,
 		StorageType:       "filesystem",
 		OutputDir:         "./pastes",
-		SlugLength:        8,
+		SlugLength:        5,
 		BufferSize:        1024 * 1024, // 1MB
 		MongoDBURI:        "mongodb://localhost:27017",
 		MongoDBDatabase:   "nclip",
@@ -68,7 +70,7 @@ func LoadFromFlags() (*Config, error) {
 	cfg := DefaultConfig()
 
 	// Define command-line flags
-	flag.StringVar(&cfg.Domain, "domain", getEnvString("NCLIP_DOMAIN", cfg.Domain), "Domain name for generated URLs")
+	flag.StringVar(&cfg.BaseURL, "url", getEnvString("NCLIP_URL", cfg.BaseURL), "Base URL template for generated paste URLs (e.g., https://paste.example.com/clips/)")
 	flag.IntVar(&cfg.TCPPort, "tcp-port", getEnvInt("NCLIP_TCP_PORT", cfg.TCPPort), "TCP port for netcat connections")
 	flag.IntVar(&cfg.HTTPPort, "http-port", getEnvInt("NCLIP_HTTP_PORT", cfg.HTTPPort), "HTTP port for web interface")
 
@@ -104,14 +106,14 @@ func LoadFromFlags() (*Config, error) {
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nEnvironment Variables:\n")
 		fmt.Fprintf(os.Stderr, "  All flags can be set via environment variables with NCLIP_ prefix\n")
-		fmt.Fprintf(os.Stderr, "  Example: NCLIP_DOMAIN=example.com\n\n")
+		fmt.Fprintf(os.Stderr, "  Example: NCLIP_URL=https://paste.example.com/clips/\n\n")
 		fmt.Fprintf(os.Stderr, "Examples:\n")
 		fmt.Fprintf(os.Stderr, "  # Start with default settings\n")
 		fmt.Fprintf(os.Stderr, "  %s\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # Custom domain and ports\n")
-		fmt.Fprintf(os.Stderr, "  %s -domain paste.example.com -tcp-port 9999 -http-port 8080\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  # Custom URL and ports\n")
+		fmt.Fprintf(os.Stderr, "  %s -url https://paste.example.com/clips/ -tcp-port 9999 -http-port 8080\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  # With custom storage and directory\n")
-		fmt.Fprintf(os.Stderr, "  %s -domain paste.example.com -storage-type mongodb -mongodb-uri mongodb://localhost:27017\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -url https://paste.example.com/clips/ -storage-type mongodb -mongodb-uri mongodb://localhost:27017\n\n", os.Args[0])
 	}
 
 	flag.Parse()
@@ -126,8 +128,13 @@ func LoadFromFlags() (*Config, error) {
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
-	if c.Domain == "" {
-		return fmt.Errorf("domain cannot be empty")
+	if c.BaseURL == "" {
+		return fmt.Errorf("base URL cannot be empty")
+	}
+
+	// Validate URL format
+	if !isValidURL(c.BaseURL) {
+		return fmt.Errorf("invalid base URL format: %s", c.BaseURL)
 	}
 
 	if c.TCPPort < 1 || c.TCPPort > 65535 {
@@ -171,17 +178,9 @@ func (c *Config) Validate() error {
 }
 
 // GetBaseURL returns the base URL for paste links
-// Note: HTTPS/TLS should be handled by reverse proxy (nginx, HAProxy, etc.)
+// The BaseURL is now a complete URL template that includes protocol, domain, port, and path
 func (c *Config) GetBaseURL() string {
-	// Always use http - reverse proxy handles HTTPS termination
-	scheme := "http"
-
-	// Don't include port in URL if using standard HTTP port
-	if c.HTTPPort == 80 {
-		return fmt.Sprintf("%s://%s", scheme, c.Domain)
-	}
-
-	return fmt.Sprintf("%s://%s:%d", scheme, c.Domain, c.HTTPPort)
+	return c.BaseURL
 }
 
 // GetExpiration returns the expiration duration
@@ -216,4 +215,29 @@ func getEnvBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+// isValidURL validates if the provided string is a valid HTTP/HTTPS URL
+func isValidURL(urlStr string) bool {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return false
+	}
+
+	// Must have a scheme (protocol)
+	if parsedURL.Scheme == "" {
+		return false
+	}
+
+	// Must be http or https
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return false
+	}
+
+	// Must have a host
+	if parsedURL.Host == "" {
+		return false
+	}
+
+	return true
 }
