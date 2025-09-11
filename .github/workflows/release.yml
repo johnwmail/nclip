@@ -129,9 +129,9 @@ jobs:
         fi
 
         # Write output to GITHUB_OUTPUT reliably
-        echo "changelog<<EOF" >> $GITHUB_OUTPUT
-        cat changelog.md >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        #echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        cat changelog.md > $GITHUB_OUTPUT
+        #echo "EOF" >> $GITHUB_OUTPUT
         
     - name: Create Release
       uses: softprops/action-gh-release@v2
