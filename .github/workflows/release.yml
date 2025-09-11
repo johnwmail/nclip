@@ -132,6 +132,7 @@ jobs:
         {
           echo "changelog<<EOF"
           cat changelog.md
+          echo ""
           echo "EOF"
         } > temp_changelog_output.txt
         echo "--- temp_changelog_output.txt contents ---"
