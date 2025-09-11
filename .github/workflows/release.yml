@@ -128,13 +128,10 @@ jobs:
           git log --pretty=format:"* %s (%h)" >> changelog.md
         fi
 
-        # Write output to GITHUB_OUTPUT atomically
-        {
-          echo "changelog<<EOF"
-          cat changelog.md
-          echo "EOF"
-        } > temp_output.txt
-        cat temp_output.txt >> $GITHUB_OUTPUT
+        # Write output to GITHUB_OUTPUT reliably
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        cat changelog.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
         
     - name: Create Release
       uses: softprops/action-gh-release@v2
