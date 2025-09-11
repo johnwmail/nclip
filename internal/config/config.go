@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -181,6 +182,14 @@ func (c *Config) Validate() error {
 // The BaseURL is now a complete URL template that includes protocol, domain, port, and path
 func (c *Config) GetBaseURL() string {
 	return c.BaseURL
+}
+
+// JoinBaseURLAndSlug joins the base URL and slug, ensuring exactly one slash between them
+func JoinBaseURLAndSlug(baseURL, slug string) string {
+	if strings.HasSuffix(baseURL, "/") {
+		return baseURL + slug
+	}
+	return baseURL + "/" + slug
 }
 
 // GetExpiration returns the expiration duration

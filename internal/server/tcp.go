@@ -175,7 +175,7 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 	}
 
 	// Generate URL
-	url := fmt.Sprintf("%s%s\n", s.config.GetBaseURL(), slugStr)
+	url := config.JoinBaseURLAndSlug(s.config.GetBaseURL(), slugStr) + "\n"
 
 	// Send response
 	writeResponse(url)

@@ -295,7 +295,7 @@ func (s *HTTPServer) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate URL
-	url := fmt.Sprintf("%s%s", s.config.GetBaseURL(), slugStr)
+	url := config.JoinBaseURLAndSlug(s.config.GetBaseURL(), slugStr)
 
 	// Return URL (with newline for terminal compatibility)
 	w.Header().Set("Content-Type", "text/plain")
