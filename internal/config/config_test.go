@@ -27,8 +27,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected default storage type 'filesystem', got %s", cfg.StorageType)
 	}
 
-	if cfg.SlugLength != 8 {
-		t.Errorf("Expected default slug length 8, got %d", cfg.SlugLength)
+	if cfg.SlugLength != 5 {
+		t.Errorf("Expected default slug length 5, got %d", cfg.SlugLength)
 	}
 
 	if cfg.BufferSize != 1024*1024 {
