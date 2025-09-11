@@ -14,8 +14,8 @@ func NewStorage(cfg *config.Config, logger *slog.Logger) (Storage, error) {
 		return NewFilesystemStorage(cfg.OutputDir)
 
 	case "mongodb":
-		// MongoDB storage - template implementation
-		logger.Warn("MongoDB storage is not fully implemented yet",
+		// MongoDB storage - production ready
+		logger.Info("Using MongoDB storage",
 			"uri", cfg.MongoDBURI,
 			"database", cfg.MongoDBDatabase,
 			"collection", cfg.MongoDBCollection)
