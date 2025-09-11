@@ -51,7 +51,7 @@ func DefaultConfig() *Config {
 		HTTPPort:          8080,
 		StorageType:       "filesystem",
 		OutputDir:         "./pastes",
-		SlugLength:        8,
+		SlugLength:        5,
 		BufferSize:        1024 * 1024, // 1MB
 		MongoDBURI:        "mongodb://localhost:27017",
 		MongoDBDatabase:   "nclip",
