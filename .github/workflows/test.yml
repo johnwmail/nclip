@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [ main, dev ]
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 env:
   GO_VERSION: '1.25'
 
@@ -79,12 +84,10 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ env.GO_VERSION }}
-        
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
       with:
-        version: v1.66.0
-        args: --timeout=5m
+        version: v2.4
 
   security:
     name: Security Scan
@@ -103,11 +106,23 @@ jobs:
       run: |
         go install github.com/securego/gosec/v2/cmd/gosec@latest
         gosec -no-fail -fmt sarif -out results.sarif ./...
+        gosec -no-fail -fmt json -out results.json ./...
         
     - name: Upload SARIF file
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: results.sarif
+      continue-on-error: true
+        
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-results
+        path: |
+          results.sarif
+          results.json
+        retention-days: 30
 
   build:
     name: Build
