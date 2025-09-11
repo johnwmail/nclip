@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -133,16 +134,20 @@ func (m *MongoDBStorage) Store(paste *Paste) error {
 	// Convert to MongoDB document
 	doc := bson.M{
 		"_id":          paste.ID,
-		"content":      paste.Content,
+		"content":      string(paste.Content), // Store as string to avoid BSON binary issues
 		"content_type": paste.ContentType,
 		"filename":     paste.Filename,
 		"language":     paste.Language,
 		"title":        paste.Title,
 		"created_at":   paste.CreatedAt,
-		"expires_at":   paste.ExpiresAt,
 		"client_ip":    paste.ClientIP,
 		"size":         paste.Size,
 		"metadata":     paste.Metadata,
+	}
+
+	// Only add expires_at if it's not nil
+	if paste.ExpiresAt != nil {
+		doc["expires_at"] = *paste.ExpiresAt
 	}
 
 	_, err := coll.InsertOne(ctx, doc)
@@ -210,12 +215,17 @@ func getStringFromDoc(doc bson.M, key string) string {
 
 func getBytesFromDoc(doc bson.M, key string) []byte {
 	if val, ok := doc[key]; ok {
+		// Since we're storing content as string, convert back to bytes
+		if str, ok := val.(string); ok {
+			return []byte(str)
+		}
+		// Also handle if it was stored as bytes
 		if bytes, ok := val.([]byte); ok {
 			return bytes
 		}
-		// Handle case where content is stored as string
-		if str, ok := val.(string); ok {
-			return []byte(str)
+		// Handle primitive.Binary type (from BSON)
+		if binary, ok := val.(primitive.Binary); ok {
+			return binary.Data
 		}
 	}
 	return nil
