@@ -62,7 +62,9 @@ func NewMongoDBStorage(connectionURI, database, collection string, logger *slog.
 		logger.Error("Failed to ping MongoDB", "error", err)
 		logger.Warn("MongoDB storage will be unavailable - pastes cannot be saved")
 		// Close the connection since ping failed
-		client.Disconnect(context.Background())
+		if err := client.Disconnect(context.Background()); err != nil {
+			logger.Warn("Failed to disconnect MongoDB client after ping failure", "error", err)
+		}
 		return storage // Return storage with nil client to indicate error
 	}
 
@@ -347,7 +349,11 @@ func (m *MongoDBStorage) List(limit int) ([]string, error) {
 		m.logger.Error("Failed to list pastes", "error", err)
 		return nil, fmt.Errorf("failed to list pastes: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() {
+		if err := cursor.Close(ctx); err != nil {
+			m.logger.Warn("Failed to close cursor in List", "error", err)
+		}
+	}()
 
 	var ids []string
 	for cursor.Next(ctx) {
@@ -393,9 +399,9 @@ func (m *MongoDBStorage) Stats() (*Stats, error) {
 
 	// Get total size
 	pipeline := mongo.Pipeline{
-		{{"$group", bson.D{
-			{"_id", nil},
-			{"totalSize", bson.D{{"$sum", "$size"}}},
+		{primitive.E{Key: "$group", Value: bson.D{
+			primitive.E{Key: "_id", Value: nil},
+			primitive.E{Key: "totalSize", Value: bson.D{primitive.E{Key: "$sum", Value: "$size"}}},
 		}}},
 	}
 
@@ -404,7 +410,11 @@ func (m *MongoDBStorage) Stats() (*Stats, error) {
 		m.logger.Error("Failed to aggregate size", "error", err)
 		return nil, fmt.Errorf("failed to get stats: %w", err)
 	}
-	defer cursor.Close(ctx)
+	defer func() {
+		if err := cursor.Close(ctx); err != nil {
+			m.logger.Warn("Failed to close cursor in Stats", "error", err)
+		}
+	}()
 
 	var totalSize int64
 	if cursor.Next(ctx) {
