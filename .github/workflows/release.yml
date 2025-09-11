@@ -134,7 +134,11 @@ jobs:
           cat changelog.md
           echo "EOF"
         } > temp_changelog_output.txt
+        echo "--- temp_changelog_output.txt contents ---"
+        cat temp_changelog_output.txt
+        echo "-----------------------------------------"
         cat temp_changelog_output.txt >> $GITHUB_OUTPUT
+
         
     - name: Create Release
       uses: softprops/action-gh-release@v2
