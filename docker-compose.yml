@@ -37,7 +37,7 @@ services:
       NCLIP_MONGODB_COLLECTION: pastes
       
       # Application Configuration
-      NCLIP_DOMAIN: localhost
+      NCLIP_URL: http://localhost:8080
       NCLIP_HTTP_PORT: 8080
       NCLIP_TCP_PORT: 9999
       NCLIP_EXPIRE_DAYS: 30
