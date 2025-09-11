@@ -128,11 +128,13 @@ jobs:
           git log --pretty=format:"* %s (%h)" >> changelog.md
         fi
 
+        # Write output to GITHUB_OUTPUT atomically
         {
           echo "changelog<<EOF"
           cat changelog.md
           echo "EOF"
-        } >> $GITHUB_OUTPUT
+        } > temp_output.txt
+        cat temp_output.txt >> $GITHUB_OUTPUT
         
     - name: Create Release
       uses: softprops/action-gh-release@v2
@@ -140,7 +142,8 @@ jobs:
         files: release/*
         body: ${{ steps.changelog.outputs.changelog }}
         draft: false
-        prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+        tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+        prerelease: ${{ contains(github.event.inputs.tag || github.ref, '-rc') || contains(github.event.inputs.tag || github.ref, '-beta') || contains(github.event.inputs.tag || github.ref, '-alpha') }}
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
