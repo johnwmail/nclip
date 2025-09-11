@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,7 +36,7 @@ func main() {
 		"version", version,
 		"build_time", buildTime,
 		"git_commit", gitCommit,
-		"domain", cfg.Domain,
+		"base_url", cfg.BaseURL,
 		"tcp_port", cfg.TCPPort,
 		"http_port", cfg.HTTPPort)
 
@@ -68,7 +69,7 @@ func main() {
 
 	logger.Info("Servers started successfully")
 	logger.Info("Ready to accept connections",
-		"netcat_usage", fmt.Sprintf("echo 'test' | nc %s %d", cfg.Domain, cfg.TCPPort),
+		"netcat_usage", fmt.Sprintf("echo 'test' | nc %s %d", getHostFromURL(cfg.BaseURL), cfg.TCPPort),
 		"curl_usage", fmt.Sprintf("echo 'test' | curl -d @- %s", cfg.GetBaseURL()),
 		"web_interface", cfg.GetBaseURL())
 
@@ -139,4 +140,20 @@ func setupLogging(cfg *config.Config) *slog.Logger {
 	}
 
 	return slog.New(handler)
+}
+
+// getHostFromURL extracts the hostname from a URL for netcat examples
+func getHostFromURL(urlStr string) string {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		// Fallback to localhost if URL parsing fails
+		return "localhost"
+	}
+
+	// Return just the hostname without port
+	if parsedURL.Hostname() != "" {
+		return parsedURL.Hostname()
+	}
+
+	return "localhost"
 }

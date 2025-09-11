@@ -42,3 +42,8 @@ go.work
 .idea
 
 *.zip
+bootstrap
+main
+lambda
+server
+

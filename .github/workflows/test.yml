@@ -3,7 +3,6 @@ name: Test
 on:
   push:
     branches: [ main, dev ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ main, dev ]
 
@@ -84,6 +83,7 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ env.GO_VERSION }}
+
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v8
       with:

@@ -11,8 +11,8 @@ func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
 	// Test default values
-	if cfg.Domain != "localhost" {
-		t.Errorf("Expected default domain 'localhost', got %s", cfg.Domain)
+	if cfg.BaseURL != "http://localhost:8080/" {
+		t.Errorf("Expected default BaseURL 'http://localhost:8080/', got %s", cfg.BaseURL)
 	}
 
 	if cfg.TCPPort != 9999 {
@@ -63,7 +63,7 @@ func TestLoadFromFlags(t *testing.T) {
 	// Set test arguments
 	os.Args = []string{
 		"program",
-		"-domain", "example.com",
+		"-url", "https://example.com/paste/",
 		"-tcp-port", "9000",
 		"-http-port", "8888",
 		"-storage-type", "mongodb",
@@ -83,8 +83,8 @@ func TestLoadFromFlags(t *testing.T) {
 	}
 
 	// Test parsed values
-	if cfg.Domain != "example.com" {
-		t.Errorf("Expected domain 'example.com', got %s", cfg.Domain)
+	if cfg.BaseURL != "https://example.com/paste/" {
+		t.Errorf("Expected BaseURL 'https://example.com/paste/', got %s", cfg.BaseURL)
 	}
 
 	if cfg.TCPPort != 9000 {
