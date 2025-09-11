@@ -40,11 +40,10 @@ jobs:
         images: |
           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          type=ref,event=branch
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
-          ${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') && 'type=raw,value=latest' || '' }}
-          
+          ${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') && 'type=raw,value=latest' || 'type=ref,event=branch' }}
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
