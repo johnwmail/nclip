@@ -185,6 +185,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Go](https://golang.org/)
 - Powered by modern cloud-native technologies
 
+## 🗂️ Container Registry Management
+
+The repository includes automated cleanup of old container images to manage storage costs:
+
+- **Automated Cleanup**: Monthly cleanup of container images older than 30 days
+- **Manual Control**: Trigger cleanup with custom retention policies via GitHub Actions
+- **Safe Deletion**: Always preserves `latest` tag and recent versions
+- **Dry Run Mode**: Preview cleanup actions before execution
+
+📋 **[Container Cleanup Guide](docs/CONTAINER_CLEANUP.md)** - Complete documentation for managing container images
+
 ## 🔗 Links
 
 - **Documentation**: [docs/](docs/)
