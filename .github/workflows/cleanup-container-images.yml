@@ -1,5 +1,9 @@
 name: Cleanup Container Images
 
+# WARNING: This workflow deletes container images permanently!
+# Always test with dry_run=true first to preview what will be deleted.
+# The 'latest' tag and the N most recent versions are always preserved.
+
 "on":
   schedule:
     # Run monthly on the 1st at 02:00 UTC
