@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-init-script
+  namespace: nclip
+data:
+  init.js: |
+    // MongoDB initialization script
+    // This script runs when the MongoDB container starts for the first time
+
+    // Switch to the nclip database
+    db = db.getSiblingDB('nclip');
+
+    // Create user for nclip application (Kubernetes only)
+    db.createUser({
+      user: "nclip-user",
+      pwd: "your-secure-password",
+      roles: [ { role: "readWrite", db: "nclip" } ]
+    });
+
+    // Create the pastes collection with schema validation
+    db.createCollection('pastes', {
+      validator: {
+        $jsonSchema: {
+          bsonType: "object",
+          required: ["_id", "content", "created_at", "expires_at"],
+          properties: {
+            _id: {
+              bsonType: "string",
+              description: "Paste ID - must be a string"
+            },
+            content: {
+              bsonType: "binData",
+              description: "Paste content as binary data"
+            },
+            content_type: {
+              bsonType: "string",
+              description: "MIME type of the content"
+            },
+            filename: {
+              bsonType: "string",
+              description: "Optional filename"
+            },
+            language: {
+              bsonType: "string",
+              description: "Programming language for syntax highlighting"
+            },
+            title: {
+              bsonType: "string",
+              description: "Optional paste title"
+            },
+            created_at: {
+              bsonType: "date",
+              description: "Creation timestamp"
+            },
+            expires_at: {
+              bsonType: "date",
+              description: "Expiration timestamp for TTL"
+            },
+            client_ip: {
+              bsonType: "string",
+              description: "Client IP address"
+            },
+            size: {
+              bsonType: "long",
+              description: "Content size in bytes"
+            },
+            metadata: {
+              bsonType: "object",
+              description: "Additional metadata"
+            }
+          }
+        }
+      }
+    });
+
+    // Create TTL index for automatic expiration
+    db.pastes.createIndex(
+      { "expires_at": 1 }, 
+      { expireAfterSeconds: 0 }
+    );
+
+    // Create index for efficient queries
+    db.pastes.createIndex({ "created_at": 1 });
+    db.pastes.createIndex({ "client_ip": 1 });
+    db.pastes.createIndex({ "size": 1 });
+
+    // Create index for content type queries
+    db.pastes.createIndex({ "content_type": 1 });
+
+    print("MongoDB nclip database initialized successfully!");
+    print("Collections created:");
+    print("- pastes (with TTL index on expires_at)");
+    print("Indexes created:");
+    print("- TTL index on expires_at");
+    print("- created_at index");
+    print("- client_ip index");
+    print("- size index");
+    print("- content_type index");

@@ -13,7 +13,7 @@ Internet → API Gateway → Lambda Function → DynamoDB
 ## 📋 Prerequisites
 
 1. AWS CLI configured with appropriate permissions
-2. Go 1.21+ installed
+2. Go 1.25+ installed
 3. AWS SAM CLI (optional, for easier deployment)
 
 ## 🗄️ Storage Setup
