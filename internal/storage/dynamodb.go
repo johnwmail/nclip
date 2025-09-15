@@ -1,16 +1,22 @@
 package storage
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 // DynamoDBStorage implements Storage interface using AWS DynamoDB
-// Note: This is a template implementation. To use it, you'll need to:
-// 1. Add AWS SDK dependencies: go get github.com/aws/aws-sdk-go-v2/...
-// 2. Set up DynamoDB table with TTL enabled on 'expires_at' field
 type DynamoDBStorage struct {
+	client    *dynamodb.Client
 	tableName string
 	logger    *slog.Logger
 }
@@ -30,18 +36,76 @@ type DynamoDBPaste struct {
 }
 
 // NewDynamoDBStorage creates a new DynamoDB storage instance
-func NewDynamoDBStorage(tableName string, logger *slog.Logger) *DynamoDBStorage {
+func NewDynamoDBStorage(tableName string, logger *slog.Logger) (*DynamoDBStorage, error) {
+	cfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("unable to load AWS SDK config: %w", err)
+	}
+
+	client := dynamodb.NewFromConfig(cfg)
+
 	return &DynamoDBStorage{
+		client:    client,
 		tableName: tableName,
 		logger:    logger,
-	}
+	}, nil
 }
 
 // Store saves a paste to DynamoDB
 func (d *DynamoDBStorage) Store(paste *Paste) error {
-	// Template implementation - requires AWS SDK
-	d.logger.Info("Would store paste in DynamoDB", "id", paste.ID, "table", d.tableName)
-	return fmt.Errorf("DynamoDB storage not implemented - add AWS SDK dependencies")
+	if d.client == nil {
+		return fmt.Errorf("DynamoDB client not initialized")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Convert paste to DynamoDB item
+	item := map[string]types.AttributeValue{
+		"id":           &types.AttributeValueMemberS{Value: paste.ID},
+		"content":      &types.AttributeValueMemberB{Value: paste.Content},
+		"content_type": &types.AttributeValueMemberS{Value: paste.ContentType},
+		"created_at":   &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.CreatedAt.Unix(), 10)},
+		"client_ip":    &types.AttributeValueMemberS{Value: paste.ClientIP},
+		"size":         &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.Size, 10)},
+	}
+
+	// Add optional fields
+	if paste.Filename != "" {
+		item["filename"] = &types.AttributeValueMemberS{Value: paste.Filename}
+	}
+	if paste.Language != "" {
+		item["language"] = &types.AttributeValueMemberS{Value: paste.Language}
+	}
+	if paste.Title != "" {
+		item["title"] = &types.AttributeValueMemberS{Value: paste.Title}
+	}
+	if paste.ExpiresAt != nil {
+		item["expires_at"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
+	}
+
+	// Add metadata if present
+	if len(paste.Metadata) > 0 {
+		metaBytes, err := json.Marshal(paste.Metadata)
+		if err != nil {
+			d.logger.Error("Failed to marshal metadata", "error", err)
+		} else {
+			item["metadata"] = &types.AttributeValueMemberS{Value: string(metaBytes)}
+		}
+	}
+
+	_, err := d.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(d.tableName),
+		Item:      item,
+	})
+
+	if err != nil {
+		d.logger.Error("Failed to store paste in DynamoDB", "id", paste.ID, "error", err)
+		return fmt.Errorf("failed to store paste: %w", err)
+	}
+
+	d.logger.Debug("Paste stored successfully in DynamoDB", "id", paste.ID, "size", paste.Size)
+	return nil
 }
 
 // Get retrieves a paste from DynamoDB

@@ -28,7 +28,10 @@ func NewStorage(cfg *config.Config, logger *slog.Logger) (Storage, error) {
 		logger.Warn("DynamoDB storage is not fully implemented yet",
 			"table", cfg.DynamoDBTable)
 
-		storage := NewDynamoDBStorage(cfg.DynamoDBTable, logger)
+		storage, err := NewDynamoDBStorage(cfg.DynamoDBTable, logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create DynamoDB storage: %w", err)
+		}
 		return storage, nil
 
 	default:
