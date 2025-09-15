@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/johnwmail/nclip/internal/config"
+	dynamodbhandler "github.com/johnwmail/nclip/internal/lambda/dynamodb"
 	"github.com/johnwmail/nclip/internal/server"
 	"github.com/johnwmail/nclip/internal/storage"
 )
@@ -32,10 +34,9 @@ func main() {
 
 // runAsLambda runs the application as an AWS Lambda function
 func runAsLambda() {
-	// Lambda deployment only supports DynamoDB storage
-	// The actual handler should be implemented in a shared package, e.g. internal/server or internal/storage
-	// For now, panic to indicate missing handler implementation
-	panic("Lambda handler not implemented: please refactor to use shared logic")
+	// Initialize DynamoDB storage and start Lambda handler
+	dynamodbhandler.InitDynamoStorage()
+	lambda.Start(dynamodbhandler.Handler)
 }
 
 // runAsServer runs the application as a traditional HTTP server
