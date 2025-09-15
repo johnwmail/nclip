@@ -12,7 +12,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/johnwmail/nclip/internal/config"
-	dynamodbhandler "github.com/johnwmail/nclip/internal/lambda/dynamodb"
+	"github.com/johnwmail/nclip/internal/lambda/dynamodb"
 	"github.com/johnwmail/nclip/internal/server"
 	"github.com/johnwmail/nclip/internal/storage"
 )
@@ -35,8 +35,8 @@ func main() {
 // runAsLambda runs the application as an AWS Lambda function
 func runAsLambda() {
 	// Initialize DynamoDB storage and start Lambda handler
-	dynamodbhandler.InitDynamoStorage()
-	lambda.Start(dynamodbhandler.Handler)
+	dynamodb.InitDynamoStorage()
+	lambda.Start(dynamodb.Handler)
 }
 
 // runAsServer runs the application as a traditional HTTP server
