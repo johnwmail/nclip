@@ -11,7 +11,7 @@ A modern, high-performance netcat-to-clipboard service written in Go, inspired b
 ## Overview
 
 nclip is a dual-input clipboard service that accepts content via:
-- **netcat (nc)** - Traditional command-line input: `echo "text" | nc localhost 9999`
+- **netcat (nc)** - Traditional command-line input: `echo "text" | nc localhost 8099`
 - **HTTP/curl** - Modern web API: `echo "text" | curl -d @- http://localhost:8080`
 - **HTTP/curl** - Web API with multilines support: `ps | curl --data-binary @- http://localhost:8080`
 - **Web UI** - Browser interface at `http://localhost:8080`
@@ -47,7 +47,7 @@ go build -o nclip .
 ./nclip
 
 # Using netcat (traditional)
-echo "Hello World!" | nc localhost 9999
+echo "Hello World!" | nc localhost 8099
 
 # Using curl (modern)
 echo "Hello World!" | curl -d @- http://localhost:8080
@@ -61,10 +61,10 @@ open http://localhost:8080
 ### Command Line
 ```bash
 # Share a file via netcat
-cat myfile.txt | nc localhost 9999
+cat myfile.txt | nc localhost 8099
 
 # Share command output
-ls -la | nc localhost 9999
+ls -la | nc localhost 8099
 
 # Share via HTTP with curl
 echo "Secret message" | curl -d @- http://localhost:8080
@@ -76,7 +76,7 @@ curl -d @myfile.txt http://localhost:8080
 ### Configuration
 ```bash
 # Custom ports and domain
-./nclip -domain paste.example.com -tcp-port 9999 -http-port 8080
+./nclip -domain paste.example.com -tcp-port 8099 -http-port 8080
 
 # Use MongoDB storage
 ./nclip -storage-type mongodb -mongodb-uri mongodb://localhost:27017
@@ -102,7 +102,7 @@ cd nclip
 docker-compose up -d
 
 # Access the service
-echo "Hello Docker!" | nc localhost 9999
+echo "Hello Docker!" | nc localhost 8099
 ```
 
 ### Kubernetes

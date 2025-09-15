@@ -42,7 +42,7 @@ docker-compose up -d
 
 **Access:**
 - Application: http://localhost:8080
-- Netcat: `echo "test" | nc localhost 9999`
+- Netcat: `echo "test" | nc localhost 8099`
 - MongoDB Admin: http://localhost:8081 (admin/admin123)
 
 ### Option 2: Kubernetes (Production)
@@ -79,7 +79,7 @@ docker-compose up --build
 
 # Test
 echo "Hello MongoDB!" | curl -d @- http://localhost:8080
-echo "Hello MongoDB!" | nc localhost 9999
+echo "Hello MongoDB!" | nc localhost 8099
 ```
 
 ### 2. Filesystem (Simple development)

@@ -109,7 +109,7 @@ docker-build: ## Build Docker image
 
 docker-run: docker-build ## Build and run Docker container
 	@echo "🐳 Running Docker container..."
-	docker run --rm -p 8080:8080 -p 9999:9999 nclip:latest
+	docker run --rm -p 8080:8080 -p 8099:8099 nclip:latest
 
 # Release preparation
 release-check: clean check build-all ## Run all checks for release
@@ -129,7 +129,7 @@ docker-build:
 	docker build -t nclip:$(VERSION) .
 
 docker-run:
-	docker run -p 9999:9999 -p 8080:8080 -v $(PWD)/data:/data nclip:$(VERSION)
+	docker run -p 8099:8099 -p 8080:8080 -v $(PWD)/data:/data nclip:$(VERSION)
 
 # Development setup
 dev-setup:

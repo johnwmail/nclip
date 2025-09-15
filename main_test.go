@@ -176,7 +176,7 @@ func TestLambdaFunctionTimeout(t *testing.T) {
 	}()
 
 	// Set a test Lambda environment
-	_ = os.Setenv("AWS_LAMBDA_RUNTIME_API", "localhost:9999")
+	_ = os.Setenv("AWS_LAMBDA_RUNTIME_API", "localhost:8099")
 
 	// Create a channel to track if Lambda mode would be triggered
 	done := make(chan bool, 1)

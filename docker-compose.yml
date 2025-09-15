@@ -39,15 +39,15 @@ services:
       # Application Configuration
       NCLIP_URL: http://localhost:8080
       NCLIP_HTTP_PORT: 8080
-      NCLIP_TCP_PORT: 9999
-      NCLIP_EXPIRE_DAYS: 30
-      NCLIP_LOG_LEVEL: info
-      NCLIP_ENABLE_METRICS: "true"
-      NCLIP_ENABLE_WEBUI: "true"
-      NCLIP_RATE_LIMIT: "20/min"
+  NCLIP_TCP_PORT: 8099
+  NCLIP_EXPIRE_DAYS: 30
+  NCLIP_LOG_LEVEL: info
+  NCLIP_ENABLE_METRICS: "true"
+  NCLIP_ENABLE_WEBUI: "true"
+  NCLIP_RATE_LIMIT: "20/min"
     ports:
       - "8080:8080"   # HTTP interface
-      - "9999:9999"   # TCP netcat interface
+      - "8099:8099"   # TCP netcat interface
     depends_on:
       mongodb:
         condition: service_healthy

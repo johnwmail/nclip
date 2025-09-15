@@ -48,7 +48,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		// Server defaults
 		BaseURL:           "http://localhost:8080/",
-		TCPPort:           9999,
+		TCPPort:           8099,
 		HTTPPort:          8080,
 		StorageType:       "filesystem",
 		OutputDir:         "./pastes",
@@ -112,7 +112,7 @@ func LoadFromFlags() (*Config, error) {
 		fmt.Fprintf(os.Stderr, "  # Start with default settings\n")
 		fmt.Fprintf(os.Stderr, "  %s\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  # Custom URL and ports\n")
-		fmt.Fprintf(os.Stderr, "  %s -url https://paste.example.com/clips/ -tcp-port 9999 -http-port 8080\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -url https://paste.example.com/clips/ -tcp-port 8099 -http-port 8080\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  # With custom storage and directory\n")
 		fmt.Fprintf(os.Stderr, "  %s -url https://paste.example.com/clips/ -storage-type mongodb -mongodb-uri mongodb://localhost:27017\n\n", os.Args[0])
 	}

@@ -15,8 +15,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected default BaseURL 'http://localhost:8080/', got %s", cfg.BaseURL)
 	}
 
-	if cfg.TCPPort != 9999 {
-		t.Errorf("Expected default TCP port 9999, got %d", cfg.TCPPort)
+	if cfg.TCPPort != 8099 {
+		t.Errorf("Expected default TCP port 8099, got %d", cfg.TCPPort)
 	}
 
 	if cfg.HTTPPort != 8080 {

@@ -45,7 +45,7 @@ RUN mkdir -p pastes logs && \
 USER nclip
 
 # Expose ports
-EXPOSE 8080 9999
+EXPOSE 8080 8099
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -53,7 +53,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Default configuration
 ENV NCLIP_HTTP_PORT=8080 \
-    NCLIP_TCP_PORT=9999 \
+    NCLIP_TCP_PORT=8099 \
     NCLIP_LOG_LEVEL=info \
     NCLIP_STORAGE_TYPE=filesystem \
     NCLIP_OUTPUT_DIR=/app/pastes
