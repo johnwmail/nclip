@@ -17,10 +17,8 @@ help: ## Show this help message
 	@echo "Targets:"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: ## Build the application
-	@echo "🔨 Building $(BINARY_NAME)..."
-	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/server
-	@echo "✅ Build complete"
+build:
+	go build $(LDFLAGS) -o $(BINARY_NAME) .
 
 clean: ## Clean build artifacts
 	@echo "🧹 Cleaning..."
@@ -45,7 +43,7 @@ run: build ## Build and run the application
 
 dev: ## Run in development mode
 	@echo "🚀 Starting nclip in development mode..."
-	go run $(LDFLAGS) ./cmd/server -log-level debug
+	go run $(LDFLAGS) . -log-level debug
 
 install: build ## Install to /usr/local/bin
 	@echo "📦 Installing $(BINARY_NAME)..."
@@ -91,7 +89,7 @@ mod-download: ## Download dependencies
 build-all: ## Build for all supported platforms
 	@echo "🔨 Building for all platforms..."
 	@mkdir -p dist
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-amd64 ./cmd/server
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-amd64 .
 	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-arm64 ./cmd/server
 	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-amd64 ./cmd/server
 	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-arm64 ./cmd/server

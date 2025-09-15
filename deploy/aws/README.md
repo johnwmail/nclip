@@ -50,7 +50,7 @@ This deploys to the `staging` environment in `us-east-1` region.
 ```bash
 # Build the application
 cd ../../
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/bootstrap ./cmd/lambda
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/bootstrap .
 cd dist && zip lambda.zip bootstrap && rm bootstrap
 
 # Deploy with SAM
@@ -77,13 +77,14 @@ The Lambda function supports these environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PASTEBIN_STORAGE_TYPE` | `dynamodb` | Storage backend (dynamodb only for Lambda) |
-| `PASTEBIN_DYNAMODB_TABLE` | Auto-set | DynamoDB table name |
-| `PASTEBIN_EXPIRE_DAYS` | `7` | Days before pastes expire |
-| `PASTEBIN_LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
-| `PASTEBIN_RATE_LIMIT` | `20/min` | Rate limit per IP address |
-| `PASTEBIN_BUFFER_SIZE_MB` | `10` | Maximum paste size in MB |
-| `PASTEBIN_DOMAIN` | Auto-set | Domain for paste URLs |
+| `NCLIP_DYNAMODB_TABLE` | Auto-set | DynamoDB table name |
+| `NCLIP_EXPIRE_DAYS` | `7` | Days before pastes expire |
+| `NCLIP_LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
+| `NCLIP_RATE_LIMIT` | `20/min` | Rate limit per IP address |
+| `NCLIP_BUFFER_SIZE_MB` | `10` | Maximum paste size in MB |
+| `NCLIP_DOMAIN` | Auto-set | Domain for paste URLs |
+
+**Note**: Lambda deployment only supports DynamoDB storage. No storage type configuration is needed.
 
 ### CloudFormation Parameters
 

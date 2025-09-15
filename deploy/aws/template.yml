@@ -35,11 +35,10 @@ Globals:
       - x86_64
     Environment:
       Variables:
-        PASTEBIN_STORAGE_TYPE: dynamodb
-        PASTEBIN_EXPIRE_DAYS: !Ref ExpireDays
-        PASTEBIN_LOG_LEVEL: info
-        PASTEBIN_RATE_LIMIT: !Ref RateLimit
-        PASTEBIN_BUFFER_SIZE_MB: 10
+        NCLIP_EXPIRE_DAYS: !Ref ExpireDays
+        NCLIP_LOG_LEVEL: info
+        NCLIP_RATE_LIMIT: !Ref RateLimit
+        NCLIP_BUFFER_SIZE_MB: 10
 
 Resources:
   # DynamoDB Table for storing pastes
@@ -76,8 +75,8 @@ Resources:
       Description: !Sub 'nclip paste service - ${Environment}'
       Environment:
         Variables:
-          PASTEBIN_DYNAMODB_TABLE: !Ref PastesTable
-          PASTEBIN_DOMAIN: !If [HasDomain, !Ref Domain, !Sub '${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com']
+          NCLIP_DYNAMODB_TABLE: !Ref PastesTable
+          NCLIP_DOMAIN: !If [HasDomain, !Ref Domain, !Sub '${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com']
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PastesTable

@@ -54,7 +54,7 @@ Thank you for your interest in contributing to nclip! This document provides gui
 4. **Test your changes**:
    ```bash
    # Build and test locally
-   go build -o nclip ./cmd/server
+   go build -o nclip .
    ./nclip -log-level debug
    ```
 

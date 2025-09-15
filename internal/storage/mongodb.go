@@ -136,7 +136,7 @@ func (m *MongoDBStorage) Store(paste *Paste) error {
 	// Convert to MongoDB document
 	doc := bson.M{
 		"_id":          paste.ID,
-		"content":      string(paste.Content), // Store as string to avoid BSON binary issues
+		"content":      primitive.Binary{Subtype: 0x00, Data: paste.Content}, // Store as binData
 		"content_type": paste.ContentType,
 		"filename":     paste.Filename,
 		"language":     paste.Language,
@@ -144,7 +144,17 @@ func (m *MongoDBStorage) Store(paste *Paste) error {
 		"created_at":   paste.CreatedAt,
 		"client_ip":    paste.ClientIP,
 		"size":         paste.Size,
-		"metadata":     paste.Metadata,
+	}
+
+	// Ensure metadata is always an object (never null)
+	if paste.Metadata == nil {
+		doc["metadata"] = bson.M{}
+	} else {
+		metaObj := bson.M{}
+		for k, v := range paste.Metadata {
+			metaObj[k] = v
+		}
+		doc["metadata"] = metaObj
 	}
 
 	// Only add expires_at if it's not nil

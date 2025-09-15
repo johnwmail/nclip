@@ -18,10 +18,8 @@ COPY . .
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-w -s -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') \
-             -X main.buildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') \
-             -X main.gitCommit=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
-    -o nclip ./cmd/server
+    -ldflags="-s -w -X main.version=$VERSION -X main.buildTime=$BUILD_TIME -X main.gitCommit=$GIT_COMMIT" \
+    -o nclip .
 
 # Production stage
 FROM alpine

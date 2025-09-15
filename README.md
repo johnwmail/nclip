@@ -38,7 +38,7 @@ sudo mv nclip-linux-amd64 /usr/local/bin/nclip
 # Or build from source
 git clone https://github.com/johnwmail/nclip.git
 cd nclip
-go build -o nclip ./cmd/server
+go build -o nclip .
 ```
 
 ### Basic Usage

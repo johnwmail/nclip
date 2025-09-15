@@ -14,13 +14,13 @@ The nclip application now supports configurable storage backends for different d
 
 ```bash
 # Use filesystem storage (default)
-go run cmd/server/main.go -storage-type filesystem
+go run . -storage-type filesystem
 
 # Use MongoDB
-go run cmd/server/main.go -storage-type mongodb -mongodb-uri mongodb://localhost:27017
+go run . -storage-type mongodb -mongodb-uri mongodb://localhost:27017
 
 # Use DynamoDB
-go run cmd/server/main.go -storage-type dynamodb -dynamodb-table my-nclip-table
+go run . -storage-type dynamodb -dynamodb-table my-nclip-table
 ```
 
 ### Environment Variables
@@ -144,13 +144,13 @@ The implementation has been tested with all storage types:
 
 ```bash
 # Test storage type validation
-go run cmd/server/main.go -storage-type invalid
+go run . -storage-type invalid
 # Returns: Configuration error: invalid storage type
 
 # Test each storage type starts successfully
-go run cmd/server/main.go -storage-type filesystem
-go run cmd/server/main.go -storage-type mongodb
-go run cmd/server/main.go -storage-type dynamodb
+go run . -storage-type filesystem
+go run . -storage-type mongodb
+go run . -storage-type dynamodb
 ```
 
 All storage types start successfully, with appropriate warning messages for template implementations that need production drivers.
