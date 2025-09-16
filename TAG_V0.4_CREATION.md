@@ -20,3 +20,21 @@ git rev-parse v0.4^{commit}
 ```
 
 This tag represents version 0.4 of the nclip project.
+
+## Status
+- ✅ Tag created locally on correct commit
+- ✅ Tag verified to point to main branch (9ab32cd97b88e597fe266d9adea0405f4a207888)
+- ⏳ Tag push to remote repository pending
+
+## Next Steps
+The tag has been created locally and is ready. To complete the process:
+1. The tag needs to be pushed to the remote repository
+2. Once pushed, it will trigger the release workflow defined in `.github/workflows/release.yml`
+3. The release workflow will build binaries and create a GitHub release
+
+## Command to Push Tag
+```bash
+git push origin v0.4
+```
+
+This will push the tag to the remote repository and make it available publicly.
