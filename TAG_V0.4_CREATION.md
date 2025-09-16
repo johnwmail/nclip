@@ -6,7 +6,7 @@ This document records the creation of tag v0.4 from the main branch.
 - **Tag Name**: v0.4
 - **Target Commit**: 9ab32cd97b88e597fe266d9adea0405f4a207888 (main branch)
 - **Tag Message**: "Release version 0.4 from main branch"
-- **Created**: $(date)
+- **Created**: 2025-09-16 07:58:00 UTC
 
 ## Verification
 The tag was created locally and points to the correct commit from the main branch as requested.
