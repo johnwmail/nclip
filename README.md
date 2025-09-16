@@ -75,13 +75,13 @@ curl -d @myfile.txt http://localhost:8080
 
 ### Configuration
 ```bash
-# Custom ports and domain
-./nclip -domain paste.example.com -tcp-port 8099 -http-port 8080
+# Custom domain and port
+./nclip -domain paste.example.com -http-port 8080
 
 # Use MongoDB storage
 ./nclip -storage-type mongodb -mongodb-uri mongodb://localhost:27017
 
-# Use DynamoDB storage
+# Use DynamoDB storage (for Lambda)
 ./nclip -storage-type dynamodb -dynamodb-table nclip-pastes
 
 # Environment variables

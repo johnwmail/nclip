@@ -53,7 +53,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Default configuration
 ENV NCLIP_HTTP_PORT=8080 \
-    NCLIP_TCP_PORT=8099 \
     NCLIP_LOG_LEVEL=info \
     NCLIP_STORAGE_TYPE=filesystem \
     NCLIP_OUTPUT_DIR=/app/pastes

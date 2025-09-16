@@ -96,7 +96,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 Examples:
 ```
 feat: add MongoDB storage backend support
-fix: handle connection timeout in TCP server
+fix: handle connection timeout in HTTP server
 docs: update deployment guide for Kubernetes
 ```
 

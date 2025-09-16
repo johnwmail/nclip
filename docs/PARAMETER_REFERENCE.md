@@ -16,7 +16,6 @@ nclip supports configuration via:
 | Parameter | Type | Default | Environment Variable | Description |
 |-----------|------|---------|---------------------|-------------|
 | `--url` | string | `http://localhost:8080/` | `NCLIP_URL` | Base URL template for generated paste URLs |
-| `--tcp-port` | int | `8099` | `NCLIP_TCP_PORT` | TCP port for netcat connections |
 | `--http-port` | int | `8080` | `NCLIP_HTTP_PORT` | HTTP port for web interface |
 
 ### **Storage Configuration**
@@ -155,7 +154,6 @@ All parameters can be set via environment variables with the `NCLIP_` prefix:
 # Server configuration
 export NCLIP_URL=https://paste.example.com/clips/
 export NCLIP_HTTP_PORT=8080
-export NCLIP_TCP_PORT=8099
 
 # Storage configuration
 export NCLIP_STORAGE_TYPE=mongodb
@@ -176,7 +174,7 @@ export NCLIP_ENABLE_METRICS=true
 nclip validates all configuration on startup:
 
 - **URL**: Must be a valid URL with protocol (http/https), can include port and path
-- **Ports**: Must be 1-65535, TCP and HTTP ports must be different
+- **Ports**: Must be 1-65535
 - **Slug Length**: Must be 1-32 characters
 - **Buffer Size**: Must be 1KB-100MB
 - **Expire Days**: Cannot be negative (0 = no expiration)
@@ -273,7 +271,7 @@ export AWS_SECRET_ACCESS_KEY=...
 ### **Minimal Start**
 ```bash
 ./nclip
-# Starts on localhost:8080 (HTTP) and localhost:8099 (TCP)
+# Starts on localhost:8080 (HTTP only)
 # Returns URLs like: http://localhost:8080/abc12345
 ```
 
@@ -300,7 +298,7 @@ export AWS_SECRET_ACCESS_KEY=...
 | Setting | Default Value | Purpose |
 |---------|---------------|---------|
 | **Base URL** | `http://localhost:8080/` | Local development with HTTP |
-| **Ports** | `8080` (HTTP), `8099` (TCP) | Standard non-privileged ports |
+| **Port** | `8080` (HTTP) | Standard non-privileged port |
 | **Storage** | `filesystem` | No dependencies |
 | **Expiration** | `1 day` | Serverless-friendly |
 | **Rate Limit** | `10/min` | Conservative rate limiting |

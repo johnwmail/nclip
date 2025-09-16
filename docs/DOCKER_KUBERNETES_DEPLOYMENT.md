@@ -35,7 +35,6 @@ services:
     build: .
     ports:
       - "8080:8080"
-  - "8099:8099"
     environment:
       - NCLIP_STORAGE_TYPE=mongodb
       - NCLIP_MONGODB_URI=mongodb://mongo:27017
@@ -111,7 +110,7 @@ RUN adduser -D -s /bin/sh nclip
 USER nclip
 
 # Expose ports
-EXPOSE 8080 8099
+EXPOSE 8080
 
 # Run the application
 CMD ["./nclip"]
@@ -246,7 +245,6 @@ spec:
         image: your-registry/nclip:latest
         ports:
         - containerPort: 8080
-        - containerPort: 8099
         env:
         - name: NCLIP_STORAGE_TYPE
           value: "mongodb"
@@ -293,13 +291,10 @@ spec:
     app: nclip
   ports:
   - name: http
+  - name: http
     port: 80
     targetPort: 8080
-  - name: tcp
-    port: 8099
-    targetPort: 8099
   type: LoadBalancer
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
