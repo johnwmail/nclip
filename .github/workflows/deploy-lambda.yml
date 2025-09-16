@@ -1,270 +1,91 @@
-name: Deploy to AWS Lambda
+name: Build and Deploy to Lambda
 
 on:
-  workflow_call:
-    inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        type: string
-        default: 'staging'
-      aws-region:
-        description: 'AWS region'
-        required: false
-        type: string
-        default: 'us-east-1'
-      expire-days:
-        description: 'Days before pastes expire'
-        required: false
-        type: number
-        default: 7
-    secrets:
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-      AWS_ACCOUNT_ID:
-        required: true
-    outputs:
-      api_url:
-        description: "Deployed API URL"
-        value: ${{ jobs.deploy.outputs.api_url }}
-      function_name:
-        description: "Lambda function name"
-        value: ${{ jobs.deploy.outputs.function_name }}
-
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        type: choice
-        options:
-          - staging
-          - production
-        default: 'staging'
-      aws-region:
-        description: 'AWS region'
+      function_name:
+        description: "Override Lambda function name (optional). If empty, uses LAMBDA_FUNCTION_NAME environment variable."
         required: false
-        type: string
-        default: 'us-east-1'
-      expire-days:
-        description: 'Days before pastes expire'
-        required: false
-        type: number
-        default: 7
-
+        default: ""
   push:
     branches:
       - 'deploy/lambda'
 
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
-  security:
-    name: Security Scan
+  deploy-lambda:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GOOS: linux
+      GOARCH: arm64
+      CGO_ENABLED: 0
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-  build:
-    name: Build Lambda Package
-    runs-on: ubuntu-latest
-    needs: security
-    steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-          cache: true
 
-      - name: Build Lambda binary
+      - name: Download deps
+        run: go mod download
+
+      - name: Build Lambda bootstrap
         run: |
-          # Build for AWS Lambda AL2023 runtime
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
-            -ldflags="-s -w" \
-            -o dist/bootstrap \
-            .
+          go build \
+            -ldflags "-X main.buildTime=$(date --utc +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=${{ github.sha }} -X main.version=${{ github.ref_name }}" \
+            -tags netgo -trimpath \
+            -o ./bootstrap ./...
 
-      - name: Create deployment package
+      - name: Prepare code artifacts
         run: |
-          cd dist
-          zip lambda.zip bootstrap
-          rm bootstrap
-
-      - name: Upload Lambda package
-        uses: actions/upload-artifact@v4
-        with:
-          name: lambda-package
-          path: dist/lambda.zip
-          retention-days: 1
-
-  deploy:
-    name: Deploy to AWS Lambda
-    runs-on: ubuntu-latest
-    needs: [security, build]
-    environment: ${{ inputs.environment }}
-    outputs:
-      api_url: ${{ steps.outputs.outputs.api_url }}
-      function_name: ${{ steps.outputs.outputs.function_name }}
-      stack_name: ${{ steps.outputs.outputs.stack_name }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+          mkdir -p lambda-artifacts
+          mv -f bootstrap lambda-artifacts/bootstrap
+          cp -r static lambda-artifacts/static
+          ls -l lambda-artifacts
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ inputs.aws-region }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          audience: ${{ secrets.AWS_AUDIENCE }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          #aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEPLOY_LAMBDA }}
+          #aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEPLOY_LAMBDA }}
 
-      - name: Install SAM CLI
-        uses: aws-actions/setup-sam@v2
-        with:
-          use-installer: true
-
-      - name: Download Lambda package
-        uses: actions/download-artifact@v4
-        with:
-          name: lambda-package
-          path: dist/
-
-      - name: Deploy with SAM
-        env:
-          AWS_DEFAULT_REGION: ${{ inputs.aws-region }}
+      - name: Resolve Lambda function name
+        id: resolve-fn
         run: |
-          cd deploy/aws
-          
-          # Deploy with SAM CLI using the CloudFormation template
-          sam deploy \
-            --template-file template.yml \
-            --stack-name "nclip-${{ inputs.environment }}" \
-            --region "${{ inputs.aws-region }}" \
-            --capabilities CAPABILITY_IAM \
-            --parameter-overrides \
-              Environment="${{ inputs.environment }}" \
-              ExpireDays="${{ inputs.expire-days }}" \
-            --no-fail-on-empty-changeset \
-            --tags \
-              Environment="${{ inputs.environment }}" \
-              Repository="${{ github.repository }}" \
-              Commit="${{ github.sha }}"
-
-      - name: Get deployment outputs
-        id: outputs
-        run: |
-          STACK_NAME="nclip-${{ inputs.environment }}"
-          
-          # Get API URL from CloudFormation outputs
-          API_URL=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK_NAME" \
-            --region "${{ inputs.aws-region }}" \
-            --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
-            --output text)
-          
-          # Get Function Name
-          FUNCTION_NAME=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK_NAME" \
-            --region "${{ inputs.aws-region }}" \
-            --query "Stacks[0].Outputs[?OutputKey=='FunctionName'].OutputValue" \
-            --output text)
-          
-          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
-          echo "function_name=$FUNCTION_NAME" >> $GITHUB_OUTPUT
-          echo "stack_name=$STACK_NAME" >> $GITHUB_OUTPUT
-
-      - name: Test deployment
-        env:
-          API_URL: ${{ steps.outputs.outputs.api_url }}
-        run: |
-          # Wait for API to be ready
-          sleep 30
-          
-          # Test health endpoint
-          echo "Testing health endpoint..."
-          if curl -f -s "${API_URL}/health" > /dev/null; then
-            echo "✅ Health check passed"
-          else
-            echo "❌ Health check failed"
+          FN_IN="${{ inputs.function_name }}"
+          if [ -n "${FN_IN}" ]; then
+            echo "Using function name from manual input: ${FN_IN}"
+            echo "name=${FN_IN}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "${{ vars.LAMBDA_FUNCTION_NAME }}" ]; then
+            echo "LAMBDA_FUNCTION_NAME variable is required when no manual input is provided" >&2
             exit 1
           fi
-          
-          # Test paste creation and retrieval
-          echo "Testing paste functionality..."
-          TEST_DATA="Integration test from GitHub Actions $(date)"
-          
-          # Create paste
-          PASTE_RESPONSE=$(curl -s -X POST "${API_URL}" -d "$TEST_DATA")
-          PASTE_ID=$(echo "$PASTE_RESPONSE" | jq -r '.id // empty')
-          
-          if [[ -n "$PASTE_ID" ]]; then
-            echo "✅ Paste created with ID: $PASTE_ID"
-            
-            # Retrieve paste
-            RETRIEVED_DATA=$(curl -s "${API_URL}/${PASTE_ID}")
-            
-            if [[ "$RETRIEVED_DATA" == "$TEST_DATA" ]]; then
-              echo "✅ Paste retrieval test passed"
-            else
-              echo "❌ Paste retrieval test failed"
-              echo "Expected: $TEST_DATA"
-              echo "Got: $RETRIEVED_DATA"
-              exit 1
-            fi
-          else
-            echo "❌ Paste creation failed"
-            echo "Response: $PASTE_RESPONSE"
-            exit 1
-          fi
+          echo "Using function name from secret"
+          echo "name=${{ vars.LAMBDA_FUNCTION_NAME }}" >> "$GITHUB_OUTPUT"
 
-  notify:
-    name: Notify Deployment
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: always()
-    steps:
-      - name: Deployment Summary
+      - name: Deploy Lambda Function
+        id: lambda-deploy
+        uses: aws-actions/aws-lambda-deploy@v1
+        with:
+          function-name: ${{ steps.resolve-fn.outputs.name }}
+          code-artifacts-dir: lambda-artifacts
+          architectures: amd64
+          runtime: provided.al2023
+          handler: bootstrap
+          publish: true
+          role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
+          #s3-bucket: "${{ vars.BUCKET }}"
+          environment: '{"NCLIP_DYNAMODB_TABLE":"${{ vars.NCLIP_DYNAMODB_TABLE }}","GIN_MODE":"release"}'
+
+      - name: Post-deploy info
         run: |
-          echo "## 🚀 AWS Lambda Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment | ${{ inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Region | ${{ inputs.aws-region }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Status | ${{ needs.deploy.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          
-          if [[ "${{ needs.deploy.result }}" == "success" ]]; then
-            echo "| API URL | ${{ needs.deploy.outputs.api_url }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Function | ${{ needs.deploy.outputs.function_name }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Stack | ${{ needs.deploy.outputs.stack_name }} |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 🧪 Test the deployment:" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-            echo "# Create a paste" >> $GITHUB_STEP_SUMMARY
-            echo "curl -X POST ${{ needs.deploy.outputs.api_url }} -d 'Hello from AWS Lambda!'" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "# Retrieve a paste" >> $GITHUB_STEP_SUMMARY
-            echo "curl ${{ needs.deploy.outputs.api_url }}/\$(echo 'test' | curl -s -X POST ${{ needs.deploy.outputs.api_url }} -d @-)" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "Function ARN: ${{ steps.lambda-deploy.outputs.function-arn }}"
+          echo "Version:      ${{ steps.lambda-deploy.outputs.version }}"
