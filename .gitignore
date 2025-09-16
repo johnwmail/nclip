@@ -44,6 +44,5 @@ go.work
 *.zip
 bootstrap
 main
-lambda
 server
 
