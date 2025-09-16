@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ "*" ]
   pull_request:
-    branches: [ main, dev ]
+    branches: [ "*" ]
 
 permissions:
   contents: read
@@ -85,17 +85,31 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
 
     - name: Prepare fresh Go caches
+      id: go-cache-paths
       run: |
-        # Use temporary, unique caches to avoid stale export data issues
-        export GOMODCACHE=$(mktemp -d)
-        export GOCACHE=$(mktemp -d)
-        echo "GOMODCACHE=$GOMODCACHE" >> $GITHUB_ENV
-        echo "GOCACHE=$GOCACHE" >> $GITHUB_ENV
-        go env
-        go version
+        echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+        echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+        echo "Current working directory: $(pwd)"
+        echo "Go version: $(go version)"
+        echo "Go env: $(go env GOROOT GOPATH GOMODCACHE GOCACHE)"
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ steps.go-cache-paths.outputs.go-build }}
+          ${{ steps.go-cache-paths.outputs.go-mod }}
+        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
     - name: Download dependencies
       run: go mod download
+
+    - name: Verify module
+      run: |
+        go mod verify
+        go list -m all
 
     - name: Sanity build (exports)
       run: go build ./...
@@ -103,7 +117,7 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v8
       with:
-        version: v2.4
+        version: latest
         # Ensure linter runs without using any stale caches
         args: |
           --timeout=5m
