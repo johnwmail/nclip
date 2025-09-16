@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -51,13 +50,18 @@ func runAsServer() {
 	// Setup logging
 	logger := setupLogging(cfg)
 
-	logger.Info("Starting nclip",
+	logger.Info("Starting nclip (HTTP-only)",
 		"version", version,
 		"build_time", buildTime,
 		"git_commit", gitCommit,
 		"base_url", cfg.BaseURL,
-		"tcp_port", cfg.TCPPort,
 		"http_port", cfg.HTTPPort)
+
+	// Enforce MongoDB storage for container/app mode per requirements
+	if cfg.StorageType != "mongodb" {
+		logger.Warn("Overriding storage type to mongodb for app/container mode", "was", cfg.StorageType)
+		cfg.StorageType = "mongodb"
+	}
 
 	// Initialize storage
 	store, err := storage.NewStorage(cfg, logger)
@@ -71,24 +75,15 @@ func runAsServer() {
 		}
 	}()
 
-	// Create servers
-	tcpServer := server.NewTCPServer(cfg, store, logger)
+	// Start HTTP server only (TCP disabled)
 	httpServer := server.NewHTTPServer(cfg, store, logger)
-
-	// Start servers
-	if err := tcpServer.Start(); err != nil {
-		logger.Error("Failed to start TCP server", "error", err)
-		os.Exit(1)
-	}
-
 	if err := httpServer.Start(); err != nil {
 		logger.Error("Failed to start HTTP server", "error", err)
 		os.Exit(1)
 	}
 
-	logger.Info("Servers started successfully")
+	logger.Info("HTTP server started successfully")
 	logger.Info("Ready to accept connections",
-		"netcat_usage", fmt.Sprintf("echo 'test' | nc %s %d", getHostFromURL(cfg.BaseURL), cfg.TCPPort),
 		"curl_usage", fmt.Sprintf("echo 'test' | curl -d @- %s", cfg.GetBaseURL()),
 		"web_interface", cfg.GetBaseURL())
 
@@ -105,10 +100,6 @@ func runAsServer() {
 
 	// Stop servers (we'll use ctx for timeout if needed later)
 	_ = ctx // Mark as used for now
-	if err := tcpServer.Stop(); err != nil {
-		logger.Error("Error stopping TCP server", "error", err)
-	}
-
 	if err := httpServer.Stop(); err != nil {
 		logger.Error("Error stopping HTTP server", "error", err)
 	}
@@ -162,18 +153,4 @@ func setupLogging(cfg *config.Config) *slog.Logger {
 	return slog.New(handler)
 }
 
-// getHostFromURL extracts the hostname from a URL for netcat examples
-func getHostFromURL(urlStr string) string {
-	parsedURL, err := url.Parse(urlStr)
-	if err != nil {
-		// Fallback to localhost if URL parsing fails
-		return "localhost"
-	}
-
-	// Return just the hostname without port
-	if parsedURL.Hostname() != "" {
-		return parsedURL.Hostname()
-	}
-
-	return "localhost"
-}
+// (removed unused getHostFromURL)

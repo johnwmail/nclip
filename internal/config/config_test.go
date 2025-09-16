@@ -11,8 +11,8 @@ func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
 	// Test default values
-	if cfg.BaseURL != "http://localhost:8080/" {
-		t.Errorf("Expected default BaseURL 'http://localhost:8080/', got %s", cfg.BaseURL)
+	if cfg.BaseURL != "" {
+		t.Errorf("Expected default BaseURL to be empty (auto-detect), got %s", cfg.BaseURL)
 	}
 
 	if cfg.TCPPort != 8099 {
@@ -127,8 +127,12 @@ func TestLoadFromFlags(t *testing.T) {
 		t.Errorf("Expected DynamoDB table 'test-table', got %s", cfg.DynamoDBTable)
 	}
 
-	if cfg.RateLimit != "10/minute" {
-		t.Errorf("Expected rate limit '10/minute', got %s", cfg.RateLimit)
+	// Deprecated: cfg.RateLimit is empty by default; new fields have defaults
+	if cfg.RateLimitGlobal != "60/min" {
+		t.Errorf("Expected RateLimitGlobal '60/min', got %s", cfg.RateLimitGlobal)
+	}
+	if cfg.RateLimitPerIP != "10/min" {
+		t.Errorf("Expected RateLimitPerIP '10/min', got %s", cfg.RateLimitPerIP)
 	}
 
 	if !cfg.EnableWebUI {
@@ -198,22 +202,7 @@ func TestValidate(t *testing.T) {
 			},
 			expectError: false,
 		},
-		{
-			name: "invalid tcp port - negative",
-			modifier: func(cfg *Config) {
-				cfg.TCPPort = -1
-			},
-			expectError: true,
-			errorMsg:    "invalid TCP port: -1",
-		},
-		{
-			name: "invalid tcp port - too high",
-			modifier: func(cfg *Config) {
-				cfg.TCPPort = 70000
-			},
-			expectError: true,
-			errorMsg:    "invalid TCP port: 70000",
-		},
+		// TCP validation removed in HTTP-only mode
 		{
 			name: "invalid http port - zero",
 			modifier: func(cfg *Config) {

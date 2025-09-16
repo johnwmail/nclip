@@ -243,7 +243,11 @@ func TestHTTPServer_HandleOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create storage: %v", err)
 	}
-	defer closeStorage(t, store)
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Logf("Failed to close storage: %v", err)
+		}
+	}()
 
 	server := NewHTTPServer(cfg, store, createTestLogger())
 
@@ -266,7 +270,11 @@ func TestHTTPServer_UnsupportedMethod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create storage: %v", err)
 	}
-	defer closeStorage(t, store)
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Logf("Failed to close storage: %v", err)
+		}
+	}()
 
 	server := NewHTTPServer(cfg, store, createTestLogger())
 
@@ -296,7 +304,11 @@ func TestHTTPServer_LargePaste(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create storage: %v", err)
 	}
-	defer closeStorage(t, store)
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Logf("Failed to close storage: %v", err)
+		}
+	}()
 
 	server := NewHTTPServer(cfg, store, createTestLogger())
 

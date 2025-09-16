@@ -7,8 +7,9 @@ import (
 	"html/template"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
-	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,32 +25,22 @@ type HTTPServer struct {
 	slugGen *slug.Generator
 	server  *http.Server
 	logger  *slog.Logger
+
+	// rate limiting
+	limiter *rateLimiter
 }
 
 // NewHTTPServer creates a new HTTP server
 func NewHTTPServer(cfg *config.Config, storage storage.Storage, logger *slog.Logger) *HTTPServer {
-	return &HTTPServer{
+	srv := &HTTPServer{
 		config:  cfg,
 		storage: storage,
 		slugGen: slug.New(cfg.SlugLength),
 		logger:  logger,
 	}
-}
-
-// getHostFromURL extracts the hostname from the BaseURL for netcat examples
-func (s *HTTPServer) getHostFromURL() string {
-	parsedURL, err := url.Parse(s.config.BaseURL)
-	if err != nil {
-		// Fallback to localhost if URL parsing fails
-		return "localhost"
-	}
-
-	// Return just the hostname without port
-	if parsedURL.Hostname() != "" {
-		return parsedURL.Hostname()
-	}
-
-	return "localhost"
+	// initialize rate limiter
+	srv.limiter = newRateLimiter(cfg, logger)
+	return srv
 }
 
 // Start starts the HTTP server
@@ -60,6 +51,7 @@ func (s *HTTPServer) Start() error {
 	mux.HandleFunc("/", s.handleRoot)
 	mux.HandleFunc("/raw/", s.handleRaw)
 	mux.HandleFunc("/download/", s.handleDownload)
+	mux.HandleFunc("/burn/", s.handleBurn)
 
 	if s.config.EnableMetrics {
 		mux.HandleFunc("/metrics", s.handleMetrics)
@@ -67,8 +59,8 @@ func (s *HTTPServer) Start() error {
 
 	mux.HandleFunc("/health", s.handleHealth)
 
-	// Add middleware
-	handler := s.loggingMiddleware(s.corsMiddleware(mux))
+	// Add middleware: CORS -> RateLimit -> Logging
+	handler := s.loggingMiddleware(s.rateLimitMiddleware(s.corsMiddleware(mux)))
 
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.config.HTTPPort),
@@ -105,6 +97,11 @@ func (s *HTTPServer) handleRoot(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		path := strings.TrimPrefix(r.URL.Path, "/")
 		if path == "" {
+			// Respect EnableWebUI flag
+			if !s.config.EnableWebUI {
+				http.NotFound(w, r)
+				return
+			}
 			s.handleIndex(w, r)
 		} else {
 			s.handleViewPaste(w, r, path)
@@ -126,12 +123,15 @@ func (s *HTTPServer) handleIndex(w http.ResponseWriter, r *http.Request) {
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
                margin: 40px auto; max-width: 800px; line-height: 1.6; color: #333; }
         .header { text-align: center; margin-bottom: 40px; }
-        .methods { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin: 30px 0; }
-        .method { padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
-        .method h3 { margin-top: 0; color: #0066cc; }
+		.methods { display: grid; grid-template-columns: 1fr; gap: 30px; margin: 30px 0; }
+		.method { padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+		.method h3 { margin-top: 0; color: #0066cc; }
         .code { background: #f5f5f5; padding: 10px; border-radius: 4px; font-family: monospace; }
         .footer { text-align: center; margin-top: 40px; color: #666; font-size: 0.9em; }
         @media (max-width: 600px) { .methods { grid-template-columns: 1fr; } }
+		textarea { width: 100%; min-height: 140px; font-family: monospace; }
+		.row { display: flex; gap: 10px; align-items: center; }
+		.row > * { flex: 1; }
     </style>
 </head>
 <body>
@@ -140,17 +140,8 @@ func (s *HTTPServer) handleIndex(w http.ResponseWriter, r *http.Request) {
         <p>Share terminal output and code snippets</p>
     </div>
     
-    <div class="methods">
-        <div class="method">
-            <h3>📡 Netcat (Terminal)</h3>
-            <p>Use netcat to paste from terminal:</p>
-            <div class="code">
-                echo "Hello World" | nc {{.Host}} {{.TCPPort}}<br>
-                cat file.txt | nc {{.Host}} {{.TCPPort}}
-            </div>
-        </div>
-        
-        <div class="method">
+	<div class="methods">
+		<div class="method">
             <h3>🌐 HTTP (curl)</h3>
             <p>Use curl to paste via HTTP:</p>
             <div class="code">
@@ -158,11 +149,63 @@ func (s *HTTPServer) handleIndex(w http.ResponseWriter, r *http.Request) {
                 curl -d @file.txt {{.BaseURL}}
             </div>
         </div>
+
+		<div class="method">
+			<h3>📝 Web UI</h3>
+			<form id="pasteForm">
+				<div class="row">
+					<textarea id="text" placeholder="Type or paste text here..."></textarea>
+				</div>
+				<div class="row">
+					<input type="file" id="file" />
+					<button type="submit">Create Paste</button>
+				</div>
+			</form>
+			<div id="result" class="code" style="display:none;"></div>
+			<div id="stats" style="margin-top:10px;color:#666;font-size:0.9em;"></div>
+		</div>
     </div>
     
     <div class="footer">
         <p>Powered by nclip • <a href="/health">Status</a> • <a href="https://github.com/johnwmail/nclip">GitHub</a></p>
     </div>
+
+	<script>
+	const form = document.getElementById('pasteForm');
+	const fileInput = document.getElementById('file');
+	const textInput = document.getElementById('text');
+	const result = document.getElementById('result');
+	const stats = document.getElementById('stats');
+
+	form.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		let body, headers = {};
+		if (fileInput.files.length > 0) {
+			const file = fileInput.files[0];
+			headers['X-Filename'] = file.name;
+			body = await file.arrayBuffer();
+			body = new Uint8Array(body);
+			headers['Content-Type'] = 'application/octet-stream';
+		} else {
+			body = textInput.value;
+			headers['Content-Type'] = 'text/plain; charset=utf-8';
+		}
+		const resp = await fetch('/', { method: 'POST', body, headers });
+		const url = await resp.text();
+		result.style.display = 'block';
+		result.textContent = url.trim();
+	});
+
+	async function refreshStats(){
+		try{
+			const r = await fetch('/health');
+			if (!r.ok) return;
+			const j = await r.json();
+			stats.textContent = 'Pastes: ' + j.stats.total_pastes + ' • Size: ' + j.stats.total_size + ' bytes';
+		}catch(_){ }
+	}
+	refreshStats();
+	</script>
 </body>
 </html>`
 
@@ -173,13 +216,9 @@ func (s *HTTPServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Host    string
-		TCPPort int
 		BaseURL string
 	}{
-		Host:    s.getHostFromURL(),
-		TCPPort: s.config.TCPPort,
-		BaseURL: s.config.GetBaseURL(),
+		BaseURL: deriveBaseURL(s.config.GetBaseURL(), r),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -294,8 +333,11 @@ func (s *HTTPServer) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Determine base URL: prefer explicit cfg.BaseURL; else derive from request
+	baseURL := deriveBaseURL(s.config.GetBaseURL(), r)
+
 	// Generate URL
-	url := config.JoinBaseURLAndSlug(s.config.GetBaseURL(), slugStr)
+	url := config.JoinBaseURLAndSlug(baseURL, slugStr)
 
 	// Return URL (with newline for terminal compatibility)
 	w.Header().Set("Content-Type", "text/plain")
@@ -312,6 +354,13 @@ func (s *HTTPServer) handleCreatePaste(w http.ResponseWriter, r *http.Request) {
 
 // handleViewPaste displays a paste with basic formatting or raw content based on request
 func (s *HTTPServer) handleViewPaste(w http.ResponseWriter, r *http.Request, id string) {
+	// Support /burn/<id> path alias
+	burn := false
+	if strings.HasPrefix(id, "burn/") {
+		burn = true
+		id = strings.TrimPrefix(id, "burn/")
+	}
+
 	paste, err := s.storage.Get(id)
 	if err != nil {
 		http.NotFound(w, r)
@@ -323,17 +372,32 @@ func (s *HTTPServer) handleViewPaste(w http.ResponseWriter, r *http.Request, id 
 	userAgent := r.Header.Get("User-Agent")
 	accept := r.Header.Get("Accept")
 
+	// Explicit raw override via query param
+	if r.URL.Query().Get("raw") == "true" {
+		userAgent = "curl" // force raw
+	}
+
 	// If it's curl, wget, or similar command-line tools, serve raw content (like original fiche)
 	if isCLIRequest(userAgent, accept) {
 		w.Header().Set("Content-Type", paste.ContentType)
 		if _, err := w.Write(paste.Content); err != nil {
 			s.logger.Error("Failed to write paste content", "error", err)
 		}
+
+		// Burn after reading if requested
+		if burn || r.URL.Query().Get("burn") == "true" {
+			_ = s.storage.Delete(id)
+		}
 		return
 	}
 
 	// Browser request - serve HTML with formatting
 	s.handleViewPasteHTML(w, r, paste)
+
+	// Burn after reading if requested for browser view
+	if burn || r.URL.Query().Get("burn") == "true" {
+		_ = s.storage.Delete(id)
+	}
 }
 
 // isCLIRequest detects if the request is from a command-line tool vs browser
@@ -459,6 +523,11 @@ func (s *HTTPServer) handleRaw(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(paste.Content); err != nil {
 		s.logger.Error("Failed to write raw paste content", "error", err)
 	}
+
+	// Optional burn after reading
+	if r.URL.Query().Get("burn") == "true" {
+		_ = s.storage.Delete(id)
+	}
 }
 
 // handleDownload returns the paste as a downloadable file
@@ -485,6 +554,11 @@ func (s *HTTPServer) handleDownload(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(paste.Content); err != nil {
 		s.logger.Error("Failed to write download content", "error", err)
 	}
+
+	// Optional burn after reading
+	if r.URL.Query().Get("burn") == "true" {
+		_ = s.storage.Delete(id)
+	}
 }
 
 // handleHealth returns health status
@@ -498,7 +572,6 @@ func (s *HTTPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	health := map[string]interface{}{
 		"status":    "ok",
 		"timestamp": time.Now().UTC(),
-		"tcp_port":  s.config.TCPPort,
 		"http_port": s.config.HTTPPort,
 		"stats":     stats,
 	}
@@ -547,7 +620,11 @@ func getClientIP(r *http.Request) string {
 	}
 
 	// Use remote address
-	return strings.Split(r.RemoteAddr, ":")[0]
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // loggingMiddleware logs HTTP requests
@@ -598,6 +675,7 @@ func (s *HTTPServer) GetHandler() http.Handler {
 	mux.HandleFunc("/", s.handleRoot)
 	mux.HandleFunc("/raw/", s.handleRaw)
 	mux.HandleFunc("/download/", s.handleDownload)
+	mux.HandleFunc("/burn/", s.handleBurn)
 
 	if s.config.EnableMetrics {
 		mux.HandleFunc("/metrics", s.handleMetrics)
@@ -606,7 +684,7 @@ func (s *HTTPServer) GetHandler() http.Handler {
 	mux.HandleFunc("/health", s.handleHealth)
 
 	// Add middleware
-	return s.loggingMiddleware(s.corsMiddleware(mux))
+	return s.loggingMiddleware(s.rateLimitMiddleware(s.corsMiddleware(mux)))
 }
 
 // responseWriter wraps http.ResponseWriter to capture status code
@@ -618,4 +696,151 @@ type responseWriter struct {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// deriveBaseURL returns explicit baseURL if set, otherwise builds from request headers
+func deriveBaseURL(baseURL string, r *http.Request) string {
+	if baseURL != "" {
+		return baseURL
+	}
+	scheme := r.Header.Get("X-Forwarded-Proto")
+	if scheme == "" {
+		if r.TLS != nil {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
+	}
+	host := r.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = r.Host
+	}
+	return fmt.Sprintf("%s://%s", scheme, host)
+}
+
+// handleBurn rewrites to view with burn=true
+func (s *HTTPServer) handleBurn(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/burn/")
+	if id == "" {
+		http.NotFound(w, r)
+		return
+	}
+	// append burn=true to query
+	q := r.URL.Query()
+	q.Set("burn", "true")
+	r.URL.RawQuery = q.Encode()
+	s.handleViewPaste(w, r, id)
+}
+
+// ---------- Rate limiting ----------
+type rateSpec struct {
+	limit  int
+	window time.Duration
+}
+
+type rateLimiter struct {
+	global   rateCounter
+	perIP    map[string]*rateCounter
+	perIPLim rateSpec
+	logger   *slog.Logger
+}
+
+type rateCounter struct {
+	spec       rateSpec
+	windowBase time.Time
+	count      int
+}
+
+func newRateLimiter(cfg *config.Config, logger *slog.Logger) *rateLimiter {
+	gspec := parseRateSpec(cfg.RateLimitGlobal)
+	ipspec := parseRateSpec(cfg.RateLimitPerIP)
+	if gspec.limit <= 0 {
+		gspec = rateSpec{limit: 0, window: time.Minute}
+	}
+	if ipspec.limit <= 0 {
+		ipspec = rateSpec{limit: 0, window: time.Minute}
+	}
+	return &rateLimiter{
+		global:   rateCounter{spec: gspec},
+		perIP:    make(map[string]*rateCounter),
+		perIPLim: ipspec,
+		logger:   logger,
+	}
+}
+
+func parseRateSpec(s string) rateSpec {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" {
+		return rateSpec{limit: 0, window: time.Minute}
+	}
+	// accept formats like "60/min", "60 per minute", "60/minute"
+	s = strings.ReplaceAll(s, "per", "/")
+	s = strings.ReplaceAll(s, " ", "")
+	parts := strings.Split(s, "/")
+	if len(parts) != 2 {
+		return rateSpec{limit: 0, window: time.Minute}
+	}
+	n, err := strconv.Atoi(parts[0])
+	if err != nil || n < 0 {
+		return rateSpec{limit: 0, window: time.Minute}
+	}
+	unit := parts[1]
+	switch unit {
+	case "s", "sec", "secs", "second", "seconds":
+		return rateSpec{limit: n, window: time.Second}
+	case "m", "min", "mins", "minute", "minutes":
+		return rateSpec{limit: n, window: time.Minute}
+	case "h", "hr", "hour", "hours":
+		return rateSpec{limit: n, window: time.Hour}
+	default:
+		return rateSpec{limit: n, window: time.Minute}
+	}
+}
+
+func (rl *rateLimiter) allow(ip string) bool {
+	now := time.Now()
+	// global
+	if rl.global.spec.limit > 0 {
+		if !rl.global.inc(now) {
+			return false
+		}
+	}
+	// per IP
+	if rl.perIPLim.limit > 0 {
+		rc, ok := rl.perIP[ip]
+		if !ok {
+			rc = &rateCounter{spec: rl.perIPLim}
+			rl.perIP[ip] = rc
+		}
+		if !rc.inc(now) {
+			return false
+		}
+	}
+	return true
+}
+
+func (rc *rateCounter) inc(now time.Time) bool {
+	base := now.Truncate(rc.spec.window)
+	if rc.windowBase != base {
+		rc.windowBase = base
+		rc.count = 0
+	}
+	rc.count++
+	return rc.count <= rc.spec.limit
+}
+
+func (s *HTTPServer) rateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Always allow health and metrics and OPTIONS
+		if r.Method == http.MethodOptions || r.URL.Path == "/health" || r.URL.Path == "/metrics" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		ip := getClientIP(r)
+		if s.limiter != nil && !s.limiter.allow(ip) {
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

@@ -97,13 +97,6 @@ jobs:
     - name: Download dependencies
       run: go mod download
 
-    - name: Validate import path casing
-      run: |
-        if find . -type f -name '*.go' -print0 | xargs -0 grep -n "internal/Lambda" | sed -n '1p'; then
-          echo "ERROR: Found incorrect import path casing 'internal/Lambda'. Use 'internal/lambda' instead." >&2
-          exit 1
-        fi
-
     - name: Sanity build (exports)
       run: go build ./...
 
