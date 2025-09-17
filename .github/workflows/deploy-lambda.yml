@@ -71,13 +71,21 @@ jobs:
           echo "Using function name from secret"
           echo "name=${{ vars.LAMBDA_FUNCTION_NAME }}" >> "$GITHUB_OUTPUT"
 
+      - name: Set Lambda architecture
+        run: |
+          if [ "$GOARCH" = "arm64" ]; then
+            echo "LAMBDA_ARCH=arm64" >> $GITHUB_ENV
+          else
+            echo "LAMBDA_ARCH=x86_64" >> $GITHUB_ENV
+          fi
+
       - name: Deploy Lambda Function
         id: lambda-deploy
         uses: aws-actions/aws-lambda-deploy@v1
         with:
           function-name: ${{ steps.resolve-fn.outputs.name }}
           code-artifacts-dir: lambda-artifacts
-          architectures: ${{ env.GOARCH == 'arm64' ? 'arm64' : (env.GOARCH == 'amd64' ? 'x86_64' : '') }}
+          architectures: ${{ env.LAMBDA_ARCH }}
           runtime: provided.al2023
           handler: bootstrap
           publish: true
