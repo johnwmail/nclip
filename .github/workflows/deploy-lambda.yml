@@ -43,7 +43,6 @@ jobs:
         run: |
           mkdir -p lambda-artifacts
           mv -f bootstrap lambda-artifacts/bootstrap
-          cp -r static lambda-artifacts/static
           ls -l lambda-artifacts
 
       - name: Configure AWS credentials
@@ -82,7 +81,7 @@ jobs:
           handler: bootstrap
           publish: true
           role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
-          #s3-bucket: "${{ vars.BUCKET }}"
+          s3-bucket: "${{ vars.BUCKET }}"
           environment: '{"NCLIP_DYNAMODB_TABLE":"${{ vars.NCLIP_DYNAMODB_TABLE }}","GIN_MODE":"release"}'
 
       - name: Post-deploy info
