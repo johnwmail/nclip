@@ -3,7 +3,7 @@
 3. support mongodb storage only for container/k8s deployment
 4. support auto-expiration (TTL), 1 day by default (configurable)
 5. since no tcp input support, the domain/host should be detected from http request header by default, but can be overridden by env var NCLIP_URL
-6. support rate limiting, by default, 60 requests per minute for all clients, and 10 requests per minute for same I.P client (all configurable)
+6. support rate limiting, by default, 60 requests per minute for all clients, and 10 requests per minute for same I.P client (all configurable). The rate limit only for create new paste (read can be more )
 7. support health check endpoint /health
 8. support prometheus metrics endpoint /metrics (enabled by default, can be disabled by env var NCLIP_ENABLE_METRICS=false)
 9. support webui at / (can be disabled by env var NCLIP_ENABLE_WEBUI=false)

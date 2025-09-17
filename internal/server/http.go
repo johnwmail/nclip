@@ -831,16 +831,21 @@ func (rc *rateCounter) inc(now time.Time) bool {
 
 func (s *HTTPServer) rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Always allow health and metrics and OPTIONS
+		// Always allow health, metrics, and OPTIONS
 		if r.Method == http.MethodOptions || r.URL.Path == "/health" || r.URL.Path == "/metrics" {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ip := getClientIP(r)
-		if s.limiter != nil && !s.limiter.allow(ip) {
-			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-			return
+
+		// Only rate limit POST requests to the root (create paste)
+		if r.Method == http.MethodPost && r.URL.Path == "/" {
+			ip := getClientIP(r)
+			if s.limiter != nil && !s.limiter.allow(ip) {
+				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+				return
+			}
 		}
+
 		next.ServeHTTP(w, r)
 	})
 }
