@@ -16,9 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     env:
       GOOS: linux
-      GOARCH: arm64
+      GOARCH: amd64
       CGO_ENABLED: 0
     steps:
       - name: Checkout
@@ -43,7 +44,6 @@ jobs:
         run: |
           mkdir -p lambda-artifacts
           mv -f bootstrap lambda-artifacts/bootstrap
-          cp -r static lambda-artifacts/static
           ls -l lambda-artifacts
 
       - name: Configure AWS credentials
@@ -77,12 +77,12 @@ jobs:
         with:
           function-name: ${{ steps.resolve-fn.outputs.name }}
           code-artifacts-dir: lambda-artifacts
-          architectures: amd64
+          architectures: ${{ env.GOARCH == 'arm64' ? 'arm64' : (env.GOARCH == 'amd64' ? 'x86_64' : '') }}
           runtime: provided.al2023
           handler: bootstrap
           publish: true
           role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
-          #s3-bucket: "${{ vars.BUCKET }}"
+          s3-bucket: "${{ vars.BUCKET }}"
           environment: '{"NCLIP_DYNAMODB_TABLE":"${{ vars.NCLIP_DYNAMODB_TABLE }}","GIN_MODE":"release"}'
 
       - name: Post-deploy info
