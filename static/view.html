@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paste - nclip</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 nclip</h1>
+            <p><a href="/">← Back to Upload</a></p>
+        </header>
+
+        <main>
+            <div class="paste-info">
+                <h2>Paste Details</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>ID:</label>
+                        <span>{{.Paste.ID}}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Size:</label>
+                        <span>{{.Paste.Size}} bytes</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Type:</label>
+                        <span>{{.Paste.ContentType}}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Created:</label>
+                        <span>{{.Paste.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
+                    </div>
+                    {{if .Paste.ExpiresAt}}
+                    <div class="info-item">
+                        <label>Expires:</label>
+                        <span>{{.Paste.ExpiresAt.Format "2006-01-02 15:04:05"}}</span>
+                    </div>
+                    {{end}}
+                    {{if .Paste.BurnAfterRead}}
+                    <div class="info-item burn-notice">
+                        <label>⚠️ Burn After Read:</label>
+                        <span>This paste will be deleted after viewing</span>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+
+            <div class="content-section">
+                <div class="content-header">
+                    <h3>Content</h3>
+                    <div class="content-actions">
+                        <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download>Download</a>
+                        <button id="copy-content" class="btn btn-secondary">Copy</button>
+                    </div>
+                </div>
+                
+                {{if .IsText}}
+                <div class="content-display">
+                    <pre id="content-text"><code>{{.Content}}</code></pre>
+                </div>
+                {{else}}
+                <div class="binary-notice">
+                    <p>This is a binary file. <a href="/raw/{{.Paste.ID}}">Download</a> to view.</p>
+                </div>
+                {{end}}
+            </div>
+        </main>
+
+        <footer>
+            <p>nclip - Open source clipboard service</p>
+        </footer>
+    </div>
+
+    <script>
+        // Copy content functionality
+        document.getElementById('copy-content')?.addEventListener('click', function() {
+            const contentText = document.getElementById('content-text');
+            if (contentText) {
+                navigator.clipboard.writeText(contentText.textContent).then(function() {
+                    const btn = document.getElementById('copy-content');
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    btn.classList.add('success');
+                    setTimeout(function() {
+                        btn.textContent = originalText;
+                        btn.classList.remove('success');
+                    }, 2000);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

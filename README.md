@@ -1,197 +1,109 @@
+
+
+# nclip Gin Refactor: Requirements & API
+
+- Use Gin for all HTTP endpoints, supporting both AWS Lambda (DynamoDB) and container/on-prem (MongoDB) deployments.
+- Share the same codebase, logic, UI, and data format for both environments.
+- Accept raw/binary input for pastes (text or file) via curl or web UI.
+- Keep MongoDB and DynamoDB data formats as similar as possible.
+
+
+
+## API Endpoints
+
+- `GET /` — Web UI (form for upload, stats, etc.)
+- `POST /` — Upload new paste (raw or file data; returns paste URL)
+- `POST /burn/` — Create burn-after-read paste (deleted after first read)
+- `GET /$slug` — HTML view of paste (browser)
+- `GET /raw/$slug` — Raw data (text or binary, for curl/cli/download)
+- `GET /api/v1/meta/$slug` — (optional) JSON metadata (see below)
+- `GET /health` — Health check (200 OK)
+- `GET /metrics` — Prometheus metrics (can be disabled)
+
+
+## Paste Metadata (JSON)
+
+Returned by `GET /api/v1/meta/$slug`. Does **not** include the actual content.
+
+```json
+{
+  "id": "string",                  // Unique paste ID
+  "created_at": "2025-09-17T12:34:56Z", // ISO8601 timestamp
+  "expires_at": "2025-09-18T12:34:56Z", // ISO8601 (optional, null if no expiry)
+  "size": 12345,                    // Size in bytes
+  "content_type": "text/plain",    // MIME type
+  "burn_after_read": true,          // true if burn-after-read
+  "read_count": 0                   // Number of times read (optional)
+}
+```
+
+*Access content via `/raw/$slug` or `/$slug`, not via metadata.*
+
+
+**Usage Notes:**
+- Use `POST /burn/` to create a burn-after-read paste (deleted after first read via `GET /$slug`).
+- All uploads/downloads use raw/binary data (not JSON) for maximum compatibility with curl and file uploads.
+- JSON is only for error responses and metadata endpoints.
+- Web UI and API both support burn-after-reading and raw/download features.
+
+
+## Best Practices
+
+- Abstract storage behind a `PasteStore` interface (MongoDB/DynamoDB).
+- Unit tests must cover both storage backends (use mocks as needed).
+- All endpoints should return a standard JSON error format: `{ "error": "message" }`.
+- Reserve `/api/v1/` as a prefix for future API versioning.
+- Provide OpenAPI/Swagger or markdown docs for all endpoints.
+- Use structured logging and Prometheus metrics (optionally tracing).
+- Support graceful shutdown (SIGTERM/SIGINT) in server mode.
+- All features must pass in CI.
+
+---
+
+
+
+## Implementation Checklist
+
+- HTTP only (no TCP), default port 8080
+- DynamoDB storage for Lambda; MongoDB for container/K8s
+- Auto-expiration (TTL), default 1 day (configurable)
+- Domain/host detected from HTTP header, override with `NCLIP_URL`
+
+- Health check: `/health`
+- Prometheus metrics: `/metrics` (can disable with `NCLIP_ENABLE_METRICS=false`)
+- Web UI at `/` (can disable with `NCLIP_ENABLE_WEBUI=false`)
+- Web UI: form for upload, shows paste URL, stats, raw/download buttons
+- Burn after reading: `POST /burn/` to create, `GET /$slug` to fetch/delete
+- Raw output: `/raw/$slug`
+- Slug length: default 5 (configurable via `NCLIP_SLUG_LENGTH`)
+- Max buffer size: 1MB (configurable via `NCLIP_BUFFER_SIZE`)
+- All config via env vars and matching CLI flags (e.g., `NCLIP_URL`/`--url`)
+- Single binary, no external deps except MongoDB/DynamoDB
+- Shared logic/code for both Lambda and container; only storage differs
+- Cleanup: remove obsolete/unused files after refactor
+- Code must pass `go fmt`, `go vet`, `golangci-lint`, and have good test coverage
+
+
 [![Test](https://github.com/johnwmail/nclip/workflows/Test/badge.svg)](https://github.com/johnwmail/nclip/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/johnwmail/nclip)](https://goreportcard.com/report/github.com/johnwmail/nclip)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub release](https://img.shields.io/github/release/johnwmail/nclip.svg)](https://github.com/johnwmail/nclip/releases)
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org/)
 
+
 # nclip
 
-A modern, high-performance netcat-to-clipboard service written in Go, inspired by [fiche](https://github.com/solusipse/fiche).
+
+A modern, high-performance net-to-clipboard service written in Go, inspired by [fiche](https://github.com/solusipse/fiche).
+
 
 ## Overview
 
-nclip is a dual-input clipboard service that accepts content via:
-- **netcat (nc)** - Traditional command-line input: `echo "text" | nc localhost 8099`
+
+nclip is an HTTP clipboard service that accepts content via:
 - **HTTP/curl** - Modern web API: `echo "text" | curl -d @- http://localhost:8080`
-- **HTTP/curl** - Web API with multilines support: `ps | curl --data-binary @- http://localhost:8080`
+- **HTTP/curl** - Web API with multiline support: `ps | curl --data-binary @- http://localhost:8080`
 - **Web UI** - Browser interface at `http://localhost:8080`
-
-## ✨ Features
-
-- 🚀 **Dual Input Methods**: netcat + HTTP/curl + Web UI
-- 🗄️ **Multi-Storage Backend**: filesystem, MongoDB, DynamoDB
-- 🐳 **Container Ready**: Docker & Kubernetes deployment
-- ⏰ **Auto-Expiration**: TTL support for all storage types
-- 🛡️ **Production Ready**: Rate limiting, metrics, health checks
-- 📈 **Scalable**: Horizontal pod autoscaling support
-- 🔧 **Configurable**: Environment variables & CLI flags
-
-## 🚀 Quick Start
-
-### Installation
-```bash
-# Download binary (replace with actual release)
-wget https://github.com/johnwmail/nclip/releases/latest/download/nclip-linux-amd64
-chmod +x nclip-linux-amd64
-sudo mv nclip-linux-amd64 /usr/local/bin/nclip
-
-# Or build from source
-git clone https://github.com/johnwmail/nclip.git
-cd nclip
-go build -o nclip .
-```
-
-### Basic Usage
-```bash
-# Start the service
-./nclip
-
-# Using netcat (traditional)
-echo "Hello World!" | nc localhost 8099
-
-# Using curl (modern)
-echo "Hello World!" | curl -d @- http://localhost:8080
-
-# Web interface
-open http://localhost:8080
-```
-
-## 📋 Usage Examples
-
-### Command Line
-```bash
-# Share a file via netcat
-cat myfile.txt | nc localhost 8099
-
-# Share command output
-ls -la | nc localhost 8099
-
-# Share via HTTP with curl
-echo "Secret message" | curl -d @- http://localhost:8080
-
-# Upload a file via HTTP
-curl -d @myfile.txt http://localhost:8080
-```
-
-### Configuration
-```bash
-# Custom domain and port
-./nclip -domain paste.example.com -http-port 8080
-
-# Use MongoDB storage
-./nclip -storage-type mongodb -mongodb-uri mongodb://localhost:27017
-
-# Use DynamoDB storage (for Lambda)
-./nclip -storage-type dynamodb -dynamodb-table nclip-pastes
-
-# Environment variables
-export NCLIP_DOMAIN=paste.example.com
-export NCLIP_STORAGE_TYPE=mongodb
-./nclip
-```
-
-## 🐳 Docker Deployment
-
-### Docker Compose
-```bash
-# Clone repository
-git clone https://github.com/johnwmail/nclip.git
-cd nclip
-
-# Start with MongoDB
-docker-compose up -d
-
-# Access the service
-echo "Hello Docker!" | nc localhost 8099
-```
-
-### Kubernetes
-```bash
-# Deploy to Kubernetes
-kubectl apply -f k8s/nclip-mongodb.yaml
-
-# Or with DynamoDB (for AWS)
-kubectl apply -f k8s/nclip-dynamodb.yaml
-```
-
-## 🗄️ Storage Backends
-
-| Backend | Status | Use Case | TTL Support |
-|---------|--------|----------|-------------|
-| **Filesystem** | ✅ Ready | Development, small deployments | Manual cleanup |
-| **MongoDB** | ✅ Ready | Production, rich queries | Native TTL |
-| **DynamoDB** | ✅ Ready | AWS serverless | Native TTL |
-
-## ⚙️ Configuration
-
-nclip supports configuration via environment variables and CLI flags. 
-
-### Quick Configuration Examples
-```bash
-# Basic usage with custom URL
-./nclip --url https://paste.example.com/clips/
-
-# MongoDB storage
-./nclip --storage-type mongodb --mongodb-uri mongodb://localhost:27017
-
-# DynamoDB storage  
-./nclip --storage-type dynamodb --dynamodb-table nclip-pastes
-
-# Environment variables
-export NCLIP_URL=https://nclip.app/paste/
-export NCLIP_STORAGE_TYPE=mongodb
-./nclip
-```
-
-📋 **[Complete Parameter Reference](docs/PARAMETER_REFERENCE.md)** - All environment variables, CLI flags, and configuration examples
-
-## 🚀 Production Deployment
-
-### AWS Lambda (Serverless)
-```bash
-# Use DynamoDB storage
-NCLIP_STORAGE_TYPE=dynamodb
-NCLIP_DYNAMODB_TABLE=nclip-pastes
-```
-
-### Docker Swarm / Kubernetes
-```bash
-# Use MongoDB for persistence
-NCLIP_STORAGE_TYPE=mongodb
-NCLIP_MONGODB_URI=mongodb://mongo-cluster:27017
-```
-
-## 📊 Monitoring
-
-- **Health Check**: `GET /health`
-- **Metrics**: `GET /metrics` (Prometheus format)
-- **Stats**: `GET /stats` (JSON format)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Inspired by [fiche](https://github.com/solusipse/fiche)
-- Built with [Go](https://golang.org/)
-- Powered by modern cloud-native technologies
-
-## 🔗 Links
-
-- **Documentation**: [docs/](docs/)
-- **Docker Hub**: `docker pull johnwmail/nclip`
-- **GitHub**: https://github.com/johnwmail/nclip
-- **Issues**: https://github.com/johnwmail/nclip/issues
-
----
-
-⭐ **Star this repository if you find it useful!**
+- **File upload** - Upload files via web UI or curl: `curl -F 'file=@/path/to/file' http://localhost:8080`
+- **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG` or `http://localhost:8080/SLUG?raw=true`
+- **Burn after reading** - Content that self-destructs after being accessed once via `http://localhost:8080/SLUG?burn=true` or `http://localhost:8080/burn/SLUG`
