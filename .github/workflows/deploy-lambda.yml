@@ -19,7 +19,7 @@ jobs:
       id-token: write
     env:
       GOOS: linux
-      GOARCH: arm64
+      GOARCH: amd64
       CGO_ENABLED: 0
     steps:
       - name: Checkout
