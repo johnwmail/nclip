@@ -77,7 +77,7 @@ jobs:
         with:
           function-name: ${{ steps.resolve-fn.outputs.name }}
           code-artifacts-dir: lambda-artifacts
-          architectures: amd64
+          architectures: ${{ env.GOARCH == 'arm64' ? 'arm64' : (env.GOARCH == 'amd64' ? 'x86_64' : '') }}
           runtime: provided.al2023
           handler: bootstrap
           publish: true
