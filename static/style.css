@@ -41,6 +41,11 @@ body.main-page {
     max-width: 1000px;
     margin: 0 auto;
     padding: 1rem;
+    min-height: 100vh;
+}
+
+/* Main page specific container */
+body.main-page .container {
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -68,6 +73,11 @@ header p {
 
 /* Main Content */
 main {
+    margin-bottom: 2rem;
+}
+
+/* Main page specific main element */
+body.main-page main {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -480,13 +490,15 @@ input[type="file"]:hover {
 }
 
 .content-display {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1rem;
-    max-height: 70vh;
-    min-height: 400px;
-    overflow: auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    max-height: none;
+    min-height: auto;
+    overflow: visible;
+    margin-top: 1rem;
+    width: 100%;
 }
 
 .content-display pre {
@@ -495,7 +507,18 @@ input[type="file"]:hover {
     word-wrap: break-word;
     font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, monospace;
     font-size: 0.875rem;
-    line-height: 1.5;
+    line-height: 1.6;
+    background: transparent;
+    border: none;
+    padding: 0;
+    width: 100%;
+    overflow: visible;
+}
+
+.content-display pre code {
+    display: block;
+    width: 100%;
+    overflow: visible;
 }
 
 .binary-notice {
