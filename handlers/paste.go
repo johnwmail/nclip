@@ -237,11 +237,14 @@ func (h *PasteHandler) View(c *gin.Context) {
 		}
 	}
 
-	// Check if this is a curl/wget request - redirect to raw content
+	// Check if this is a curl/wget request - serve raw content directly
 	userAgent := c.Request.Header.Get("User-Agent")
 	if strings.Contains(strings.ToLower(userAgent), "curl") ||
 		strings.Contains(strings.ToLower(userAgent), "wget") {
-		c.Redirect(http.StatusTemporaryRedirect, "/raw/"+slug)
+		// Serve raw content directly instead of redirecting
+		c.Header("Content-Type", paste.ContentType)
+		c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
+		c.Data(http.StatusOK, paste.ContentType, paste.Content)
 		return
 	}
 
