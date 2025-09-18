@@ -16,14 +16,15 @@
 - `POST /burn/` — Create burn-after-read paste (deleted after first read)
 - `GET /$slug` — HTML view of paste (browser)
 - `GET /raw/$slug` — Raw data (text or binary, for curl/cli/download)
-- `GET /api/v1/meta/$slug` — (optional) JSON metadata (see below)
+- `GET /api/v1/meta/$slug` — JSON metadata (see below)
+- `GET /json/$slug` — Alias for `/api/v1/meta/$slug` (shortcut)
 - `GET /health` — Health check (200 OK)
 - `GET /metrics` — Prometheus metrics (can be disabled)
 
 
 ## Paste Metadata (JSON)
 
-Returned by `GET /api/v1/meta/$slug`. Does **not** include the actual content.
+Returned by `GET /api/v1/meta/$slug` or `GET /json/$slug`. Does **not** include the actual content.
 
 ```json
 {
@@ -38,6 +39,22 @@ Returned by `GET /api/v1/meta/$slug`. Does **not** include the actual content.
 ```
 
 *Access content via `/raw/$slug` or `/$slug`, not via metadata.*
+
+## Usage Examples
+
+```bash
+# Upload a paste
+echo "hello world" | curl --data-binary @- http://localhost:8080/
+# Returns: http://localhost:8080/abc123
+
+# Get the content
+curl http://localhost:8080/abc123
+curl http://localhost:8080/raw/abc123
+
+# Get metadata (JSON)
+curl http://localhost:8080/api/v1/meta/abc123
+curl http://localhost:8080/json/abc123  # Shortcut alias
+```
 
 
 **Usage Notes:**

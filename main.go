@@ -84,6 +84,9 @@ func main() {
 	// Metadata API
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
 
+	// Alias for metadata API (shortcut)
+	router.GET("/json/:slug", metaHandler.GetMetadata)
+
 	// System routes
 	router.GET("/health", systemHandler.Health)
 	if cfg.EnableMetrics {

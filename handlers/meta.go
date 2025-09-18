@@ -20,7 +20,7 @@ func NewMetaHandler(store storage.PasteStore) *MetaHandler {
 	}
 }
 
-// GetMetadata handles metadata retrieval via GET /api/v1/meta/:slug
+// GetMetadata handles metadata retrieval via GET /api/v1/meta/:slug and GET /json/:slug
 func (h *MetaHandler) GetMetadata(c *gin.Context) {
 	slug := c.Param("slug")
 

@@ -237,6 +237,14 @@ func (h *PasteHandler) View(c *gin.Context) {
 		}
 	}
 
+	// Check if this is a curl/wget request - redirect to raw content
+	userAgent := c.Request.Header.Get("User-Agent")
+	if strings.Contains(strings.ToLower(userAgent), "curl") ||
+		strings.Contains(strings.ToLower(userAgent), "wget") {
+		c.Redirect(http.StatusTemporaryRedirect, "/raw/"+slug)
+		return
+	}
+
 	// Return HTML view for browsers
 	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
 		c.HTML(http.StatusOK, "view.html", gin.H{

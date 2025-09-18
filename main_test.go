@@ -95,6 +95,7 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	router.GET("/:slug", pasteHandler.View)
 	router.GET("/raw/:slug", pasteHandler.Raw)
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
+	router.GET("/json/:slug", metaHandler.GetMetadata)
 	router.GET("/health", systemHandler.Health)
 	if cfg.EnableMetrics {
 		router.GET("/metrics", systemHandler.Metrics)
@@ -225,6 +226,48 @@ func TestGetMetadata(t *testing.T) {
 
 	if response["size"] != float64(10) {
 		t.Errorf("Expected size 10, got %v", response["size"])
+	}
+}
+
+func TestGetMetadataAlias(t *testing.T) {
+	router, store := setupTestRouter()
+
+	paste := &models.Paste{
+		ID:          "test4",
+		CreatedAt:   time.Now(),
+		Size:        15,
+		ContentType: "text/plain",
+		Content:     []byte("alias test content"),
+	}
+	store.Store(paste)
+
+	// Test the /json/:slug alias
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/json/test4", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+
+	if response["id"] != "test4" {
+		t.Errorf("Expected id 'test4', got %v", response["id"])
+	}
+
+	if response["size"] != float64(15) {
+		t.Errorf("Expected size 15, got %v", response["size"])
+	}
+
+	// Verify both endpoints return the same data
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("GET", "/api/v1/meta/test4", nil)
+	router.ServeHTTP(w2, req2)
+
+	if w.Body.String() != w2.Body.String() {
+		t.Errorf("Alias route should return same data as original route")
 	}
 }
 

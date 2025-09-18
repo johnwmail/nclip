@@ -20,6 +20,7 @@ This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The 
 - `GET /{slug}` — HTML view of paste
 - `GET /raw/{slug}` — Raw content download
 - `GET /api/v1/meta/{slug}` — JSON metadata (no content)
+- `GET /json/{slug}` — Alias for `/api/v1/meta/{slug}` (shortcut)
 
 ### System Endpoints
 - `GET /health` — Health check (200 OK)

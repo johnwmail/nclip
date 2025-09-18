@@ -100,6 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
             uploadSection.style.display = 'none';
         }
         
+        // Update usage examples to show how to read this paste
+        updateUsageExamples(url, slug);
+        
         resultSection.style.display = 'block';
         resultSection.scrollIntoView({ behavior: 'smooth' });
         
@@ -152,7 +155,56 @@ document.addEventListener('DOMContentLoaded', function() {
         burnTextCheckbox.checked = false;
         burnFileCheckbox.checked = false;
         textContent.focus();
+        
+        // Restore original usage examples
+        restoreOriginalUsageExamples();
     });
+
+    // Update usage examples to show how to read the created paste
+    function updateUsageExamples(url, slug) {
+        const baseUrl = url.replace('/' + slug, '');
+        const examples = document.querySelectorAll('.example');
+        
+        if (examples.length >= 2) {
+            // Update first example - View paste
+            examples[0].querySelector('p').textContent = 'View this paste:';
+            examples[0].querySelector('code').textContent = `curl ${url}`;
+            
+            // Update second example - Download raw
+            examples[1].querySelector('p').textContent = 'Download raw content:';
+            examples[1].querySelector('code').textContent = `curl ${baseUrl}/raw/${slug}`;
+            
+            // Hide the third example if it exists
+            if (examples[2]) {
+                examples[2].style.display = 'none';
+            }
+        }
+    }
+
+    // Restore original usage examples for new paste
+    function restoreOriginalUsageExamples() {
+        const examples = document.querySelectorAll('.example');
+        
+        if (examples.length >= 3) {
+            // Get the base URL from current location
+            const baseUrl = window.location.origin;
+            
+            // Restore original examples
+            examples[0].querySelector('p').textContent = 'Upload text:';
+            examples[0].querySelector('code').textContent = `echo "hello world" | curl --data-binary @- ${baseUrl}`;
+            
+            examples[1].querySelector('p').textContent = 'Upload file:';
+            examples[1].querySelector('code').textContent = `curl --data-binary @/path/to/file ${baseUrl}`;
+            
+            examples[2].querySelector('p').textContent = 'Burn after reading:';
+            examples[2].querySelector('code').textContent = `echo "secret" | curl --data-binary @- ${baseUrl}/burn/`;
+            
+            // Show all examples
+            examples[0].style.display = 'block';
+            examples[1].style.display = 'block';
+            examples[2].style.display = 'block';
+        }
+    }
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
