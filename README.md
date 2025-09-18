@@ -139,6 +139,16 @@ export NCLIP_TTL=24h
 
 ## 🐳 Docker Deployment
 
+### Quick Start with Docker Compose
+```bash
+# Clone and start with the included docker-compose.yml
+git clone https://github.com/johnwmail/nclip.git
+cd nclip
+docker-compose up -d
+
+# Or use the example below
+```
+
 ### Docker Compose (with MongoDB)
 ```yaml
 version: '3.8'
@@ -160,6 +170,13 @@ services:
 
 volumes:
   mongo_data:
+```
+
+### Production Docker Compose
+```bash
+# The repository includes a production-ready docker-compose.yml
+# with MongoDB initialization, TTL indexes, and health checks
+docker-compose up -d
 ```
 
 ### Kubernetes
