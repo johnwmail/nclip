@@ -196,7 +196,6 @@ git push origin feature/gin:deploy/lambda
 
 Environment variables for Lambda:
 - `NCLIP_DYNAMO_TABLE=nclip-pastes`
-- `NCLIP_DYNAMO_REGION=us-east-1`
 - `GIN_MODE=release`
 
 ## 🗄️ Storage Backends
@@ -228,7 +227,6 @@ NCLIP_ENABLE_WEBUI=true          # Web UI
 # Storage configuration
 NCLIP_MONGO_URL=mongodb://localhost:27017  # MongoDB connection
 NCLIP_DYNAMO_TABLE=nclip-pastes             # DynamoDB table
-NCLIP_DYNAMO_REGION=us-east-1               # DynamoDB region
 ```
 
 ### CLI Flags
