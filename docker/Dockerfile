@@ -52,10 +52,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Default configuration
-ENV NCLIP_HTTP_PORT=8080 \
-    NCLIP_LOG_LEVEL=info \
-    NCLIP_STORAGE_TYPE=filesystem \
-    NCLIP_OUTPUT_DIR=/app/pastes
+ENV NCLIP_PORT=8080 \
+    NCLIP_MONGO_URL=mongodb://localhost:27017
 
 # Run the application
 CMD ["./nclip"]

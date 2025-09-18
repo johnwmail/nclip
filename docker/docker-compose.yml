@@ -31,10 +31,7 @@ services:
     container_name: nclip-app
     restart: unless-stopped
     environment:
-      NCLIP_STORAGE_TYPE: mongodb
-      NCLIP_MONGODB_URI: mongodb://nclip:secure_password_123@mongodb:27017/nclip?authSource=admin
-      NCLIP_MONGODB_DATABASE: nclip
-      NCLIP_MONGODB_COLLECTION: pastes
+      NCLIP_MONGO_URL: mongodb://nclip:secure_password_123@mongodb:27017/nclip?authSource=admin
       
       # Application Configuration
       NCLIP_URL: http://localhost:8080

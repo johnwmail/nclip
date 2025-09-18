@@ -18,7 +18,6 @@ type Config struct {
 	EnableWebUI   bool          `json:"enable_webui"`
 	MongoURL      string        `json:"mongo_url"`
 	DynamoTable   string        `json:"dynamo_table"`
-	DynamoRegion  string        `json:"dynamo_region"`
 }
 
 // LoadConfig loads configuration from environment variables and CLI flags
@@ -33,7 +32,6 @@ func LoadConfig() *Config {
 		EnableWebUI:   true,
 		MongoURL:      "mongodb://localhost:27017",
 		DynamoTable:   "nclip-pastes",
-		DynamoRegion:  "us-east-1",
 	}
 
 	// Parse CLI flags
@@ -46,7 +44,6 @@ func LoadConfig() *Config {
 	flag.BoolVar(&config.EnableWebUI, "enable-webui", config.EnableWebUI, "Enable web UI")
 	flag.StringVar(&config.MongoURL, "mongo-url", config.MongoURL, "MongoDB connection URL")
 	flag.StringVar(&config.DynamoTable, "dynamo-table", config.DynamoTable, "DynamoDB table name")
-	flag.StringVar(&config.DynamoRegion, "dynamo-region", config.DynamoRegion, "DynamoDB region")
 	flag.Parse()
 
 	// Override with environment variables if present
@@ -84,9 +81,6 @@ func LoadConfig() *Config {
 	}
 	if val := os.Getenv("NCLIP_DYNAMO_TABLE"); val != "" {
 		config.DynamoTable = val
-	}
-	if val := os.Getenv("NCLIP_DYNAMO_REGION"); val != "" {
-		config.DynamoRegion = val
 	}
 
 	return config

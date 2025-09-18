@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -23,7 +24,7 @@ import (
 
 // Lambda-specific variables
 var (
-	ginLambda *ginadapter.GinLambda
+	ginLambda     *ginadapter.GinLambda
 	ginLambdaOnce sync.Once
 )
 
@@ -47,7 +48,7 @@ func main() {
 
 	if isLambdaEnvironment() {
 		// Lambda mode: Always use DynamoDB
-		store, err = storage.NewDynamoStore(cfg.DynamoTable, cfg.DynamoRegion)
+		store, err = storage.NewDynamoStore(cfg.DynamoTable)
 		if err != nil {
 			log.Fatalf("Failed to initialize DynamoDB storage for Lambda: %v", err)
 		}
@@ -69,17 +70,14 @@ func main() {
 		log.Println("Starting in AWS Lambda mode")
 		ginLambdaOnce.Do(func() {
 			ginLambda = ginadapter.New(router)
-		// Run HTTP server; storage cleanup handled after server shutdown
-		runHTTPServer(router, cfg)
-		if err := store.Close(); err != nil {
-			log.Printf("Error closing storage: %v", err)
-		}
+		})
 		lambda.Start(lambdaHandler)
-	} else {
-		// Run in container/server mode
-		log.Printf("Starting in HTTP server mode on port %d", cfg.Port)
-		runHTTPServer(router, cfg, store)
+		return
 	}
+
+	// Run in container/server mode
+	log.Println("Starting in HTTP server mode")
+	runHTTPServer(router, cfg, store)
 }
 
 // lambdaHandler handles Lambda requests
@@ -129,14 +127,20 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
 
 	// Alias for metadata API (shortcut)
-// runHTTPServer starts the HTTP server for container mode
-// Storage cleanup is handled outside this function for clarity.
-func runHTTPServer(router *gin.Engine, cfg *config.Config) {
-	// Create HTTP server
-	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: router,
+	router.GET("/json/:slug", metaHandler.GetMetadata)
+
+	// System routes
+	router.GET("/health", systemHandler.Health)
+	if cfg.EnableMetrics {
+		router.GET("/metrics", systemHandler.Metrics)
 	}
+
+	return router
+}
+
+// runHTTPServer starts the HTTP server for container mode
+func runHTTPServer(router *gin.Engine, cfg *config.Config, store storage.PasteStore) {
+	// Ensure cleanup on exit
 	defer func() {
 		if err := store.Close(); err != nil {
 			log.Printf("Error closing storage: %v", err)

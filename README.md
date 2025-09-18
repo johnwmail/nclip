@@ -1,126 +1,310 @@
 
-
-# nclip Gin Refactor: Requirements & API
-
-- Use Gin for all HTTP endpoints, supporting both AWS Lambda (DynamoDB) and container/on-prem (MongoDB) deployments.
-- Share the same codebase, logic, UI, and data format for both environments.
-- Accept raw/binary input for pastes (text or file) via curl or web UI.
-- Keep MongoDB and DynamoDB data formats as similar as possible.
-
-
-
-## API Endpoints
-
-- `GET /` — Web UI (form for upload, stats, etc.)
-- `POST /` — Upload new paste (raw or file data; returns paste URL)
-- `POST /burn/` — Create burn-after-read paste (deleted after first read)
-- `GET /$slug` — HTML view of paste (browser)
-- `GET /raw/$slug` — Raw data (text or binary, for curl/cli/download)
-- `GET /api/v1/meta/$slug` — JSON metadata (see below)
-- `GET /json/$slug` — Alias for `/api/v1/meta/$slug` (shortcut)
-- `GET /health` — Health check (200 OK)
-- `GET /metrics` — Prometheus metrics (can be disabled)
-
-
-## Paste Metadata (JSON)
-
-Returned by `GET /api/v1/meta/$slug` or `GET /json/$slug`. Does **not** include the actual content.
-
-```json
-{
-  "id": "string",                  // Unique paste ID
-  "created_at": "2025-09-17T12:34:56Z", // ISO8601 timestamp
-  "expires_at": "2025-09-18T12:34:56Z", // ISO8601 (optional, null if no expiry)
-  "size": 12345,                    // Size in bytes
-  "content_type": "text/plain",    // MIME type
-  "burn_after_read": true,          // true if burn-after-read
-  "read_count": 0                   // Number of times read (optional)
-}
-```
-
-*Access content via `/raw/$slug` or `/$slug`, not via metadata.*
-
-## Usage Examples
-
-```bash
-# Upload a paste
-echo "hello world" | curl --data-binary @- http://localhost:8080/
-# Returns: http://localhost:8080/abc123
-
-# Get the content
-curl http://localhost:8080/abc123
-curl http://localhost:8080/raw/abc123
-
-# Get metadata (JSON)
-curl http://localhost:8080/api/v1/meta/abc123
-curl http://localhost:8080/json/abc123  # Shortcut alias
-```
-
-
-**Usage Notes:**
-- Use `POST /burn/` to create a burn-after-read paste (deleted after first read via `GET /$slug`).
-- All uploads/downloads use raw/binary data (not JSON) for maximum compatibility with curl and file uploads.
-- JSON is only for error responses and metadata endpoints.
-- Web UI and API both support burn-after-reading and raw/download features.
-
-
-## Best Practices
-
-- Abstract storage behind a `PasteStore` interface (MongoDB/DynamoDB).
-- Unit tests must cover both storage backends (use mocks as needed).
-- All endpoints should return a standard JSON error format: `{ "error": "message" }`.
-- Reserve `/api/v1/` as a prefix for future API versioning.
-- Provide OpenAPI/Swagger or markdown docs for all endpoints.
-- Use structured logging and Prometheus metrics (optionally tracing).
-- Support graceful shutdown (SIGTERM/SIGINT) in server mode.
-- All features must pass in CI.
-
----
-
-
-
-## Implementation Checklist
-
-- HTTP only (no TCP), default port 8080
-- DynamoDB storage for Lambda; MongoDB for container/K8s
-- Auto-expiration (TTL), default 1 day (configurable)
-- Domain/host detected from HTTP header, override with `NCLIP_URL`
-
-- Health check: `/health`
-- Prometheus metrics: `/metrics` (can disable with `NCLIP_ENABLE_METRICS=false`)
-- Web UI at `/` (can disable with `NCLIP_ENABLE_WEBUI=false`)
-- Web UI: form for upload, shows paste URL, stats, raw/download buttons
-- Burn after reading: `POST /burn/` to create, `GET /$slug` to fetch/delete
-- Raw output: `/raw/$slug`
-- Slug length: default 5 (configurable via `NCLIP_SLUG_LENGTH`)
-- Max buffer size: 1MB (configurable via `NCLIP_BUFFER_SIZE`)
-- All config via env vars and matching CLI flags (e.g., `NCLIP_URL`/`--url`)
-- Single binary, no external deps except MongoDB/DynamoDB
-- Shared logic/code for both Lambda and container; only storage differs
-- Cleanup: remove obsolete/unused files after refactor
-- Code must pass `go fmt`, `go vet`, `golangci-lint`, and have good test coverage
-
-
 [![Test](https://github.com/johnwmail/nclip/workflows/Test/badge.svg)](https://github.com/johnwmail/nclip/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/johnwmail/nclip)](https://goreportcard.com/report/github.com/johnwmail/nclip)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub release](https://img.shields.io/github/release/johnwmail/nclip.svg)](https://github.com/johnwmail/nclip/releases)
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org/)
 
-
 # nclip
 
-
-A modern, high-performance net-to-clipboard service written in Go, inspired by [fiche](https://github.com/solusipse/fiche).
-
+A modern, high-performance HTTP clipboard service written in Go with Gin framework, inspired by [fiche](https://github.com/solusipse/fiche).
 
 ## Overview
 
-
-nclip is an HTTP clipboard service that accepts content via:
+nclip is a versatile clipboard service that accepts content via:
 - **HTTP/curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
-- **HTTP/curl** - Web API with multiline support: `ps | curl --data-binary @- http://localhost:8080`
 - **Web UI** - Browser interface at `http://localhost:8080`
-- **File upload** - Upload files via web UI or curl: `curl --data-binary @/path/to/file http://localhost:8080`
-- **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG` or `http://localhost:8080/SLUG?raw=true`
-- **Burn after reading** - Content that self-destructs after being accessed once via `http://localhost:8080/SLUG?burn=true` or `http://localhost:8080/burn/SLUG`
+- **File upload** - Upload files via web UI or curl multipart forms
+- **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG`
+- **Burn after reading** - Content that self-destructs after being accessed once
+
+## ✨ Features
+
+- 🚀 **Dual Deployment**: Container/Kubernetes (MongoDB) + AWS Lambda (DynamoDB)
+- 🎯 **Unified Codebase**: Same code, logic, and UI for both environments
+- 🗄️ **Multi-Storage Backend**: MongoDB for containers, DynamoDB for serverless
+- 🐳 **Container Ready**: Docker & Kubernetes deployment
+- ⏰ **Auto-Expiration**: TTL support with configurable defaults
+- 🛡️ **Production Ready**: Health checks, Prometheus metrics
+- 📊 **JSON Metadata API**: Programmatic access to paste information
+- 🔧 **Configurable**: Environment variables & CLI flags
+
+## 🚀 Quick Start
+
+### Installation
+```bash
+# Download binary (replace with actual release)
+wget https://github.com/johnwmail/nclip/releases/latest/download/nclip-linux-amd64
+chmod +x nclip-linux-amd64
+sudo mv nclip-linux-amd64 /usr/local/bin/nclip
+
+# Or build from source
+git clone https://github.com/johnwmail/nclip.git
+cd nclip
+go build -o nclip .
+```
+
+### Basic Usage
+```bash
+# Start the service (automatically uses MongoDB in container mode)
+./nclip
+
+# Upload content via curl
+echo "Hello World!" | curl --data-binary @- http://localhost:8080
+# Returns: http://localhost:8080/abc123
+
+# Access content
+curl http://localhost:8080/abc123          # HTML view
+curl http://localhost:8080/raw/abc123      # Raw content
+
+# Web interface
+open http://localhost:8080
+```
+
+
+
+## 📋 API Endpoints
+
+### Core Endpoints
+- `GET /` — Web UI (upload form, stats)
+- `POST /` — Upload paste (returns URL)
+- `POST /burn/` — Create burn-after-read paste
+- `GET /{slug}` — HTML view of paste
+- `GET /raw/{slug}` — Raw content download
+
+### Metadata API
+- `GET /api/v1/meta/{slug}` — JSON metadata (no content)
+- `GET /json/{slug}` — Alias for `/api/v1/meta/{slug}` (shortcut)
+
+### System Endpoints
+- `GET /health` — Health check (200 OK)
+- `GET /metrics` — Prometheus metrics (optional)
+
+## 📊 Paste Metadata (JSON)
+
+Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** include the actual content.
+
+```json
+{
+  "id": "string",                       // Unique paste ID
+  "created_at": "2025-09-17T12:34:56Z", // ISO8601 timestamp
+  "expires_at": "2025-09-18T12:34:56Z", // ISO8601 (null if no expiry)
+  "size": 12345,                        // Size in bytes
+  "content_type": "text/plain",         // MIME type
+  "burn_after_read": true,              // true if burn-after-read
+  "read_count": 0                       // Number of times read
+}
+```
+
+*Access content via `/raw/{slug}` or `/{slug}`, not via metadata.*
+
+## 📋 Usage Examples
+
+### Command Line
+```bash
+# Upload text
+echo "Secret message" | curl --data-binary @- http://localhost:8080
+
+# Upload file
+curl --data-binary @myfile.txt http://localhost:8080
+
+# Upload binary file
+curl --data-binary @document.pdf http://localhost:8080
+
+# Create burn-after-read paste
+echo "Self-destruct message" | curl --data-binary @- http://localhost:8080/burn/
+
+# Get metadata as JSON
+curl http://localhost:8080/json/abc123
+curl http://localhost:8080/api/v1/meta/abc123
+```
+
+### Configuration
+```bash
+# Custom port and URL
+./nclip --port 8080 --url https://paste.example.com
+
+# Custom TTL and buffer size
+./nclip --ttl 48h --buffer-size 5242880  # 5MB max
+
+# Disable web UI or metrics
+./nclip --enable-webui=false --enable-metrics=false
+
+# Environment variables
+export NCLIP_URL=https://paste.example.com
+export NCLIP_TTL=24h
+./nclip
+```
+
+
+## 🐳 Docker Deployment
+
+### Docker Compose (with MongoDB)
+```yaml
+version: '3.8'
+services:
+  nclip:
+    image: johnwmail/nclip:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - NCLIP_MONGO_URL=mongodb://mongo:27017
+      - NCLIP_URL=https://paste.example.com
+    depends_on:
+      - mongo
+  
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
+```
+
+### Kubernetes
+```bash
+# Deploy to Kubernetes with MongoDB
+kubectl apply -f k8s/nclip-mongodb.yaml
+
+# Or build and deploy
+docker build -t nclip .
+kubectl create deployment nclip --image=nclip
+kubectl expose deployment nclip --port=8080 --type=LoadBalancer
+```
+
+## ☁️ AWS Lambda Deployment
+
+nclip automatically switches to DynamoDB when deployed as AWS Lambda (detected via `AWS_LAMBDA_FUNCTION_NAME`).
+
+### Prerequisites
+```bash
+# Create DynamoDB table
+aws dynamodb create-table \
+    --table-name nclip-pastes \
+    --attribute-definitions AttributeName=id,AttributeType=S \
+    --key-schema AttributeName=id,KeyType=HASH \
+    --billing-mode PAY_PER_REQUEST \
+    --stream-specification StreamEnabled=true,StreamViewType=NEW_AND_OLD_IMAGES
+```
+
+### Deploy via GitHub Actions
+```bash
+# Push to lambda deployment branch
+git push origin feature/gin:deploy/lambda
+```
+
+Environment variables for Lambda:
+- `NCLIP_DYNAMO_TABLE=nclip-pastes`
+- `NCLIP_DYNAMO_REGION=us-east-1`
+- `GIN_MODE=release`
+
+## 🗄️ Storage Backends
+
+| Deployment | Storage | Auto-Selected | TTL Support |
+|------------|---------|---------------|-------------|
+| **Container/K8s** | MongoDB | ✅ Automatic | Native TTL indexes |
+| **AWS Lambda** | DynamoDB | ✅ Automatic | Native TTL attribute |
+
+Storage selection is automatic based on deployment environment - no configuration needed!
+
+## ⚙️ Configuration
+
+nclip supports configuration via environment variables and CLI flags.
+
+### Environment Variables
+```bash
+# Server configuration
+NCLIP_PORT=8080                    # HTTP port
+NCLIP_URL=https://paste.example.com # Base URL for paste links
+NCLIP_SLUG_LENGTH=5               # Length of generated slugs
+NCLIP_BUFFER_SIZE=1048576         # Max upload size (1MB)
+NCLIP_TTL=24h                     # Default paste expiration
+
+# Feature toggles
+NCLIP_ENABLE_METRICS=true         # Prometheus metrics
+NCLIP_ENABLE_WEBUI=true          # Web UI
+
+# Storage configuration
+NCLIP_MONGO_URL=mongodb://localhost:27017  # MongoDB connection
+NCLIP_DYNAMO_TABLE=nclip-pastes             # DynamoDB table
+NCLIP_DYNAMO_REGION=us-east-1               # DynamoDB region
+```
+
+### CLI Flags
+All environment variables have corresponding CLI flags:
+```bash
+./nclip --port 8080 --url https://paste.example.com --ttl 48h
+```
+
+## 📊 Monitoring
+
+- **Health Check**: `GET /health` - Returns 200 OK with system status
+- **Metrics**: `GET /metrics` - Prometheus format metrics
+- **Structured Logging**: JSON format with request tracing
+
+Example metrics:
+```
+nclip_pastes_total{status="created"} 1234
+nclip_pastes_total{status="accessed"} 5678
+nclip_http_requests_total{method="POST",status="200"} 1000
+```
+
+## 🔧 Development
+
+### Running Tests
+```bash
+# Format, vet, and test
+go fmt ./... && go vet ./... && go test -v ./...
+
+# Linting
+golangci-lint run
+
+# Build for different platforms
+GOOS=linux GOARCH=amd64 go build -o nclip-linux-amd64 .
+GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o bootstrap .  # Lambda
+```
+
+### Project Structure
+```
+/
+├── main.go              # Unified entry point (container + Lambda)
+├── config/              # Configuration management
+├── storage/             # Storage interface & implementations
+│   ├── interface.go     # PasteStore interface
+│   ├── mongodb.go       # MongoDB implementation
+│   └── dynamodb.go      # DynamoDB implementation
+├── handlers/            # HTTP request handlers
+├── models/              # Data models
+├── static/              # Web UI assets
+└── utils/               # Utilities (slug generation, MIME detection)
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Inspired by [fiche](https://github.com/solusipse/fiche)
+- Built with [Go](https://golang.org/) and [Gin](https://gin-gonic.com/)
+- Supports modern cloud-native deployments
+
+## 🔗 Links
+
+- **Documentation**: [docs/](docs/)
+- **Docker Hub**: `docker pull johnwmail/nclip`
+- **GitHub**: https://github.com/johnwmail/nclip
+- **Issues**: https://github.com/johnwmail/nclip/issues
+
+---
+
+⭐ **Star this repository if you find it useful!**

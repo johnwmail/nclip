@@ -52,7 +52,6 @@ type Config struct {
     DefaultTTL     time.Duration `default:"24h"`
     EnableMetrics  bool   `default:"true"`
     EnableWebUI    bool   `default:"true"`
-    StorageType    string `default:"mongodb"` // "mongodb" or "dynamodb"
     MongoURL       string `default:"mongodb://localhost:27017"`
     DynamoTable    string `default:"nclip-pastes"`
 }
@@ -154,16 +153,20 @@ type PasteStore interface {
 ## Environment Variables
 
 All config via env vars with CLI flag alternatives:
-- `NCLIP_PORT` / `--port`
-- `NCLIP_URL` / `--url`
-- `NCLIP_SLUG_LENGTH` / `--slug-length`
-- `NCLIP_BUFFER_SIZE` / `--buffer-size`
-- `NCLIP_TTL` / `--ttl`
-- `NCLIP_ENABLE_METRICS` / `--enable-metrics`
-- `NCLIP_ENABLE_WEBUI` / `--enable-webui`
-- `NCLIP_STORAGE_TYPE` / `--storage-type`
-- `NCLIP_MONGO_URL` / `--mongo-url`
-- `NCLIP_DYNAMO_TABLE` / `--dynamo-table`
+- `NCLIP_PORT` / `--port` (default: 8080) — HTTP server port
+- `NCLIP_URL` / `--url` (default: auto-detect) — Base URL for paste links (e.g. "https://paste.example.com")
+- `NCLIP_SLUG_LENGTH` / `--slug-length` (default: 5) — Length of generated paste IDs
+- `NCLIP_BUFFER_SIZE` / `--buffer-size` (default: 1048576) — Max upload size in bytes (1MB)
+- `NCLIP_TTL` / `--ttl` (default: "24h") — Default paste expiration time
+- `NCLIP_ENABLE_METRICS` / `--enable-metrics` (default: true) — Enable Prometheus metrics endpoint
+- `NCLIP_ENABLE_WEBUI` / `--enable-webui` (default: true) — Enable web UI interface
+- `NCLIP_MONGO_URL` / `--mongo-url` (default: "mongodb://localhost:27017") — MongoDB connection URL (container mode)
+- `NCLIP_DYNAMO_TABLE` / `--dynamo-table` (default: "nclip-pastes") — DynamoDB table name (Lambda mode)
+
+**Note**: Storage backend is automatically selected based on deployment environment:
+- Container/K8s: Uses MongoDB (NCLIP_MONGO_URL)
+- AWS Lambda: Uses DynamoDB (NCLIP_DYNAMO_TABLE)
+- Detection via AWS_LAMBDA_FUNCTION_NAME environment variable
 
 ## Deployment Modes
 

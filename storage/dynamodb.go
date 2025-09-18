@@ -19,10 +19,9 @@ type DynamoStore struct {
 }
 
 // NewDynamoStore creates a new DynamoDB storage backend
-func NewDynamoStore(tableName, region string) (*DynamoStore, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion(region),
-	)
+// Uses the default AWS region configuration (from environment, IAM role, etc.)
+func NewDynamoStore(tableName string) (*DynamoStore, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
 	}
