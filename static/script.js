@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const copyUrlBtn = document.getElementById('copy-url');
     const viewPasteLink = document.getElementById('view-paste');
     const rawPasteLink = document.getElementById('raw-paste');
+    const newPasteBtn = document.getElementById('new-paste');
 
     // Text upload
     uploadTextBtn.addEventListener('click', function() {
@@ -93,6 +94,12 @@ document.addEventListener('DOMContentLoaded', function() {
         viewPasteLink.href = '/' + slug;
         rawPasteLink.href = '/raw/' + slug;
         
+        // Hide the upload section
+        const uploadSection = document.querySelector('.upload-section');
+        if (uploadSection) {
+            uploadSection.style.display = 'none';
+        }
+        
         resultSection.style.display = 'block';
         resultSection.scrollIntoView({ behavior: 'smooth' });
         
@@ -126,6 +133,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 copyUrlBtn.classList.remove('success');
             }, 2000);
         });
+    });
+
+    // New Paste button functionality
+    newPasteBtn.addEventListener('click', function() {
+        // Hide result section
+        resultSection.style.display = 'none';
+        
+        // Show upload section again
+        const uploadSection = document.querySelector('.upload-section');
+        if (uploadSection) {
+            uploadSection.style.display = 'block';
+        }
+        
+        // Clear forms and focus on text area
+        textContent.value = '';
+        fileInput.value = '';
+        burnTextCheckbox.checked = false;
+        burnFileCheckbox.checked = false;
+        textContent.focus();
     });
 
     // Keyboard shortcuts
