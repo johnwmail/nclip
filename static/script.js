@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .finally(() => {
             uploadTextBtn.disabled = false;
-            uploadTextBtn.textContent = 'Upload Text';
+            uploadTextBtn.textContent = 'Paste Text';
         });
     });
 

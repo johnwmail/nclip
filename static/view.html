@@ -84,18 +84,61 @@
         document.getElementById('copy-content')?.addEventListener('click', function() {
             const contentText = document.getElementById('content-text');
             if (contentText) {
-                navigator.clipboard.writeText(contentText.textContent).then(function() {
-                    const btn = document.getElementById('copy-content');
-                    const originalText = btn.textContent;
-                    btn.textContent = 'Copied!';
-                    btn.classList.add('success');
-                    setTimeout(function() {
-                        btn.textContent = originalText;
-                        btn.classList.remove('success');
-                    }, 2000);
-                });
+                const textToCopy = contentText.textContent || contentText.innerText;
+                
+                // Try modern clipboard API first
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(textToCopy).then(function() {
+                        showCopySuccess();
+                    }).catch(function(err) {
+                        console.error('Clipboard API failed:', err);
+                        fallbackCopy(textToCopy);
+                    });
+                } else {
+                    // Fallback for older browsers or non-HTTPS
+                    fallbackCopy(textToCopy);
+                }
             }
         });
+        
+        function showCopySuccess() {
+            const btn = document.getElementById('copy-content');
+            if (btn) {
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.classList.add('btn-success');
+                setTimeout(function() {
+                    btn.textContent = originalText;
+                    btn.classList.remove('btn-success');
+                }, 2000);
+            }
+        }
+        
+        function fallbackCopy(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showCopySuccess();
+                } else {
+                    console.error('Fallback copy failed');
+                    alert('Copy failed. Please select and copy manually.');
+                }
+            } catch (err) {
+                console.error('Fallback copy error:', err);
+                alert('Copy failed. Please select and copy manually.');
+            } finally {
+                document.body.removeChild(textArea);
+            }
+        }
     </script>
 </body>
 </html>
