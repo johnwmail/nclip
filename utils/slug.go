@@ -1,5 +1,4 @@
-package utilspackage utils
-
+package utils
 
 import (
 	"crypto/rand"
@@ -13,10 +12,10 @@ func GenerateSlug(length int) (string, error) {
 	if length <= 0 {
 		length = 5
 	}
-	
+
 	result := make([]byte, length)
 	charsetLength := big.NewInt(int64(len(charset)))
-	
+
 	for i := range result {
 		randomIndex, err := rand.Int(rand.Reader, charsetLength)
 		if err != nil {
@@ -24,7 +23,7 @@ func GenerateSlug(length int) (string, error) {
 		}
 		result[i] = charset[randomIndex.Int64()]
 	}
-	
+
 	return string(result), nil
 }
 
@@ -33,7 +32,7 @@ func IsValidSlug(slug string) bool {
 	if len(slug) == 0 {
 		return false
 	}
-	
+
 	for _, char := range slug {
 		valid := false
 		for _, validChar := range charset {
@@ -46,6 +45,6 @@ func IsValidSlug(slug string) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }

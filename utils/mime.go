@@ -1,4 +1,3 @@
-package utilspackage
 package utils
 
 import (
@@ -18,12 +17,12 @@ func DetectContentType(filename string, content []byte) string {
 			return mimeType
 		}
 	}
-	
+
 	// Fallback to content-based detection
 	if len(content) > 0 {
 		return http.DetectContentType(content)
 	}
-	
+
 	// Default fallback
 	return "application/octet-stream"
 }
@@ -38,13 +37,13 @@ func IsTextContent(contentType string) bool {
 		"application/x-sh",
 		"application/x-yaml",
 	}
-	
+
 	contentType = strings.ToLower(contentType)
 	for _, textType := range textTypes {
 		if strings.HasPrefix(contentType, textType) {
 			return true
 		}
 	}
-	
+
 	return false
 }

@@ -101,9 +101,9 @@ A modern, high-performance net-to-clipboard service written in Go, inspired by [
 
 
 nclip is an HTTP clipboard service that accepts content via:
-- **HTTP/curl** - Modern web API: `echo "text" | curl -d @- http://localhost:8080`
+- **HTTP/curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
 - **HTTP/curl** - Web API with multiline support: `ps | curl --data-binary @- http://localhost:8080`
 - **Web UI** - Browser interface at `http://localhost:8080`
-- **File upload** - Upload files via web UI or curl: `curl -F 'file=@/path/to/file' http://localhost:8080`
+- **File upload** - Upload files via web UI or curl: `curl --data-binary @/path/to/file http://localhost:8080`
 - **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG` or `http://localhost:8080/SLUG?raw=true`
 - **Burn after reading** - Content that self-destructs after being accessed once via `http://localhost:8080/SLUG?burn=true` or `http://localhost:8080/burn/SLUG`

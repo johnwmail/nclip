@@ -72,7 +72,6 @@ type PasteStore interface {
 
 ### Input Handling
 - Accept raw POST data for text/binary content
-- Support multipart form uploads for files
 - Auto-detect content type from file extension or content
 - Generate random slug IDs (configurable length)
 
@@ -110,8 +109,8 @@ type PasteStore interface {
 - Responsive design for mobile
 
 ### CLI Compatibility
-- `curl -d @- http://host/` — Upload from stdin
-- `curl -F 'file=@path' http://host/` — Upload file
+- `curl --data-binary @- http://host/` — Upload from stdin
+- `curl --data-binary @file http://host/` — Upload file
 - Return plain text URLs for CLI usage
 - Content-Type detection for proper display
 

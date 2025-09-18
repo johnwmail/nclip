@@ -1,5 +1,4 @@
 package handlers
-package handlers
 
 import (
 	"fmt"
@@ -36,16 +35,16 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	var err error
 
 	// Check if it's a multipart form (file upload)
-	if c.Request.Header.Get("Content-Type") != "" && 
+	if c.Request.Header.Get("Content-Type") != "" &&
 		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-		
+
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
 			return
 		}
 		defer file.Close()
-		
+
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
@@ -79,14 +78,14 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	// Create paste
 	expiresAt := time.Now().Add(h.config.DefaultTTL)
 	paste := &models.Paste{
-		ID:           slug,
-		CreatedAt:    time.Now(),
-		ExpiresAt:    &expiresAt,
-		Size:         int64(len(content)),
-		ContentType:  contentType,
+		ID:            slug,
+		CreatedAt:     time.Now(),
+		ExpiresAt:     &expiresAt,
+		Size:          int64(len(content)),
+		ContentType:   contentType,
 		BurnAfterRead: false,
-		ReadCount:    0,
-		Content:      content,
+		ReadCount:     0,
+		Content:       content,
 	}
 
 	// Store paste
@@ -123,16 +122,16 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	var err error
 
 	// Check if it's a multipart form (file upload)
-	if c.Request.Header.Get("Content-Type") != "" && 
+	if c.Request.Header.Get("Content-Type") != "" &&
 		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-		
+
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
 			return
 		}
 		defer file.Close()
-		
+
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
@@ -166,14 +165,14 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	// Create burn-after-read paste
 	expiresAt := time.Now().Add(h.config.DefaultTTL)
 	paste := &models.Paste{
-		ID:           slug,
-		CreatedAt:    time.Now(),
-		ExpiresAt:    &expiresAt,
-		Size:         int64(len(content)),
-		ContentType:  contentType,
+		ID:            slug,
+		CreatedAt:     time.Now(),
+		ExpiresAt:     &expiresAt,
+		Size:          int64(len(content)),
+		ContentType:   contentType,
 		BurnAfterRead: true,
-		ReadCount:    0,
-		Content:      content,
+		ReadCount:     0,
+		Content:       content,
 	}
 
 	// Store paste
@@ -198,8 +197,8 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 
 	// Return JSON for other clients
 	c.JSON(http.StatusOK, gin.H{
-		"url":  pasteURL,
-		"slug": slug,
+		"url":             pasteURL,
+		"slug":            slug,
 		"burn_after_read": true,
 	})
 }
@@ -207,7 +206,7 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 // View handles viewing a paste via GET /:slug
 func (h *PasteHandler) View(c *gin.Context) {
 	slug := c.Param("slug")
-	
+
 	if !utils.IsValidSlug(slug) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
 		return
@@ -250,20 +249,20 @@ func (h *PasteHandler) View(c *gin.Context) {
 
 	// Return JSON for API clients
 	c.JSON(http.StatusOK, gin.H{
-		"id":             paste.ID,
-		"created_at":     paste.CreatedAt,
-		"expires_at":     paste.ExpiresAt,
-		"size":          paste.Size,
-		"content_type":  paste.ContentType,
+		"id":              paste.ID,
+		"created_at":      paste.CreatedAt,
+		"expires_at":      paste.ExpiresAt,
+		"size":            paste.Size,
+		"content_type":    paste.ContentType,
 		"burn_after_read": paste.BurnAfterRead,
-		"content":       string(paste.Content),
+		"content":         string(paste.Content),
 	})
 }
 
 // Raw handles raw content download via GET /raw/:slug
 func (h *PasteHandler) Raw(c *gin.Context) {
 	slug := c.Param("slug")
-	
+
 	if !utils.IsValidSlug(slug) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
 		return
@@ -297,7 +296,7 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 	// Set appropriate headers
 	c.Header("Content-Type", paste.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
-	
+
 	// Return raw content
 	c.Data(http.StatusOK, paste.ContentType, paste.Content)
 }
