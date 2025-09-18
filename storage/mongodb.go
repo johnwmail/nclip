@@ -99,7 +99,7 @@ func (m *MongoStore) Get(id string) (*models.Paste, error) {
 	// Check if expired
 	if paste.IsExpired() {
 		// Delete expired paste
-		m.Delete(id)
+		_ = m.Delete(id) // Ignore delete errors on expired pastes
 		return nil, nil
 	}
 

@@ -16,7 +16,6 @@ type Config struct {
 	DefaultTTL    time.Duration `json:"default_ttl"`
 	EnableMetrics bool          `json:"enable_metrics"`
 	EnableWebUI   bool          `json:"enable_webui"`
-	StorageType   string        `json:"storage_type"`
 	MongoURL      string        `json:"mongo_url"`
 	DynamoTable   string        `json:"dynamo_table"`
 	DynamoRegion  string        `json:"dynamo_region"`
@@ -32,7 +31,6 @@ func LoadConfig() *Config {
 		DefaultTTL:    24 * time.Hour,
 		EnableMetrics: true,
 		EnableWebUI:   true,
-		StorageType:   "mongodb",
 		MongoURL:      "mongodb://localhost:27017",
 		DynamoTable:   "nclip-pastes",
 		DynamoRegion:  "us-east-1",
@@ -46,7 +44,6 @@ func LoadConfig() *Config {
 	flag.DurationVar(&config.DefaultTTL, "ttl", config.DefaultTTL, "Default paste expiration time")
 	flag.BoolVar(&config.EnableMetrics, "enable-metrics", config.EnableMetrics, "Enable Prometheus metrics")
 	flag.BoolVar(&config.EnableWebUI, "enable-webui", config.EnableWebUI, "Enable web UI")
-	flag.StringVar(&config.StorageType, "storage-type", config.StorageType, "Storage backend (mongodb or dynamodb)")
 	flag.StringVar(&config.MongoURL, "mongo-url", config.MongoURL, "MongoDB connection URL")
 	flag.StringVar(&config.DynamoTable, "dynamo-table", config.DynamoTable, "DynamoDB table name")
 	flag.StringVar(&config.DynamoRegion, "dynamo-region", config.DynamoRegion, "DynamoDB region")
@@ -81,9 +78,6 @@ func LoadConfig() *Config {
 	}
 	if val := os.Getenv("NCLIP_ENABLE_WEBUI"); val != "" {
 		config.EnableWebUI = val == "true"
-	}
-	if val := os.Getenv("NCLIP_STORAGE_TYPE"); val != "" {
-		config.StorageType = val
 	}
 	if val := os.Getenv("NCLIP_MONGO_URL"); val != "" {
 		config.MongoURL = val

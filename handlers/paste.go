@@ -43,7 +43,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }() // Ignore close errors in defer
 
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
@@ -130,7 +130,7 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }() // Ignore close errors in defer
 
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))

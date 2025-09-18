@@ -72,7 +72,6 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 		DefaultTTL:    24 * time.Hour,
 		EnableMetrics: true,
 		EnableWebUI:   true,
-		StorageType:   "mock",
 	}
 
 	store := NewMockStore()
@@ -116,7 +115,7 @@ func TestHealthCheck(t *testing.T) {
 	}
 
 	var response map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response) // Ignore error in test
 
 	if response["status"] != "ok" {
 		t.Errorf("Expected status 'ok', got %v", response["status"])

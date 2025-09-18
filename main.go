@@ -14,7 +14,23 @@ import (
 	"github.com/johnwmail/nclip/config"
 	"github.com/johnwmail/nclip/handlers"
 	"github.com/johnwmail/nclip/storage"
+
+	// Lambda imports (only used when in Lambda mode)
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 )
+
+// Lambda-specific variables
+var (
+	ginLambda *ginadapter.GinLambda
+	ginLambdaOnce sync.Once
+)
+
+// isLambdaEnvironment detects if running in AWS Lambda
+func isLambdaEnvironment() bool {
+	return os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != ""
+}
 
 func main() {
 	// Load configuration
@@ -25,32 +41,60 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Initialize storage backend
+	// Initialize storage backend based on deployment mode
 	var store storage.PasteStore
 	var err error
 
-	switch cfg.StorageType {
-	case "mongodb":
+	if isLambdaEnvironment() {
+		// Lambda mode: Always use DynamoDB
+		store, err = storage.NewDynamoStore(cfg.DynamoTable, cfg.DynamoRegion)
+		if err != nil {
+			log.Fatalf("Failed to initialize DynamoDB storage for Lambda: %v", err)
+		}
+		log.Println("Lambda mode: Using DynamoDB storage")
+	} else {
+		// Container mode: Always use MongoDB
 		store, err = storage.NewMongoStore(cfg.MongoURL, "nclip")
 		if err != nil {
 			log.Fatalf("Failed to initialize MongoDB storage: %v", err)
 		}
-	case "dynamodb":
-		store, err = storage.NewDynamoStore(cfg.DynamoTable, cfg.DynamoRegion)
-		if err != nil {
-			log.Fatalf("Failed to initialize DynamoDB storage: %v", err)
-		}
-	default:
-		log.Fatalf("Unknown storage type: %s", cfg.StorageType)
+		log.Println("Container mode: Using MongoDB storage")
 	}
 
-	// Ensure cleanup on exit
-	defer func() {
+	// Setup router
+	router := setupRouter(store, cfg)
+
+	// Check if running in Lambda environment
+	if isLambdaEnvironment() {
+		log.Println("Starting in AWS Lambda mode")
+		ginLambdaOnce.Do(func() {
+			ginLambda = ginadapter.New(router)
+		// Run HTTP server; storage cleanup handled after server shutdown
+		runHTTPServer(router, cfg)
 		if err := store.Close(); err != nil {
 			log.Printf("Error closing storage: %v", err)
 		}
-	}()
+		lambda.Start(lambdaHandler)
+	} else {
+		// Run in container/server mode
+		log.Printf("Starting in HTTP server mode on port %d", cfg.Port)
+		runHTTPServer(router, cfg, store)
+	}
+}
 
+// lambdaHandler handles Lambda requests
+func lambdaHandler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	ginLambdaOnce.Do(func() {
+		// Defensive: ginLambda should already be initialized, but ensure it's not nil
+		if ginLambda == nil {
+			log.Fatal("ginLambda is not initialized")
+		}
+	})
+	return ginLambda.ProxyWithContext(ctx, req)
+}
+
+// setupRouter creates and configures the Gin router
+func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	// Initialize handlers
 	pasteHandler := handlers.NewPasteHandler(store, cfg)
 	metaHandler := handlers.NewMetaHandler(store)
@@ -85,13 +129,19 @@ func main() {
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
 
 	// Alias for metadata API (shortcut)
-	router.GET("/json/:slug", metaHandler.GetMetadata)
-
-	// System routes
-	router.GET("/health", systemHandler.Health)
-	if cfg.EnableMetrics {
-		router.GET("/metrics", systemHandler.Metrics)
+// runHTTPServer starts the HTTP server for container mode
+// Storage cleanup is handled outside this function for clarity.
+func runHTTPServer(router *gin.Engine, cfg *config.Config) {
+	// Create HTTP server
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: router,
 	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			log.Printf("Error closing storage: %v", err)
+		}
+	}()
 
 	// Create HTTP server
 	server := &http.Server{
@@ -102,7 +152,7 @@ func main() {
 	// Start server in a goroutine
 	go func() {
 		log.Printf("Starting nclip server on port %d", cfg.Port)
-		log.Printf("Storage backend: %s", cfg.StorageType)
+		log.Printf("Storage backend: MongoDB (container mode)")
 		log.Printf("Web UI enabled: %t", cfg.EnableWebUI)
 		log.Printf("Metrics enabled: %t", cfg.EnableMetrics)
 

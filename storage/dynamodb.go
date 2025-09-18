@@ -91,7 +91,7 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 	// Check if expired
 	if paste.IsExpired() {
 		// Delete expired paste
-		d.Delete(id)
+		_ = d.Delete(id) // Ignore delete errors on expired pastes
 		return nil, nil
 	}
 

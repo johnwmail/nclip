@@ -59,6 +59,7 @@ type Config struct {
 ```
 
 ## Storage Interface
+- For Storage backends, Container/K8s must uses MongoDB, and AWS Lambda must uses DynamoDB. Both implementations should adhere to the same interface. So, no Storage Environment variable in neededs.
 
 ```go
 type PasteStore interface {
@@ -168,5 +169,16 @@ All config via env vars with CLI flag alternatives:
 
 1. **Container/K8s**: Uses MongoDB, full HTTP server
 2. **AWS Lambda**: Uses DynamoDB, same codebase with Lambda adapter
+3. **Both Lambda and Container, should be use the same main.go, and use the AWS_LAMBDA_FUNCTION_NAME variable to determine the mode. (Don't separate 2 main.go for 2 modes )**
 
 Both modes share identical API and behavior.
+
+## Lambda Deployment with DynamoDB
+- The Lambda code should supprt http v2.0 payload format. (This is the default for new Lambda functions behind an API Gateway HTTP API.)
+- Both Lambda 
+- Use AWS Lambda Go SDK
+- Wrap Gin router with Lambda adapter
+- The DynamoDB table must have a primary key `id` (string) and a TTL attribute `expires_at` (number, epoch time).
+- The DynamoDB region should match the Lambda region.
+- The DynamoDB table name is configurable via `NCLIP_DYNAMO_TABLE` env var (default `nclip-pastes`).
+- Ensure the Lambda execution role has permissions for DynamoDB actions: `dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:DeleteItem`, `dynamodb:UpdateItem`, and `dynamodb:DescribeTable`.

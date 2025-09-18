@@ -11,7 +11,10 @@ require (
 	go.mongodb.org/mongo-driver v1.17.4
 )
 
+require github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
+
 require (
+	github.com/aws/aws-lambda-go v1.49.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.12 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.7 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.7 // indirect
