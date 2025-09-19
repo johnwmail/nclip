@@ -139,6 +139,16 @@ export NCLIP_TTL=24h
 
 ## 🐳 Docker Deployment
 
+### Quick Start with Docker Compose
+```bash
+# Clone and start with the included docker-compose.yml
+git clone https://github.com/johnwmail/nclip.git
+cd nclip
+docker-compose up -d
+
+# Or use the example below
+```
+
 ### Docker Compose (with MongoDB)
 ```yaml
 version: '3.8'
@@ -160,6 +170,13 @@ services:
 
 volumes:
   mongo_data:
+```
+
+### Production Docker Compose
+```bash
+# The repository includes a production-ready docker-compose.yml
+# with MongoDB initialization, TTL indexes, and health checks
+docker-compose up -d
 ```
 
 ### Kubernetes
@@ -196,7 +213,6 @@ git push origin feature/gin:deploy/lambda
 
 Environment variables for Lambda:
 - `NCLIP_DYNAMO_TABLE=nclip-pastes`
-- `NCLIP_DYNAMO_REGION=us-east-1`
 - `GIN_MODE=release`
 
 ## 🗄️ Storage Backends
@@ -228,7 +244,6 @@ NCLIP_ENABLE_WEBUI=true          # Web UI
 # Storage configuration
 NCLIP_MONGO_URL=mongodb://localhost:27017  # MongoDB connection
 NCLIP_DYNAMO_TABLE=nclip-pastes             # DynamoDB table
-NCLIP_DYNAMO_REGION=us-east-1               # DynamoDB region
 ```
 
 ### CLI Flags

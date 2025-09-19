@@ -71,8 +71,13 @@ jobs:
       run: |
         cd dist/
         for file in *; do
-          tar -czf "${file}.tar.gz" "$file"
-          rm "$file"
+          # Create a directory for each binary with static assets
+          dir_name="${file%.*}"  # Remove extension
+          mkdir -p "$dir_name"
+          mv "$file" "$dir_name/nclip"
+          cp -r ../static "$dir_name/"
+          tar -czf "${file}.tar.gz" "$dir_name"
+          rm -rf "$dir_name"
         done
         
     - name: Upload build artifacts

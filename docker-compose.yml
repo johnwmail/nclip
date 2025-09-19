@@ -34,13 +34,11 @@ services:
       NCLIP_MONGO_URL: mongodb://nclip:secure_password_123@mongodb:27017/nclip?authSource=admin
       
       # Application Configuration
-      NCLIP_URL: http://localhost:8080
-      NCLIP_HTTP_PORT: 8080
-      NCLIP_EXPIRE_DAYS: 30
-      NCLIP_LOG_LEVEL: info
+      #NCLIP_URL: http://localhost:8080
+      NCLIP_PORT: 8080
+      NCLIP_TTL: 24h
       NCLIP_ENABLE_METRICS: "true"
       NCLIP_ENABLE_WEBUI: "true"
-      NCLIP_RATE_LIMIT: "20/min"
     ports:
       - "8080:8080"   # HTTP interface
     depends_on:
@@ -48,9 +46,6 @@ services:
         condition: service_healthy
     networks:
       - nclip-network
-    volumes:
-      # Optional: filesystem fallback
-      - nclip_files:/app/pastes
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -78,16 +73,8 @@ services:
 volumes:
   mongodb_data:
     driver: local
-  nclip_files:
-    driver: local
 
 networks:
   nclip-network:
     driver: bridge
 
-# Production deployment notes:
-# 1. Change all passwords in production
-# 2. Use Docker secrets for sensitive data
-# 3. Configure SSL/TLS for external access
-# 4. Set up backup strategies for persistent volumes
-# 5. Configure monitoring and logging

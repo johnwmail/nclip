@@ -44,7 +44,8 @@ jobs:
         run: |
           mkdir -p lambda-artifacts
           mv -f bootstrap lambda-artifacts/bootstrap
-          ls -l lambda-artifacts
+          cp -r static lambda-artifacts/static
+          ls -la lambda-artifacts
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

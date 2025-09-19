@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "*" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   security-events: write
@@ -209,3 +213,125 @@ jobs:
         name: nclip-${{ matrix.goos }}-${{ matrix.goarch }}
         path: dist/
         retention-days: 30
+
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Start MongoDB with initialization script
+      run: |
+        # Start MongoDB container with proper volume mount after checkout
+        docker run -d \
+          --name mongodb \
+          -p 27017:27017 \
+          -e MONGO_INITDB_ROOT_USERNAME=nclip \
+          -e MONGO_INITDB_ROOT_PASSWORD=secure_password_123 \
+          -e MONGO_INITDB_DATABASE=nclip \
+          -v ${{ github.workspace }}/scripts/mongodb-init.js:/docker-entrypoint-initdb.d/init.js:ro \
+          --health-cmd "timeout 10s bash -c 'mongosh --eval \"db.runCommand({ping: 1})\"'" \
+          --health-interval 10s \
+          --health-timeout 10s \
+          --health-retries 10 \
+          --health-start-period 40s \
+          mongo:7.0
+          
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+          
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Build nclip binary
+      env:
+        CGO_ENABLED: 0
+      run: |
+        VERSION="test-${GITHUB_SHA:0:7}"
+        go build -v \
+          -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.gitCommit=${GITHUB_SHA:0:7}" \
+          -o nclip \
+          .
+        chmod +x nclip
+        
+    - name: Wait for MongoDB to be ready
+      run: |
+        # Wait for MongoDB to be ready (initialization should happen automatically via volume mount)
+        echo "Waiting for MongoDB to be ready..."
+        for i in {1..30}; do
+          if mongosh --eval "db.runCommand({ping: 1})" >/dev/null 2>&1; then
+            echo "MongoDB is ready!"
+            break
+          elif [ $i -eq 30 ]; then
+            echo "MongoDB failed to become ready after 30 attempts"
+            exit 1
+          else
+            echo "Attempt $i/30: MongoDB not ready, waiting 2s..."
+            sleep 2
+          fi
+        done
+        echo "MongoDB initialization should have completed automatically via volume mount"
+        
+    - name: Start nclip server
+      env:
+        NCLIP_MONGO_URL: mongodb://nclip:secure_password_123@localhost:27017/nclip?authSource=admin
+        NCLIP_PORT: 8080
+        NCLIP_ENABLE_WEBUI: true
+        NCLIP_ENABLE_METRICS: true
+        GIN_MODE: release
+      run: |
+        echo "Starting nclip server..."
+        ./nclip &
+        NCLIP_PID=$!
+        echo "NCLIP_PID=$NCLIP_PID" >> $GITHUB_ENV
+        echo "nclip started with PID: $NCLIP_PID"
+        
+    - name: Run integration tests
+      env:
+        NCLIP_URL: http://localhost:8080
+      run: |
+        echo "Running integration tests..."
+        bash scripts/integration-test.sh
+        
+    - name: Stop nclip server
+      if: always()
+      run: |
+        if [ -n "${NCLIP_PID:-}" ]; then
+          echo "Stopping nclip server (PID: $NCLIP_PID)"
+          kill $NCLIP_PID || true
+          sleep 2
+          kill -9 $NCLIP_PID 2>/dev/null || true
+        fi
+        
+    - name: Stop MongoDB container
+      if: always()
+      run: |
+        echo "Stopping MongoDB container..."
+        docker stop mongodb || true
+        docker rm mongodb || true
+        
+    - name: Upload integration test artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-artifacts
+        path: |
+          nclip
+          scripts/
+        retention-days: 7
