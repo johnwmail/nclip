@@ -46,9 +46,9 @@ MongoDB initialization script used for both production and test environments. Cr
 
 The integration tests are automatically run in the GitHub Actions workflow (`test.yml`) with:
 
-- **MongoDB Service**: Real MongoDB 7.0 instance with authentication and health checks
+- **MongoDB Service**: Real MongoDB 7.0 instance with authentication and automatic initialization via volume mount
 - **Service Dependencies**: Tests run after unit tests and linting pass
-- **Conditional Execution**: Only runs on main branch pushes and pull requests
+- **Conditional Execution**: Runs on main/dev branch pushes and pull requests
 - **Artifact Collection**: Failed tests upload debugging artifacts
 - **Proper Cleanup**: Server processes are gracefully terminated
 
