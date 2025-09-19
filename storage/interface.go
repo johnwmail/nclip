@@ -1,0 +1,21 @@
+package storage
+
+import "github.com/johnwmail/nclip/models"
+
+// PasteStore defines the interface for paste storage backends
+type PasteStore interface {
+	// Store saves a paste to the storage backend
+	Store(paste *models.Paste) error
+
+	// Get retrieves a paste by its ID
+	Get(id string) (*models.Paste, error)
+
+	// Delete removes a paste from storage
+	Delete(id string) error
+
+	// IncrementReadCount increments the read count for a paste
+	IncrementReadCount(id string) error
+
+	// Close closes the storage connection
+	Close() error
+}

@@ -1,85 +1,103 @@
-// MongoDB initialization script
-// This script runs when the MongoDB container starts for the first time
+// MongoDB initialization script for nclip
+// This script runs when MongoDB container starts for the first time
 
-// Switch to the nclip database
+print('Initializing nclip database...');
+
+// Switch to nclip database
 db = db.getSiblingDB('nclip');
 
-// Create the pastes collection with schema validation
-db.createCollection('pastes', {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      required: ["_id", "content", "created_at", "expires_at"],
-      properties: {
-        _id: {
-          bsonType: "string",
-          description: "Paste ID - must be a string"
-        },
-        content: {
-          bsonType: "binData",
-          description: "Paste content as binary data"
-        },
-        content_type: {
-          bsonType: "string",
-          description: "MIME type of the content"
-        },
-        filename: {
-          bsonType: "string", 
-          description: "Optional filename"
-        },
-        language: {
-          bsonType: "string",
-          description: "Programming language for syntax highlighting"
-        },
-        title: {
-          bsonType: "string",
-          description: "Optional paste title"
-        },
-        created_at: {
-          bsonType: "date",
-          description: "Creation timestamp"
-        },
-        expires_at: {
-          bsonType: "date", 
-          description: "Expiration timestamp for TTL"
-        },
-        client_ip: {
-          bsonType: "string",
-          description: "Client IP address"
-        },
-        size: {
-          bsonType: "long",
-          description: "Content size in bytes"
-        },
-        metadata: {
-          bsonType: "object",
-          description: "Additional metadata"
-        }
-      }
+// Create nclip user with read/write permissions on nclip database
+db.createUser({
+  user: 'nclip',
+  pwd: 'secure_password_123',
+  roles: [
+    {
+      role: 'readWrite',
+      db: 'nclip'
     }
-  }
+  ]
 });
 
+print('Created nclip user');
+
+// Also create the same user in admin database for easier connection
+db = db.getSiblingDB('admin');
+db.createUser({
+  user: 'nclip',
+  pwd: 'secure_password_123',
+  roles: [
+    {
+      role: 'readWrite',
+      db: 'nclip'
+    }
+  ]
+});
+
+print('Created nclip user in admin database');
+
+// Switch back to nclip database for collection setup
+db = db.getSiblingDB('nclip');
+
+// Create pastes collection
+db.createCollection('pastes');
+
+print('Created pastes collection');
+
 // Create TTL index for automatic expiration
+// This index will automatically remove documents when expires_at is reached
 db.pastes.createIndex(
-  { "expires_at": 1 }, 
-  { expireAfterSeconds: 0 }
+  { "expires_at": 1 },
+  { 
+    expireAfterSeconds: 0,
+    name: "ttl_expires_at"
+  }
 );
 
-// Create index for efficient queries
-db.pastes.createIndex({ "created_at": 1 });
-db.pastes.createIndex({ "client_ip": 1 });
-db.pastes.createIndex({ "size": 1 });
+print('Created TTL index on expires_at field');
 
-// Create index for content type queries
-db.pastes.createIndex({ "content_type": 1 });
+// Create index on paste ID for faster lookups
+db.pastes.createIndex(
+  { "_id": 1 },
+  { 
+    name: "idx_paste_id",
+    unique: true
+  }
+);
 
-print("MongoDB nclip database initialized successfully!");
-print("Collections created:");
-print("- pastes (with TTL index on expires_at)");
-print("Indexes created:");
-print("- TTL index on expires_at");
-print("- created_at index");
-print("- client_ip index"); 
-print("- size index");
-print("- content_type index");
+print('Created unique index on _id field');
+
+// Create index on created_at for chronological queries
+db.pastes.createIndex(
+  { "created_at": -1 },
+  { 
+    name: "idx_created_at"
+  }
+);
+
+print('Created index on created_at field');
+
+// Create compound index for burn-after-read queries
+db.pastes.createIndex(
+  { 
+    "burn_after_read": 1,
+    "read_count": 1
+  },
+  { 
+    name: "idx_burn_after_read"
+  }
+);
+
+print('Created compound index for burn-after-read functionality');
+
+// Verify collections and indexes
+print('Collections in nclip database:');
+db.getCollectionNames().forEach(function(collection) {
+  print('  - ' + collection);
+});
+
+print('Indexes on pastes collection:');
+db.pastes.getIndexes().forEach(function(index) {
+  print('  - ' + index.name + ': ' + JSON.stringify(index.key));
+});
+
+print('MongoDB initialization completed successfully!');

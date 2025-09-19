@@ -3,154 +3,182 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/johnwmail/nclip/config"
+	"github.com/johnwmail/nclip/handlers"
+	"github.com/johnwmail/nclip/storage"
+
+	// Lambda imports (only used when in Lambda mode)
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/johnwmail/nclip/internal/config"
-	"github.com/johnwmail/nclip/internal/lambda/dynamodb"
-	"github.com/johnwmail/nclip/internal/server"
-	"github.com/johnwmail/nclip/internal/storage"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 )
 
+// Lambda-specific variables
 var (
-	version   = "dev"
-	buildTime = "unknown"
-	gitCommit = "unknown"
+	ginLambda     *ginadapter.GinLambda
+	ginLambdaOnce sync.Once
 )
+
+// isLambdaEnvironment detects if running in AWS Lambda
+func isLambdaEnvironment() bool {
+	return os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != ""
+}
 
 func main() {
-	// Detect environment - if AWS_LAMBDA_RUNTIME_API is set, we're running in Lambda
-	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" || os.Getenv("_LAMBDA_SERVER_PORT") != "" {
-		runAsLambda()
-	} else {
-		runAsServer()
-	}
-}
-
-// runAsLambda runs the application as an AWS Lambda function
-func runAsLambda() {
-	// Initialize DynamoDB storage and start Lambda handler
-	dynamodb.InitDynamoStorage()
-	lambda.Start(dynamodb.Handler)
-}
-
-// runAsServer runs the application as a traditional HTTP server
-func runAsServer() {
 	// Load configuration
-	cfg, err := config.LoadFromFlags()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Configuration error: %v\n", err)
-		os.Exit(1)
+	cfg := config.LoadConfig()
+
+	// Set Gin mode based on environment
+	if os.Getenv("GIN_MODE") == "" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Setup logging
-	logger := setupLogging(cfg)
+	// Initialize storage backend based on deployment mode
+	var store storage.PasteStore
+	var err error
 
-	logger.Info("Starting nclip (HTTP-only)",
-		"version", version,
-		"build_time", buildTime,
-		"git_commit", gitCommit,
-		"base_url", cfg.BaseURL,
-		"http_port", cfg.HTTPPort)
-
-	// Enforce MongoDB storage for container/app mode per requirements
-	if cfg.StorageType != "mongodb" {
-		logger.Warn("Overriding storage type to mongodb for app/container mode", "was", cfg.StorageType)
-		cfg.StorageType = "mongodb"
+	if isLambdaEnvironment() {
+		// Lambda mode: Always use DynamoDB
+		store, err = storage.NewDynamoStore(cfg.DynamoTable)
+		if err != nil {
+			log.Fatalf("Failed to initialize DynamoDB storage for Lambda: %v", err)
+		}
+		log.Println("Lambda mode: Using DynamoDB storage")
+	} else {
+		// Container mode: Always use MongoDB
+		store, err = storage.NewMongoStore(cfg.MongoURL, "nclip")
+		if err != nil {
+			log.Fatalf("Failed to initialize MongoDB storage: %v", err)
+		}
+		log.Println("Container mode: Using MongoDB storage")
 	}
 
-	// Initialize storage
-	store, err := storage.NewStorage(cfg, logger)
-	if err != nil {
-		logger.Error("Failed to initialize storage", "error", err)
-		os.Exit(1)
+	// Setup router
+	router := setupRouter(store, cfg)
+
+	// Check if running in Lambda environment
+	if isLambdaEnvironment() {
+		log.Println("Starting in AWS Lambda mode")
+		ginLambdaOnce.Do(func() {
+			ginLambda = ginadapter.New(router)
+		})
+		lambda.Start(lambdaHandler)
+		return
 	}
+
+	// Run in container/server mode
+	log.Println("Starting in HTTP server mode")
+	runHTTPServer(router, cfg, store)
+}
+
+// lambdaHandler handles Lambda requests
+func lambdaHandler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	ginLambdaOnce.Do(func() {
+		// Defensive: ginLambda should already be initialized, but ensure it's not nil
+		if ginLambda == nil {
+			log.Fatal("ginLambda is not initialized")
+		}
+	})
+	return ginLambda.ProxyWithContext(ctx, req)
+}
+
+// setupRouter creates and configures the Gin router
+func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
+	// Initialize handlers
+	pasteHandler := handlers.NewPasteHandler(store, cfg)
+	metaHandler := handlers.NewMetaHandler(store)
+	systemHandler := handlers.NewSystemHandler()
+	webuiHandler := handlers.NewWebUIHandler(cfg)
+
+	// Create Gin router
+	router := gin.New()
+
+	// Add logging middleware
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
+
+	// Load HTML templates
+	router.LoadHTMLGlob("static/*.html")
+
+	// Serve static files
+	router.Static("/static", "./static")
+
+	// Web UI routes
+	if cfg.EnableWebUI {
+		router.GET("/", webuiHandler.Index)
+	}
+
+	// Core API routes
+	router.POST("/", pasteHandler.Upload)
+	router.POST("/burn/", pasteHandler.UploadBurn)
+	router.GET("/:slug", pasteHandler.View)
+	router.GET("/raw/:slug", pasteHandler.Raw)
+
+	// Metadata API
+	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
+
+	// Alias for metadata API (shortcut)
+	router.GET("/json/:slug", metaHandler.GetMetadata)
+
+	// System routes
+	router.GET("/health", systemHandler.Health)
+	if cfg.EnableMetrics {
+		router.GET("/metrics", systemHandler.Metrics)
+	}
+
+	return router
+}
+
+// runHTTPServer starts the HTTP server for container mode
+func runHTTPServer(router *gin.Engine, cfg *config.Config, store storage.PasteStore) {
+	// Ensure cleanup on exit
 	defer func() {
 		if err := store.Close(); err != nil {
-			logger.Error("Failed to close storage", "error", err)
+			log.Printf("Error closing storage: %v", err)
 		}
 	}()
 
-	// Start HTTP server only (TCP disabled)
-	httpServer := server.NewHTTPServer(cfg, store, logger)
-	if err := httpServer.Start(); err != nil {
-		logger.Error("Failed to start HTTP server", "error", err)
-		os.Exit(1)
+	// Create HTTP server
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: router,
 	}
 
-	logger.Info("HTTP server started successfully")
-	logger.Info("Ready to accept connections",
-		"curl_usage", fmt.Sprintf("echo 'test' | curl -d @- %s", cfg.GetBaseURL()),
-		"web_interface", cfg.GetBaseURL())
+	// Start server in a goroutine
+	go func() {
+		log.Printf("Starting nclip server on port %d", cfg.Port)
+		log.Printf("Storage backend: MongoDB (container mode)")
+		log.Printf("Web UI enabled: %t", cfg.EnableWebUI)
+		log.Printf("Metrics enabled: %t", cfg.EnableMetrics)
 
-	// Wait for shutdown signal
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
 
-	<-sigChan
-	logger.Info("Shutdown signal received, stopping servers...")
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
 
-	// Graceful shutdown
+	// Create a deadline for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Stop servers (we'll use ctx for timeout if needed later)
-	_ = ctx // Mark as used for now
-	if err := httpServer.Stop(); err != nil {
-		logger.Error("Error stopping HTTP server", "error", err)
-	}
-
-	// Run cleanup
-	logger.Info("Running cleanup...")
-	if err := store.Cleanup(); err != nil {
-		logger.Error("Error during cleanup", "error", err)
-	}
-
-	logger.Info("Shutdown complete")
-}
-
-// setupLogging configures structured logging
-func setupLogging(cfg *config.Config) *slog.Logger {
-	var handler slog.Handler
-
-	// Configure log level
-	var level slog.Level
-	switch cfg.LogLevel {
-	case "debug":
-		level = slog.LevelDebug
-	case "info":
-		level = slog.LevelInfo
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-
-	opts := &slog.HandlerOptions{
-		Level: level,
-	}
-
-	// Configure output
-	if cfg.LogFile != "" {
-		// Log to file
-		file, err := os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open log file: %v\n", err)
-			os.Exit(1)
-		}
-		handler = slog.NewJSONHandler(file, opts)
+	// Attempt graceful shutdown
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
 	} else {
-		// Log to stderr
-		handler = slog.NewTextHandler(os.Stderr, opts)
+		log.Println("Server shutdown complete")
 	}
-
-	return slog.New(handler)
 }
-
-// (removed unused getHostFromURL)

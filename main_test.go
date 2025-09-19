@@ -1,233 +1,346 @@
 package main
 
 import (
-	"os"
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/johnwmail/nclip/config"
+	"github.com/johnwmail/nclip/handlers"
+	"github.com/johnwmail/nclip/models"
 )
 
-func TestEnvironmentDetection(t *testing.T) {
-	tests := []struct {
-		name           string
-		envVars        map[string]string
-		expectedLambda bool
-	}{
-		{
-			name:           "No Lambda environment variables",
-			envVars:        map[string]string{},
-			expectedLambda: false,
-		},
-		{
-			name: "AWS_LAMBDA_RUNTIME_API set",
-			envVars: map[string]string{
-				"AWS_LAMBDA_RUNTIME_API": "test-api",
-			},
-			expectedLambda: true,
-		},
-		{
-			name: "_LAMBDA_SERVER_PORT set",
-			envVars: map[string]string{
-				"_LAMBDA_SERVER_PORT": "8080",
-			},
-			expectedLambda: true,
-		},
-		{
-			name: "Both Lambda environment variables set",
-			envVars: map[string]string{
-				"AWS_LAMBDA_RUNTIME_API": "test-api",
-				"_LAMBDA_SERVER_PORT":    "8080",
-			},
-			expectedLambda: true,
-		},
-		{
-			name: "Other environment variables",
-			envVars: map[string]string{
-				"PATH":     "/usr/bin",
-				"HOME":     "/home/user",
-				"SOME_VAR": "value",
-			},
-			expectedLambda: false,
-		},
-	}
+// MockStore implements PasteStore for testing
+type MockStore struct {
+	pastes    map[string]*models.Paste
+	readCount map[string]int
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Save original environment
-			originalEnv := make(map[string]string)
-			for key := range tt.envVars {
-				if val, exists := os.LookupEnv(key); exists {
-					originalEnv[key] = val
-				}
-			}
-
-			// Clear Lambda environment variables first
-			_ = os.Unsetenv("AWS_LAMBDA_RUNTIME_API")
-			_ = os.Unsetenv("_LAMBDA_SERVER_PORT")
-
-			// Set test environment variables
-			for key, value := range tt.envVars {
-				_ = os.Setenv(key, value)
-			}
-
-			// Test environment detection logic
-			isLambda := os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" || os.Getenv("_LAMBDA_SERVER_PORT") != ""
-
-			if isLambda != tt.expectedLambda {
-				t.Errorf("Expected Lambda detection: %v, got: %v", tt.expectedLambda, isLambda)
-			}
-
-			// Restore original environment
-			for key := range tt.envVars {
-				_ = os.Unsetenv(key)
-			}
-			for key, value := range originalEnv {
-				_ = os.Setenv(key, value)
-			}
-		})
+func NewMockStore() *MockStore {
+	return &MockStore{
+		pastes:    make(map[string]*models.Paste),
+		readCount: make(map[string]int),
 	}
 }
 
-func TestMainFunction(t *testing.T) {
-	// This test ensures that main() doesn't panic when called in different scenarios
-	// We can't easily test the actual execution paths without complex mocking,
-	// but we can test that the environment detection logic is sound.
-
-	// Save original environment
-	originalRuntime := os.Getenv("AWS_LAMBDA_RUNTIME_API")
-	originalPort := os.Getenv("_LAMBDA_SERVER_PORT")
-
-	defer func() {
-		// Restore original environment
-		if originalRuntime != "" {
-			_ = os.Setenv("AWS_LAMBDA_RUNTIME_API", originalRuntime)
-		} else {
-			_ = os.Unsetenv("AWS_LAMBDA_RUNTIME_API")
-		}
-
-		if originalPort != "" {
-			_ = os.Setenv("_LAMBDA_SERVER_PORT", originalPort)
-		} else {
-			_ = os.Unsetenv("_LAMBDA_SERVER_PORT")
-		}
-	}()
-
-	t.Run("Server mode detection", func(t *testing.T) {
-		// Clear Lambda environment variables
-		_ = os.Unsetenv("AWS_LAMBDA_RUNTIME_API")
-		_ = os.Unsetenv("_LAMBDA_SERVER_PORT")
-
-		// This should detect server mode
-		isLambda := os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" || os.Getenv("_LAMBDA_SERVER_PORT") != ""
-		if isLambda {
-			t.Error("Expected server mode detection, but got Lambda mode")
-		}
-	})
-
-	t.Run("Lambda mode detection", func(t *testing.T) {
-		// Set Lambda environment variable
-		_ = os.Setenv("AWS_LAMBDA_RUNTIME_API", "test")
-
-		// This should detect Lambda mode
-		isLambda := os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" || os.Getenv("_LAMBDA_SERVER_PORT") != ""
-		if !isLambda {
-			t.Error("Expected Lambda mode detection, but got server mode")
-		}
-	})
+func (m *MockStore) Store(paste *models.Paste) error {
+	m.pastes[paste.ID] = paste
+	return nil
 }
 
-func TestBuildInfo(t *testing.T) {
-	// Test that build info variables are properly declared
-	// These are set at build time via ldflags
-
-	if version == "" {
-		t.Log("version is empty (expected for test builds)")
+func (m *MockStore) Get(id string) (*models.Paste, error) {
+	paste, exists := m.pastes[id]
+	if !exists {
+		return nil, nil
 	}
-
-	if buildTime == "" && buildTime != "unknown" {
-		t.Log("buildTime is empty (expected for test builds)")
+	// Check if expired
+	if paste.IsExpired() {
+		delete(m.pastes, id)
+		return nil, nil
 	}
-
-	if gitCommit == "" && gitCommit != "unknown" {
-		t.Log("gitCommit is empty (expected for test builds)")
-	}
-
-	// Ensure they're at least initialized
-	_ = version
-	_ = buildTime
-	_ = gitCommit
+	return paste, nil
 }
 
-// TestLambdaFunctionTimeout tests that Lambda function doesn't run indefinitely
-func TestLambdaFunctionTimeout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping timeout test in short mode")
+func (m *MockStore) Delete(id string) error {
+	delete(m.pastes, id)
+	return nil
+}
+
+func (m *MockStore) IncrementReadCount(id string) error {
+	if paste, exists := m.pastes[id]; exists {
+		paste.ReadCount++
+		m.readCount[id]++
+	}
+	return nil
+}
+
+func (m *MockStore) Close() error {
+	return nil
+}
+
+func setupTestRouter() (*gin.Engine, *MockStore) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{
+		Port:          8080,
+		SlugLength:    5,
+		BufferSize:    1048576,
+		DefaultTTL:    24 * time.Hour,
+		EnableMetrics: true,
+		EnableWebUI:   true,
 	}
 
-	// This test verifies that we can safely test Lambda mode detection
-	// without actually starting the Lambda runtime
+	store := NewMockStore()
 
-	originalRuntime := os.Getenv("AWS_LAMBDA_RUNTIME_API")
-	defer func() {
-		if originalRuntime != "" {
-			_ = os.Setenv("AWS_LAMBDA_RUNTIME_API", originalRuntime)
-		} else {
-			_ = os.Unsetenv("AWS_LAMBDA_RUNTIME_API")
-		}
-	}()
+	pasteHandler := handlers.NewPasteHandler(store, cfg)
+	metaHandler := handlers.NewMetaHandler(store)
+	systemHandler := handlers.NewSystemHandler()
+	webuiHandler := handlers.NewWebUIHandler(cfg)
 
-	// Set a test Lambda environment
-	_ = os.Setenv("AWS_LAMBDA_RUNTIME_API", "localhost:8099")
+	router := gin.New()
+	router.LoadHTMLGlob("static/*.html")
+	router.Static("/static", "./static")
 
-	// Create a channel to track if Lambda mode would be triggered
-	done := make(chan bool, 1)
+	// Routes
+	if cfg.EnableWebUI {
+		router.GET("/", webuiHandler.Index)
+	}
+	router.POST("/", pasteHandler.Upload)
+	router.POST("/burn/", pasteHandler.UploadBurn)
+	router.GET("/:slug", pasteHandler.View)
+	router.GET("/raw/:slug", pasteHandler.Raw)
+	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
+	router.GET("/json/:slug", metaHandler.GetMetadata)
+	router.GET("/health", systemHandler.Health)
+	if cfg.EnableMetrics {
+		router.GET("/metrics", systemHandler.Metrics)
+	}
 
-	go func() {
-		// Simulate the environment detection logic
-		isLambda := os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" || os.Getenv("_LAMBDA_SERVER_PORT") != ""
-		done <- isLambda
-	}()
+	return router, store
+}
 
-	// Wait for the detection with a timeout
-	select {
-	case result := <-done:
-		if !result {
-			t.Error("Expected Lambda mode detection to return true")
-		}
-	case <-time.After(1 * time.Second):
-		t.Error("Environment detection took too long")
+func TestHealthCheck(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/health", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var response map[string]interface{}
+	_ = json.Unmarshal(w.Body.Bytes(), &response) // Ignore error in test
+
+	if response["status"] != "ok" {
+		t.Errorf("Expected status 'ok', got %v", response["status"])
 	}
 }
 
-// BenchmarkEnvironmentDetection benchmarks the environment detection logic
-func BenchmarkEnvironmentDetection(b *testing.B) {
-	// Clear environment variables for consistent benchmarking
-	_ = os.Unsetenv("AWS_LAMBDA_RUNTIME_API")
-	_ = os.Unsetenv("_LAMBDA_SERVER_PORT")
+func TestUploadText(t *testing.T) {
+	router, store := setupTestRouter()
 
-	b.ResetTimer()
+	content := "Hello, World!"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	router.ServeHTTP(w, req)
 
-	for i := 0; i < b.N; i++ {
-		_ = os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" || os.Getenv("_LAMBDA_SERVER_PORT") != ""
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// Check if paste was stored
+	if len(store.pastes) != 1 {
+		t.Errorf("Expected 1 paste in store, got %d", len(store.pastes))
+	}
+
+	// Verify the response contains a URL
+	responseBody := w.Body.String()
+	if responseBody == "" {
+		t.Error("Expected non-empty response body")
 	}
 }
 
-// BenchmarkEnvironmentDetectionWithVars benchmarks when environment variables are set
-func BenchmarkEnvironmentDetectionWithVars(b *testing.B) {
-	originalRuntime := os.Getenv("AWS_LAMBDA_RUNTIME_API")
-	defer func() {
-		if originalRuntime != "" {
-			_ = os.Setenv("AWS_LAMBDA_RUNTIME_API", originalRuntime)
-		} else {
-			_ = os.Unsetenv("AWS_LAMBDA_RUNTIME_API")
+func TestGetPaste(t *testing.T) {
+	router, store := setupTestRouter()
+
+	// First, create a paste
+	paste := &models.Paste{
+		ID:          "test1",
+		CreatedAt:   time.Now(),
+		Size:        5,
+		ContentType: "text/plain",
+		Content:     []byte("hello"),
+	}
+	store.Store(paste)
+
+	// Now retrieve it
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/test1", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+func TestGetRawPaste(t *testing.T) {
+	router, store := setupTestRouter()
+
+	content := []byte("raw content")
+	paste := &models.Paste{
+		ID:          "test2",
+		CreatedAt:   time.Now(),
+		Size:        int64(len(content)),
+		ContentType: "text/plain",
+		Content:     content,
+	}
+	store.Store(paste)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/raw/test2", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	if !bytes.Equal(w.Body.Bytes(), content) {
+		t.Errorf("Expected body %s, got %s", content, w.Body.Bytes())
+	}
+}
+
+func TestGetMetadata(t *testing.T) {
+	router, store := setupTestRouter()
+
+	paste := &models.Paste{
+		ID:          "test3",
+		CreatedAt:   time.Now(),
+		Size:        10,
+		ContentType: "text/plain",
+		Content:     []byte("test content"),
+	}
+	store.Store(paste)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/v1/meta/test3", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+
+	if response["id"] != "test3" {
+		t.Errorf("Expected id 'test3', got %v", response["id"])
+	}
+
+	if response["size"] != float64(10) {
+		t.Errorf("Expected size 10, got %v", response["size"])
+	}
+}
+
+func TestGetMetadataAlias(t *testing.T) {
+	router, store := setupTestRouter()
+
+	paste := &models.Paste{
+		ID:          "test4",
+		CreatedAt:   time.Now(),
+		Size:        15,
+		ContentType: "text/plain",
+		Content:     []byte("alias test content"),
+	}
+	store.Store(paste)
+
+	// Test the /json/:slug alias
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/json/test4", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+
+	if response["id"] != "test4" {
+		t.Errorf("Expected id 'test4', got %v", response["id"])
+	}
+
+	if response["size"] != float64(15) {
+		t.Errorf("Expected size 15, got %v", response["size"])
+	}
+
+	// Verify both endpoints return the same data
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("GET", "/api/v1/meta/test4", nil)
+	router.ServeHTTP(w2, req2)
+
+	if w.Body.String() != w2.Body.String() {
+		t.Errorf("Alias route should return same data as original route")
+	}
+}
+
+func TestBurnAfterRead(t *testing.T) {
+	router, store := setupTestRouter()
+
+	content := "burn this"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/burn/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// Extract slug from response
+	responseBody := w.Body.String()
+	if responseBody == "" {
+		t.Fatal("Expected non-empty response body")
+	}
+
+	// Find the paste in store to get its ID
+	var pasteID string
+	for id, paste := range store.pastes {
+		if paste.BurnAfterRead {
+			pasteID = id
+			break
 		}
-	}()
+	}
 
-	// Set environment variable for benchmarking
-	_ = os.Setenv("AWS_LAMBDA_RUNTIME_API", "test")
+	if pasteID == "" {
+		t.Fatal("Could not find burn-after-read paste")
+	}
 
-	b.ResetTimer()
+	// Read the paste once
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("GET", "/"+pasteID, nil)
+	router.ServeHTTP(w2, req2)
 
-	for i := 0; i < b.N; i++ {
-		_ = os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" || os.Getenv("_LAMBDA_SERVER_PORT") != ""
+	if w2.Code != http.StatusOK {
+		t.Errorf("Expected status 200 on first read, got %d", w2.Code)
+	}
+
+	// Try to read again - should be gone
+	w3 := httptest.NewRecorder()
+	req3, _ := http.NewRequest("GET", "/"+pasteID, nil)
+	router.ServeHTTP(w3, req3)
+
+	if w3.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404 on second read, got %d", w3.Code)
+	}
+}
+
+func TestNotFound(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/nonexistent", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
+	}
+}
+
+func TestInvalidSlug(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/invalid-slug!", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
