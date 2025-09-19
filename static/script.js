@@ -15,6 +15,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const rawPasteLink = document.getElementById('raw-paste');
     const newPasteBtn = document.getElementById('new-paste');
 
+    // Capture initial usage examples HTML to restore exactly later
+    const usageSection = document.querySelector('.usage-section');
+    const usageExamplesContainer = document.querySelector('.code-examples');
+    const initialUsageHTML = usageExamplesContainer ? usageExamplesContainer.innerHTML : '';
+
     // Text upload
     uploadTextBtn.addEventListener('click', function() {
         const content = textContent.value.trim();
@@ -139,25 +144,50 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // New Paste button functionality
-    newPasteBtn.addEventListener('click', function() {
+    newPasteBtn.addEventListener('click', function(event) {
+        // Always reload the main page to ensure a pristine, server-rendered state
+        event.preventDefault();
+        window.location.assign('/');
+        return;
+        
+        // Legacy fallback (kept for reference, unreachable due to return above)
         // Hide result section
         resultSection.style.display = 'none';
-        
+
         // Show upload section again
         const uploadSection = document.querySelector('.upload-section');
         if (uploadSection) {
             uploadSection.style.display = 'block';
         }
-        
-        // Clear forms and focus on text area
+
+        // Reset all form fields
         textContent.value = '';
         fileInput.value = '';
         burnTextCheckbox.checked = false;
         burnFileCheckbox.checked = false;
+
+        // Remove any file selection
+        if (fileInput) {
+            fileInput.value = '';
+        }
+
+        // Restore original usage examples exactly as initial render
+        if (usageExamplesContainer) {
+            usageExamplesContainer.innerHTML = initialUsageHTML;
+        }
+
+        // Show all usage examples (in case any were hidden)
+        const examples = document.querySelectorAll('.example');
+        examples.forEach(e => e.style.display = 'block');
+
+        // Show the usage section if it was hidden
+        if (usageSection) usageSection.style.display = 'block';
+
+        // Scroll to top for a clean experience
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Focus on the text area
         textContent.focus();
-        
-        // Restore original usage examples
-        restoreOriginalUsageExamples();
     });
 
     // Update usage examples to show how to read the created paste
@@ -182,29 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Restore original usage examples for new paste
-    function restoreOriginalUsageExamples() {
-        const examples = document.querySelectorAll('.example');
-        
-        if (examples.length >= 3) {
-            // Get the base URL from current location
-            const baseUrl = window.location.origin;
-            
-            // Restore original examples
-            examples[0].querySelector('p').textContent = 'Upload text:';
-            examples[0].querySelector('code').textContent = `echo "hello world" | curl --data-binary @- ${baseUrl}`;
-            
-            examples[1].querySelector('p').textContent = 'Upload file:';
-            examples[1].querySelector('code').textContent = `curl --data-binary @/path/to/file ${baseUrl}`;
-            
-            examples[2].querySelector('p').textContent = 'Burn after reading:';
-            examples[2].querySelector('code').textContent = `echo "secret" | curl --data-binary @- ${baseUrl}/burn/`;
-            
-            // Show all examples
-            examples[0].style.display = 'block';
-            examples[1].style.display = 'block';
-            examples[2].style.display = 'block';
-        }
-    }
+    function restoreOriginalUsageExamples() { /* no-op: handled by initialUsageHTML restore */ }
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
