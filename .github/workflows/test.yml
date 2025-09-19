@@ -237,6 +237,7 @@ jobs:
             break
           elif [ $i -eq 30 ]; then
             echo "MongoDB failed to become ready after 30 attempts"
+            docker ps -a
             docker compose logs mongodb
             exit 1
           else
@@ -245,14 +246,6 @@ jobs:
           fi
         done
         echo "MongoDB initialization completed automatically via docker compose"
-            docker-compose logs mongodb
-            exit 1
-          else
-            echo "Attempt $i/30: MongoDB not ready, waiting 2s..."
-            sleep 2
-          fi
-        done
-        echo "MongoDB initialization completed automatically via docker-compose"
           
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -282,24 +275,6 @@ jobs:
           -o nclip \
           .
         chmod +x nclip
-        
-    - name: Wait for MongoDB to be ready
-      run: |
-        # Wait for MongoDB to be ready (initialization should happen automatically via volume mount)
-        echo "Waiting for MongoDB to be ready..."
-        for i in {1..30}; do
-          if mongosh --eval "db.runCommand({ping: 1})" >/dev/null 2>&1; then
-            echo "MongoDB is ready!"
-            break
-          elif [ $i -eq 30 ]; then
-            echo "MongoDB failed to become ready after 30 attempts"
-            exit 1
-          else
-            echo "Attempt $i/30: MongoDB not ready, waiting 2s..."
-            sleep 2
-          fi
-        done
-        echo "MongoDB initialization should have completed automatically via volume mount"
         
     - name: Start nclip server
       env:
