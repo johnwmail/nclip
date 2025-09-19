@@ -40,9 +40,6 @@ COPY --from=builder /app/nclip .
 # Copy static assets for web UI
 COPY --from=builder /app/static ./static
 
-# Copy MongoDB init script into app image for use as default init script
-COPY --from=builder /app/scripts/mongodb-init.js /docker-entrypoint-initdb.d/init.js
-
 # Create directories and set permissions
 RUN mkdir -p pastes logs && \
     chown -R nclip:nclip /app
