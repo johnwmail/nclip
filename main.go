@@ -24,7 +24,8 @@ import (
 
 // Lambda-specific variables
 var (
-	ginLambda     *ginadapter.GinLambda
+	ginLambdaV1   *ginadapter.GinLambda
+	ginLambdaV2   *ginadapter.GinLambdaV2
 	ginLambdaOnce sync.Once
 )
 
@@ -69,7 +70,8 @@ func main() {
 	if isLambdaEnvironment() {
 		log.Println("Starting in AWS Lambda mode")
 		ginLambdaOnce.Do(func() {
-			ginLambda = ginadapter.New(router)
+			ginLambdaV1 = ginadapter.New(router)
+			ginLambdaV2 = ginadapter.NewV2(router)
 		})
 		lambda.Start(lambdaHandler)
 		return
@@ -80,15 +82,35 @@ func main() {
 	runHTTPServer(router, cfg, store)
 }
 
-// lambdaHandler handles Lambda requests
-func lambdaHandler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+// lambdaHandler handles Lambda requests for both v1 and v2 formats
+func lambdaHandler(ctx context.Context, event interface{}) (interface{}, error) {
 	ginLambdaOnce.Do(func() {
-		// Defensive: ginLambda should already be initialized, but ensure it's not nil
-		if ginLambda == nil {
-			log.Fatal("ginLambda is not initialized")
+		// Defensive: adapters should already be initialized, but ensure they're not nil
+		if ginLambdaV1 == nil || ginLambdaV2 == nil {
+			log.Fatal("Lambda adapters are not initialized")
 		}
 	})
-	return ginLambda.ProxyWithContext(ctx, req)
+
+	// Try to handle as APIGatewayV2HTTPRequest first (for Lambda Function URLs and HTTP API)
+	if reqV2, ok := event.(events.APIGatewayV2HTTPRequest); ok {
+		log.Printf("Handling as APIGatewayV2HTTPRequest (Lambda Function URL/HTTP API)")
+		return ginLambdaV2.ProxyWithContext(ctx, reqV2)
+	}
+
+	// Fall back to APIGatewayProxyRequest (for REST API and ALB)
+	if reqV1, ok := event.(events.APIGatewayProxyRequest); ok {
+		log.Printf("Handling as APIGatewayProxyRequest (REST API/ALB)")
+		return ginLambdaV1.ProxyWithContext(ctx, reqV1)
+	}
+
+	// If neither format matches, return error
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: 500,
+		Body:       "Unsupported event type",
+		Headers: map[string]string{
+			"Content-Type": "text/plain",
+		},
+	}, fmt.Errorf("unsupported event type: %T", event)
 }
 
 // setupRouter creates and configures the Gin router
