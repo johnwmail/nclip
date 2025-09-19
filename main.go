@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -91,19 +92,42 @@ func lambdaHandler(ctx context.Context, event interface{}) (interface{}, error) 
 		}
 	})
 
-	// Try to handle as APIGatewayV2HTTPRequest first (for Lambda Function URLs and HTTP API)
-	if reqV2, ok := event.(events.APIGatewayV2HTTPRequest); ok {
+	// Log the raw event for debugging
+	log.Printf("Received event type: %T", event)
+
+	// Convert event to JSON bytes for parsing
+	eventBytes, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("Failed to marshal event: %v", err)
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       "Failed to process event",
+			Headers: map[string]string{
+				"Content-Type": "text/plain",
+			},
+		}, err
+	}
+
+	// Try to parse as APIGatewayV2HTTPRequest first (for Lambda Function URLs and HTTP API)
+	var reqV2 events.APIGatewayV2HTTPRequest
+	if err := json.Unmarshal(eventBytes, &reqV2); err == nil && reqV2.RequestContext.HTTP.Method != "" {
 		log.Printf("Handling as APIGatewayV2HTTPRequest (Lambda Function URL/HTTP API)")
+		log.Printf("Method: %s, Path: %s", reqV2.RequestContext.HTTP.Method, reqV2.RawPath)
 		return ginLambdaV2.ProxyWithContext(ctx, reqV2)
 	}
 
-	// Fall back to APIGatewayProxyRequest (for REST API and ALB)
-	if reqV1, ok := event.(events.APIGatewayProxyRequest); ok {
+	// Try to parse as APIGatewayProxyRequest (for REST API and ALB)
+	var reqV1 events.APIGatewayProxyRequest
+	if err := json.Unmarshal(eventBytes, &reqV1); err == nil && reqV1.HTTPMethod != "" {
 		log.Printf("Handling as APIGatewayProxyRequest (REST API/ALB)")
+		log.Printf("Method: %s, Path: %s", reqV1.HTTPMethod, reqV1.Path)
 		return ginLambdaV1.ProxyWithContext(ctx, reqV1)
 	}
 
-	// If neither format matches, return error
+	// If neither format works, log the event structure and return error
+	log.Printf("Unable to parse event as APIGateway v1 or v2 format")
+	log.Printf("Event JSON: %s", string(eventBytes))
+
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: 500,
 		Body:       "Unsupported event type",
