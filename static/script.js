@@ -96,7 +96,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Show result
     function showResult(url, slug) {
         pasteUrlInput.value = url;
-        viewPasteLink.href = '/' + slug;
+        if (viewPasteLink) {
+            viewPasteLink.href = '/' + slug;
+        }
         rawPasteLink.href = '/raw/' + slug;
         
         // Hide the upload section

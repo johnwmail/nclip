@@ -59,6 +59,12 @@
                         <div class="content-actions">
                             <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download>Download</a>
                             <button id="copy-content" class="btn btn-secondary">Copy</button>
+                            <a href="/" class="btn btn-primary">
+                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                New Paste
+                            </a>
                         </div>
                     </div>
                     {{if .IsText}}
@@ -117,14 +123,6 @@
         </main>
 
         <footer>
-            <div class="action-buttons" style="margin-top:2rem; text-align:center;">
-                <a href="/" class="btn btn-primary" id="new-paste-view">
-                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                    </svg>
-                    New Paste
-                </a>
-            </div>
             <p>nclip - Open source clipboard service</p>
         </footer>
     </div>
