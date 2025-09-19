@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,7 +25,8 @@ import (
 
 // Lambda-specific variables
 var (
-	ginLambda     *ginadapter.GinLambda
+	ginLambdaV1   *ginadapter.GinLambda
+	ginLambdaV2   *ginadapter.GinLambdaV2
 	ginLambdaOnce sync.Once
 )
 
@@ -69,7 +71,8 @@ func main() {
 	if isLambdaEnvironment() {
 		log.Println("Starting in AWS Lambda mode")
 		ginLambdaOnce.Do(func() {
-			ginLambda = ginadapter.New(router)
+			ginLambdaV1 = ginadapter.New(router)
+			ginLambdaV2 = ginadapter.NewV2(router)
 		})
 		lambda.Start(lambdaHandler)
 		return
@@ -80,15 +83,58 @@ func main() {
 	runHTTPServer(router, cfg, store)
 }
 
-// lambdaHandler handles Lambda requests
-func lambdaHandler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+// lambdaHandler handles Lambda requests for both v1 and v2 formats
+func lambdaHandler(ctx context.Context, event interface{}) (interface{}, error) {
 	ginLambdaOnce.Do(func() {
-		// Defensive: ginLambda should already be initialized, but ensure it's not nil
-		if ginLambda == nil {
-			log.Fatal("ginLambda is not initialized")
+		// Defensive: adapters should already be initialized, but ensure they're not nil
+		if ginLambdaV1 == nil || ginLambdaV2 == nil {
+			log.Fatal("Lambda adapters are not initialized")
 		}
 	})
-	return ginLambda.ProxyWithContext(ctx, req)
+
+	// Log the raw event for debugging
+	log.Printf("Received event type: %T", event)
+
+	// Convert event to JSON bytes for parsing
+	eventBytes, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("Failed to marshal event: %v", err)
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 500,
+			Body:       "Failed to process event",
+			Headers: map[string]string{
+				"Content-Type": "text/plain",
+			},
+		}, err
+	}
+
+	// Try to parse as APIGatewayV2HTTPRequest first (for Lambda Function URLs and HTTP API)
+	var reqV2 events.APIGatewayV2HTTPRequest
+	if err := json.Unmarshal(eventBytes, &reqV2); err == nil && reqV2.RequestContext.HTTP.Method != "" {
+		log.Printf("Handling as APIGatewayV2HTTPRequest (Lambda Function URL/HTTP API)")
+		log.Printf("Method: %s, Path: %s", reqV2.RequestContext.HTTP.Method, reqV2.RawPath)
+		return ginLambdaV2.ProxyWithContext(ctx, reqV2)
+	}
+
+	// Try to parse as APIGatewayProxyRequest (for REST API and ALB)
+	var reqV1 events.APIGatewayProxyRequest
+	if err := json.Unmarshal(eventBytes, &reqV1); err == nil && reqV1.HTTPMethod != "" {
+		log.Printf("Handling as APIGatewayProxyRequest (REST API/ALB)")
+		log.Printf("Method: %s, Path: %s", reqV1.HTTPMethod, reqV1.Path)
+		return ginLambdaV1.ProxyWithContext(ctx, reqV1)
+	}
+
+	// If neither format works, log the event structure and return error
+	log.Printf("Unable to parse event as APIGateway v1 or v2 format")
+	log.Printf("Event JSON: %s", string(eventBytes))
+
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: 500,
+		Body:       "Unsupported event type",
+		Headers: map[string]string{
+			"Content-Type": "text/plain",
+		},
+	}, fmt.Errorf("unsupported event type: %T", event)
 }
 
 // setupRouter creates and configures the Gin router

@@ -61,6 +61,9 @@ jobs:
         
         VERSION=${GITHUB_REF#refs/tags/}
         
+        # Ensure dist directory exists
+        mkdir -p dist
+        
         echo "Building $BINARY_NAME for $GOOS/$GOARCH..."
         go build -v \
           -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.gitCommit=${GITHUB_SHA:0:7}" \
@@ -70,15 +73,27 @@ jobs:
     - name: Create archive
       run: |
         cd dist/
+        echo "Files in dist directory:"
+        ls -la
         for file in *; do
-          # Create a directory for each binary with static assets
-          dir_name="${file%.*}"  # Remove extension
-          mkdir -p "$dir_name"
-          mv "$file" "$dir_name/nclip"
-          cp -r ../static "$dir_name/"
-          tar -czf "${file}.tar.gz" "$dir_name"
-          rm -rf "$dir_name"
+          if [ -f "$file" ]; then
+            # Create a directory for each binary with static assets
+            dir_name="${file}"
+            echo "Processing file: $file -> directory: $dir_name"
+            
+            # Remove directory if it exists to avoid conflicts
+            rm -rf "$dir_name"
+            
+            mkdir "$dir_name"
+            mv "$file" "$dir_name/nclip"
+            cp -r ../static "$dir_name/"
+            tar -czf "${file}.tar.gz" "$dir_name"
+            rm -rf "$dir_name"
+            echo "Created archive: ${file}.tar.gz"
+          fi
         done
+        echo "Final archives:"
+        ls -la *.tar.gz
         
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
