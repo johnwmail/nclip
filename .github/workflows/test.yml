@@ -220,28 +220,27 @@ jobs:
     needs: [test, lint]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
     
-    services:
-      mongodb:
-        image: mongo:7.0
-        ports:
-          - 27017:27017
-        env:
-          MONGO_INITDB_ROOT_USERNAME: nclip
-          MONGO_INITDB_ROOT_PASSWORD: secure_password_123
-          MONGO_INITDB_DATABASE: nclip
-        volumes:
-          - ${{ github.workspace }}/scripts/mongodb-init.js:/docker-entrypoint-initdb.d/init.js:ro
-        options: >-
-          --health-cmd "timeout 10s bash -c 'mongosh --eval \"db.runCommand({ping: 1})\"'"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 10
-          --health-start-period 40s
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Start MongoDB with initialization script
+      run: |
+        # Start MongoDB container with proper volume mount after checkout
+        docker run -d \
+          --name mongodb \
+          -p 27017:27017 \
+          -e MONGO_INITDB_ROOT_USERNAME=nclip \
+          -e MONGO_INITDB_ROOT_PASSWORD=secure_password_123 \
+          -e MONGO_INITDB_DATABASE=nclip \
+          -v ${{ github.workspace }}/scripts/mongodb-init.js:/docker-entrypoint-initdb.d/init.js:ro \
+          --health-cmd "timeout 10s bash -c 'mongosh --eval \"db.runCommand({ping: 1})\"'" \
+          --health-interval 10s \
+          --health-timeout 10s \
+          --health-retries 10 \
+          --health-start-period 40s \
+          mongo:7.0
+          
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -319,6 +318,13 @@ jobs:
           sleep 2
           kill -9 $NCLIP_PID 2>/dev/null || true
         fi
+        
+    - name: Stop MongoDB container
+      if: always()
+      run: |
+        echo "Stopping MongoDB container..."
+        docker stop mongodb || true
+        docker rm mongodb || true
         
     - name: Upload integration test artifacts
       if: failure()
