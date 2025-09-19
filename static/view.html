@@ -19,62 +19,112 @@
         </header>
 
         <main>
-            <div class="paste-info">
-                <h2>Paste Details</h2>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>ID:</label>
-                        <span>{{.Paste.ID}}</span>
+            <div id="paste-view-section">
+                <div class="paste-info">
+                    <h2>Paste Details</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>ID:</label>
+                            <span>{{.Paste.ID}}</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Size:</label>
+                            <span>{{.Paste.Size}} bytes</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Type:</label>
+                            <span>{{.Paste.ContentType}}</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Created:</label>
+                            <span>{{.Paste.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
+                        </div>
+                        {{if .Paste.ExpiresAt}}
+                        <div class="info-item">
+                            <label>Expires:</label>
+                            <span>{{.Paste.ExpiresAt.Format "2006-01-02 15:04:05"}}</span>
+                        </div>
+                        {{end}}
+                        {{if .Paste.BurnAfterRead}}
+                        <div class="info-item burn-notice">
+                            <label>⚠️ Burn After Read:</label>
+                            <span>This paste will be deleted after viewing</span>
+                        </div>
+                        {{end}}
                     </div>
-                    <div class="info-item">
-                        <label>Size:</label>
-                        <span>{{.Paste.Size}} bytes</span>
+                </div>
+                <div class="content-section">
+                    <div class="content-header">
+                        <h3>Content</h3>
+                        <div class="content-actions">
+                            <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download>Download</a>
+                            <button id="copy-content" class="btn btn-secondary">Copy</button>
+                        </div>
                     </div>
-                    <div class="info-item">
-                        <label>Type:</label>
-                        <span>{{.Paste.ContentType}}</span>
+                    {{if .IsText}}
+                    <div class="content-display">
+                        <pre id="content-text"><code>{{.Content}}</code></pre>
                     </div>
-                    <div class="info-item">
-                        <label>Created:</label>
-                        <span>{{.Paste.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
-                    </div>
-                    {{if .Paste.ExpiresAt}}
-                    <div class="info-item">
-                        <label>Expires:</label>
-                        <span>{{.Paste.ExpiresAt.Format "2006-01-02 15:04:05"}}</span>
-                    </div>
-                    {{end}}
-                    {{if .Paste.BurnAfterRead}}
-                    <div class="info-item burn-notice">
-                        <label>⚠️ Burn After Read:</label>
-                        <span>This paste will be deleted after viewing</span>
+                    {{else}}
+                    <div class="binary-notice">
+                        <p>This is a binary file. <a href="/raw/{{.Paste.ID}}">Download</a> to view.</p>
                     </div>
                     {{end}}
                 </div>
             </div>
 
-            <div class="content-section">
-                <div class="content-header">
-                    <h3>Content</h3>
-                    <div class="content-actions">
-                        <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download>Download</a>
-                        <button id="copy-content" class="btn btn-secondary">Copy</button>
+            <!-- Upload form, hidden by default -->
+            <div class="card upload-section" id="upload-section" style="display:none; margin-top:2rem;">
+                <h2>
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    Paste Content
+                </h2>
+                <div class="form-group">
+                    <label for="text-content">Text Content</label>
+                    <textarea id="text-content" placeholder="Paste your text here..."></textarea>
+                    <div class="form-controls">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="burn-text">
+                            <label for="burn-text">Burn after reading</label>
+                        </div>
+                        <button id="upload-text" class="btn btn-primary">
+                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Paste Text
+                        </button>
                     </div>
                 </div>
-                
-                {{if .IsText}}
-                <div class="content-display">
-                    <pre id="content-text"><code>{{.Content}}</code></pre>
+                <div class="form-group">
+                    <label for="file-input">File Upload</label>
+                    <input type="file" id="file-input">
+                    <div class="form-controls">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="burn-file">
+                            <label for="burn-file">Burn after reading</label>
+                        </div>
+                        <button id="upload-file" class="btn btn-primary">
+                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Upload File
+                        </button>
+                    </div>
                 </div>
-                {{else}}
-                <div class="binary-notice">
-                    <p>This is a binary file. <a href="/raw/{{.Paste.ID}}">Download</a> to view.</p>
-                </div>
-                {{end}}
             </div>
         </main>
 
         <footer>
+            <div class="action-buttons" style="margin-top:2rem; text-align:center;">
+                <a href="/" class="btn btn-primary" id="new-paste-view">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    New Paste
+                </a>
+            </div>
             <p>nclip - Open source clipboard service</p>
         </footer>
     </div>
