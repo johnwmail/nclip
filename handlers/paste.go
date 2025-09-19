@@ -28,6 +28,22 @@ func NewPasteHandler(store storage.PasteStore, config *config.Config) *PasteHand
 	}
 }
 
+// generatePasteURL creates the full URL for a paste, respecting HTTPS-only setting
+func (h *PasteHandler) generatePasteURL(c *gin.Context, slug string) string {
+	// If base URL is explicitly set, use it (takes precedence)
+	if h.config.URL != "" {
+		return fmt.Sprintf("%s/%s", h.config.URL, slug)
+	}
+
+	// Determine scheme
+	scheme := "http"
+	if h.config.HTTPSOnly || c.Request.TLS != nil {
+		scheme = "https"
+	}
+
+	return fmt.Sprintf("%s://%s/%s", scheme, c.Request.Host, slug)
+}
+
 // Upload handles paste upload via POST /
 func (h *PasteHandler) Upload(c *gin.Context) {
 	var content []byte
@@ -95,11 +111,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	}
 
 	// Generate URL
-	baseURL := h.config.URL
-	if baseURL == "" {
-		baseURL = fmt.Sprintf("http://%s", c.Request.Host)
-	}
-	pasteURL := fmt.Sprintf("%s/%s", baseURL, slug)
+	pasteURL := h.generatePasteURL(c, slug)
 
 	// Return URL as plain text for curl compatibility
 	if strings.Contains(c.Request.Header.Get("User-Agent"), "curl") ||
@@ -182,11 +194,7 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	}
 
 	// Generate URL
-	baseURL := h.config.URL
-	if baseURL == "" {
-		baseURL = fmt.Sprintf("http://%s", c.Request.Host)
-	}
-	pasteURL := fmt.Sprintf("%s/%s", baseURL, slug)
+	pasteURL := h.generatePasteURL(c, slug)
 
 	// Return URL as plain text for curl compatibility
 	if strings.Contains(c.Request.Header.Get("User-Agent"), "curl") ||

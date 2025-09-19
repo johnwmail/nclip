@@ -92,7 +92,7 @@ jobs:
           publish: true
           role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
           s3-bucket: "${{ vars.BUCKET }}"
-          environment: '{"NCLIP_DYNAMO_TABLE":"${{ vars.NCLIP_DYNAMODB_TABLE }}","GIN_MODE":"release"}'
+          environment: '{"NCLIP_DYNAMO_TABLE":"${{ vars.NCLIP_DYNAMODB_TABLE }}","GIN_MODE":"release","NCLIP_HTTPS_ONLY":"true"}'
 
       - name: Post-deploy info
         run: |

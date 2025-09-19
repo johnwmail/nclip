@@ -344,3 +344,135 @@ func TestInvalidSlug(t *testing.T) {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
+
+func TestHTTPSOnly(t *testing.T) {
+	// Test with HTTPS-only enabled
+	store := NewMockStore()
+	cfg := &config.Config{
+		SlugLength:    5,
+		BufferSize:    1048576,
+		DefaultTTL:    24 * time.Hour,
+		EnableMetrics: false,
+		EnableWebUI:   true,
+		HTTPSOnly:     true, // Enable HTTPS-only
+		URL:           "",   // No explicit URL set
+	}
+
+	router := setupRouter(store, cfg)
+
+	content := "test HTTPS-only"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	req.Host = "example.com" // Set the host for URL generation
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// Parse JSON response
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse JSON response: %v", err)
+	}
+
+	// Check that URL starts with https://
+	url, ok := response["url"].(string)
+	if !ok {
+		t.Fatalf("URL not found in response")
+	}
+
+	expectedPrefix := "https://example.com/"
+	if len(url) < len(expectedPrefix) || url[:len(expectedPrefix)] != expectedPrefix {
+		t.Errorf("Expected URL to start with %s, got %s", expectedPrefix, url)
+	}
+}
+
+func TestHTTPSOnlyWithExplicitURL(t *testing.T) {
+	// Test that explicit URL takes precedence over HTTPS-only
+	store := NewMockStore()
+	cfg := &config.Config{
+		SlugLength:    5,
+		BufferSize:    1048576,
+		DefaultTTL:    24 * time.Hour,
+		EnableMetrics: false,
+		EnableWebUI:   true,
+		HTTPSOnly:     true,                            // Enable HTTPS-only
+		URL:           "http://custom-domain.com:8080", // Explicit URL with HTTP
+	}
+
+	router := setupRouter(store, cfg)
+
+	content := "test explicit URL override"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	req.Host = "example.com"
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// Parse JSON response
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse JSON response: %v", err)
+	}
+
+	// Check that URL uses the explicit URL (even though it's HTTP)
+	url, ok := response["url"].(string)
+	if !ok {
+		t.Fatalf("URL not found in response")
+	}
+
+	expectedPrefix := "http://custom-domain.com:8080/"
+	if len(url) < len(expectedPrefix) || url[:len(expectedPrefix)] != expectedPrefix {
+		t.Errorf("Expected URL to start with %s, got %s", expectedPrefix, url)
+	}
+}
+
+func TestHTTPSOnlyDisabled(t *testing.T) {
+	// Test with HTTPS-only disabled (default behavior)
+	store := NewMockStore()
+	cfg := &config.Config{
+		SlugLength:    5,
+		BufferSize:    1048576,
+		DefaultTTL:    24 * time.Hour,
+		EnableMetrics: false,
+		EnableWebUI:   true,
+		HTTPSOnly:     false, // Disable HTTPS-only
+		URL:           "",    // No explicit URL set
+	}
+
+	router := setupRouter(store, cfg)
+
+	content := "test HTTP default"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	req.Host = "example.com"
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// Parse JSON response
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse JSON response: %v", err)
+	}
+
+	// Check that URL starts with http:// (default behavior)
+	url, ok := response["url"].(string)
+	if !ok {
+		t.Fatalf("URL not found in response")
+	}
+
+	expectedPrefix := "http://example.com/"
+	if len(url) < len(expectedPrefix) || url[:len(expectedPrefix)] != expectedPrefix {
+		t.Errorf("Expected URL to start with %s, got %s", expectedPrefix, url)
+	}
+}
