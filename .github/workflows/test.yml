@@ -226,6 +226,8 @@ jobs:
         ports:
           - 27017:27017
         env:
+          MONGO_INITDB_ROOT_USERNAME: nclip
+          MONGO_INITDB_ROOT_PASSWORD: secure_password_123
           MONGO_INITDB_DATABASE: nclip
         options: >-
           --health-cmd "timeout 10s bash -c 'mongosh --eval \"db.runCommand({ping: 1})\"'"
@@ -284,14 +286,14 @@ jobs:
           fi
         done
         
-        # Initialize database with test script
-        echo "Initializing MongoDB with test configuration..."
-        mongosh nclip < scripts/mongo-init-test.js
+        # Initialize database with existing script
+        echo "Initializing MongoDB with production configuration..."
+        mongosh nclip < scripts/mongodb-init.js
         echo "MongoDB initialization completed"
         
     - name: Start nclip server
       env:
-        NCLIP_MONGO_URL: mongodb://localhost:27017
+        NCLIP_MONGO_URL: mongodb://nclip:secure_password_123@localhost:27017/nclip?authSource=admin
         NCLIP_PORT: 8080
         NCLIP_ENABLE_WEBUI: true
         NCLIP_ENABLE_METRICS: true

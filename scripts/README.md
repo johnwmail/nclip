@@ -32,19 +32,21 @@ bash scripts/integration-test.sh
 - `RETRY_DELAY`: Delay between retries in seconds (default: 2)
 - `MAX_RETRIES`: Maximum number of retries for readiness check (default: 15)
 
-### `mongo-init-test.js`
-MongoDB initialization script for test environments. Creates necessary indexes for proper paste management and expiration.
+### `mongodb-init.js`
+MongoDB initialization script used for both production and test environments. Creates necessary users, collections, and indexes for proper paste management and expiration.
 
 **Features:**
+- User creation with appropriate permissions
 - TTL index for automatic paste expiration
 - Unique index on paste ID field
 - Created timestamp index for queries
+- Compound index for burn-after-read functionality
 
 ## GitHub Actions Integration
 
 The integration tests are automatically run in the GitHub Actions workflow (`test.yml`) with:
 
-- **MongoDB Service**: Real MongoDB 7.0 instance with health checks
+- **MongoDB Service**: Real MongoDB 7.0 instance with authentication and health checks
 - **Service Dependencies**: Tests run after unit tests and linting pass
 - **Conditional Execution**: Only runs on main branch pushes and pull requests
 - **Artifact Collection**: Failed tests upload debugging artifacts
@@ -61,13 +63,13 @@ To run integration tests locally:
 
 2. Initialize MongoDB:
    ```bash
-   mongosh nclip < scripts/mongo-init-test.js
+   mongosh nclip < scripts/mongodb-init.js
    ```
 
 3. Build and start nclip:
    ```bash
    go build -o nclip .
-   NCLIP_MONGO_URL=mongodb://localhost:27017 ./nclip &
+   NCLIP_MONGO_URL=mongodb://nclip:secure_password_123@localhost:27017/nclip?authSource=admin ./nclip &
    ```
 
 4. Run tests:
