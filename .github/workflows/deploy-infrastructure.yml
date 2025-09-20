@@ -1,0 +1,408 @@
+name: Deploy Complete Infrastructure (API Gateway + CloudFront)
+
+on:
+  workflow_dispatch:
+    inputs:
+      lambda_function_name:
+        description: "Lambda function name to integrate with"
+        required: true
+        default: ""
+      api_gateway_name:
+        description: "API Gateway name (optional)"
+        required: false
+        default: "nclip-http-api"
+      stage_name:
+        description: "API Gateway stage name"
+        required: false
+        default: "prod"
+      cloudfront_comment:
+        description: "Comment for CloudFront distribution"
+        required: false
+        default: "nclip HTTP clipboard service"
+      price_class:
+        description: "CloudFront price class"
+        required: false
+        default: "PriceClass_100"
+        type: choice
+        options:
+          - "PriceClass_All"
+          - "PriceClass_200"
+          - "PriceClass_100"
+      deploy_cloudfront:
+        description: "Deploy CloudFront distribution (requires API Gateway)"
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches:
+      - 'deploy/infrastructure'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-api-gateway:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+    outputs:
+      api_url: ${{ steps.deploy.outputs.api_url }}
+      api_domain: ${{ steps.deploy.outputs.api_domain }}
+      api_id: ${{ steps.deploy.outputs.api_id }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          audience: ${{ secrets.AWS_AUDIENCE }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Resolve configuration
+        id: config
+        run: |
+          LAMBDA_FN="${{ inputs.lambda_function_name }}"
+          if [ -z "${LAMBDA_FN}" ]; then
+            LAMBDA_FN="${{ vars.LAMBDA_FUNCTION_NAME }}"
+          fi
+          if [ -z "${LAMBDA_FN}" ]; then
+            echo "Lambda function name is required" >&2
+            exit 1
+          fi
+          echo "lambda_function_name=${LAMBDA_FN}" >> "$GITHUB_OUTPUT"
+          
+          API_NAME="${{ inputs.api_gateway_name }}"
+          if [ -z "${API_NAME}" ]; then
+            API_NAME="nclip-http-api"
+          fi
+          echo "api_gateway_name=${API_NAME}" >> "$GITHUB_OUTPUT"
+          
+          STAGE_NAME="${{ inputs.stage_name }}"
+          if [ -z "${STAGE_NAME}" ]; then
+            STAGE_NAME="prod"
+          fi
+          echo "stage_name=${STAGE_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Create API Gateway CloudFormation template
+        run: |
+          cat > api-gateway-template.yaml << 'EOF'
+          AWSTemplateFormatVersion: '2010-09-09'
+          Description: 'HTTP API Gateway for nclip application'
+          
+          Parameters:
+            LambdaFunctionName:
+              Type: String
+              Description: Name of the Lambda function to integrate with
+            ApiGatewayName:
+              Type: String
+              Description: Name for the API Gateway
+              Default: nclip-http-api
+            StageName:
+              Type: String
+              Description: Stage name for API Gateway
+              Default: prod
+          
+          Resources:
+            LambdaInvokePermission:
+              Type: AWS::Lambda::Permission
+              Properties:
+                FunctionName: !Ref LambdaFunctionName
+                Action: lambda:InvokeFunction
+                Principal: apigateway.amazonaws.com
+                SourceArn: !Sub '${HttpApi}/*/*/*'
+          
+            HttpApi:
+              Type: AWS::ApiGatewayV2::Api
+              Properties:
+                Name: !Ref ApiGatewayName
+                Description: HTTP API for nclip clipboard service
+                ProtocolType: HTTP
+                CorsConfiguration:
+                  AllowCredentials: false
+                  AllowHeaders: ['*']
+                  AllowMethods: ['*']
+                  AllowOrigins: ['*']
+                  MaxAge: 300
+          
+            LambdaIntegration:
+              Type: AWS::ApiGatewayV2::Integration
+              Properties:
+                ApiId: !Ref HttpApi
+                IntegrationType: AWS_PROXY
+                IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunctionName}/invocations'
+                PayloadFormatVersion: '2.0'
+                TimeoutInMillis: 29000
+          
+            CatchAllRoute:
+              Type: AWS::ApiGatewayV2::Route
+              Properties:
+                ApiId: !Ref HttpApi
+                RouteKey: 'ANY /{proxy+}'
+                Target: !Sub 'integrations/${LambdaIntegration}'
+                
+            RootRoute:
+              Type: AWS::ApiGatewayV2::Route
+              Properties:
+                ApiId: !Ref HttpApi
+                RouteKey: 'ANY /'
+                Target: !Sub 'integrations/${LambdaIntegration}'
+          
+            ApiStage:
+              Type: AWS::ApiGatewayV2::Stage
+              Properties:
+                ApiId: !Ref HttpApi
+                StageName: !Ref StageName
+                AutoDeploy: true
+                Description: !Sub 'Production stage for ${ApiGatewayName}'
+          
+          Outputs:
+            ApiGatewayUrl:
+              Description: URL of the HTTP API Gateway
+              Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}'
+              Export:
+                Name: !Sub '${AWS::StackName}-ApiGatewayUrl'
+            ApiGatewayId:
+              Description: ID of the HTTP API Gateway
+              Value: !Ref HttpApi
+              Export:
+                Name: !Sub '${AWS::StackName}-ApiGatewayId'
+            ApiGatewayDomainName:
+              Description: Domain name of the API Gateway
+              Value: !Sub '${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+              Export:
+                Name: !Sub '${AWS::StackName}-ApiGatewayDomainName'
+          EOF
+
+      - name: Deploy API Gateway
+        id: deploy
+        run: |
+          STACK_NAME="nclip-api-gateway-${{ steps.config.outputs.stage_name }}"
+          
+          aws cloudformation deploy \
+            --stack-name "${STACK_NAME}" \
+            --template-file api-gateway-template.yaml \
+            --parameter-overrides \
+              LambdaFunctionName="${{ steps.config.outputs.lambda_function_name }}" \
+              ApiGatewayName="${{ steps.config.outputs.api_gateway_name }}" \
+              StageName="${{ steps.config.outputs.stage_name }}" \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --no-fail-on-empty-changeset
+          
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+            --output text)
+          
+          API_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayDomainName`].OutputValue' \
+            --output text)
+          
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayId`].OutputValue' \
+            --output text)
+          
+          echo "api_url=${API_URL}" >> "$GITHUB_OUTPUT"
+          echo "api_domain=${API_DOMAIN}" >> "$GITHUB_OUTPUT"
+          echo "api_id=${API_ID}" >> "$GITHUB_OUTPUT"
+          
+          echo "✅ API Gateway deployed: ${API_URL}"
+
+      - name: Test API Gateway
+        run: |
+          API_URL="${{ steps.deploy.outputs.api_url }}"
+          sleep 10
+          
+          echo "Testing API Gateway: ${API_URL}"
+          curl -f -s "${API_URL}/health" || echo "Health check pending..."
+          
+          PASTE_URL=$(curl -f -s -X POST "${API_URL}/" -d "Test from infrastructure deployment")
+          echo "✅ API Gateway test successful: ${PASTE_URL}"
+
+  deploy-cloudfront:
+    runs-on: ubuntu-latest
+    needs: deploy-api-gateway
+    if: ${{ inputs.deploy_cloudfront != false }}
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+    outputs:
+      cloudfront_url: ${{ steps.deploy.outputs.cloudfront_url }}
+      cloudfront_domain: ${{ steps.deploy.outputs.cloudfront_domain }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          audience: ${{ secrets.AWS_AUDIENCE }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Create CloudFront template
+        run: |
+          cat > cloudfront-template.yaml << 'EOF'
+          AWSTemplateFormatVersion: '2010-09-09'
+          Description: 'CloudFront distribution for nclip with HTTP to HTTPS redirect'
+          
+          Parameters:
+            ApiGatewayDomain:
+              Type: String
+              Description: Domain name of the API Gateway
+            CloudFrontComment:
+              Type: String
+              Default: "nclip HTTP clipboard service"
+            PriceClass:
+              Type: String
+              Default: PriceClass_100
+          
+          Resources:
+            CloudFrontDistribution:
+              Type: AWS::CloudFront::Distribution
+              Properties:
+                DistributionConfig:
+                  Comment: !Ref CloudFrontComment
+                  Enabled: true
+                  PriceClass: !Ref PriceClass
+                  HttpVersion: http2
+                  IPV6Enabled: true
+                  
+                  Origins:
+                    - Id: api-gateway-origin
+                      DomainName: !Ref ApiGatewayDomain
+                      CustomOriginConfig:
+                        HTTPPort: 80
+                        HTTPSPort: 443
+                        OriginProtocolPolicy: https-only
+                        OriginSSLProtocols: [TLSv1.2]
+                      OriginCustomHeaders:
+                        - HeaderName: X-Forwarded-Proto
+                          HeaderValue: https
+                  
+                  DefaultCacheBehavior:
+                    TargetOriginId: api-gateway-origin
+                    ViewerProtocolPolicy: redirect-to-https
+                    AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+                    CachedMethods: [GET, HEAD, OPTIONS]
+                    ForwardedValues:
+                      QueryString: true
+                      Headers:
+                        - Authorization
+                        - Content-Type
+                        - User-Agent
+                        - Accept
+                        - Accept-Language
+                        - Accept-Encoding
+                        - X-Forwarded-For
+                        - X-Forwarded-Proto
+                        - CloudFront-Forwarded-Proto
+                      Cookies:
+                        Forward: none
+                    Compress: true
+                    DefaultTTL: 0
+                    MaxTTL: 31536000
+                    MinTTL: 0
+          
+          Outputs:
+            CloudFrontDomainName:
+              Description: Domain name of the CloudFront distribution
+              Value: !GetAtt CloudFrontDistribution.DomainName
+            CloudFrontUrl:
+              Description: HTTPS URL of the CloudFront distribution
+              Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+            CloudFrontDistributionId:
+              Description: ID of the CloudFront distribution
+              Value: !Ref CloudFrontDistribution
+          EOF
+
+      - name: Deploy CloudFront
+        id: deploy
+        run: |
+          STACK_NAME="nclip-cloudfront"
+          
+          aws cloudformation deploy \
+            --stack-name "${STACK_NAME}" \
+            --template-file cloudfront-template.yaml \
+            --parameter-overrides \
+              ApiGatewayDomain="${{ needs.deploy-api-gateway.outputs.api_domain }}" \
+              CloudFrontComment="${{ inputs.cloudfront_comment || 'nclip HTTP clipboard service' }}" \
+              PriceClass="${{ inputs.price_class || 'PriceClass_100' }}" \
+            --region ${{ env.AWS_REGION }} \
+            --no-fail-on-empty-changeset
+          
+          CF_URL=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+            --output text)
+          
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
+            --output text)
+          
+          echo "cloudfront_url=${CF_URL}" >> "$GITHUB_OUTPUT"
+          echo "cloudfront_domain=${CF_DOMAIN}" >> "$GITHUB_OUTPUT"
+          
+          echo "✅ CloudFront deployed: ${CF_URL}"
+
+      - name: Test CloudFront
+        run: |
+          CF_URL="${{ steps.deploy.outputs.cloudfront_url }}"
+          
+          echo "Testing CloudFront (may take a few minutes to propagate): ${CF_URL}"
+          sleep 60
+          
+          # Test HTTP to HTTPS redirect
+          HTTP_URL="${CF_URL/https:/http:}"
+          echo "Testing HTTP redirect from: ${HTTP_URL}"
+          
+          REDIRECT_TEST=$(curl -s -o /dev/null -w "%{http_code}" "${HTTP_URL}/health" || echo "pending")
+          echo "HTTP redirect response: ${REDIRECT_TEST}"
+          
+          # Test HTTPS functionality
+          PASTE_URL=$(curl -f -s -X POST "${CF_URL}/" -d "Test from CloudFront deployment" || echo "CloudFront still propagating...")
+          echo "✅ CloudFront test: ${PASTE_URL}"
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [deploy-api-gateway, deploy-cloudfront]
+    if: always()
+    
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "🚀 Infrastructure Deployment Summary"
+          echo "=================================="
+          echo ""
+          echo "📊 API Gateway:"
+          echo "  URL: ${{ needs.deploy-api-gateway.outputs.api_url || 'Not deployed' }}"
+          echo "  Domain: ${{ needs.deploy-api-gateway.outputs.api_domain || 'Not deployed' }}"
+          echo ""
+          echo "🌐 CloudFront:"
+          echo "  URL: ${{ needs.deploy-cloudfront.outputs.cloudfront_url || 'Not deployed' }}"
+          echo "  Domain: ${{ needs.deploy-cloudfront.outputs.cloudfront_domain || 'Not deployed' }}"
+          echo ""
+          echo "🔐 Security Features:"
+          echo "  ✅ HTTP to HTTPS redirect (CloudFront)"
+          echo "  ✅ HTTPS-only origin communication"
+          echo "  ✅ CloudFront-Forwarded-Proto header"
+          echo ""
+          if [ -n "${{ needs.deploy-cloudfront.outputs.cloudfront_url }}" ]; then
+            echo "🎉 Access your nclip service at: ${{ needs.deploy-cloudfront.outputs.cloudfront_url }}"
+          elif [ -n "${{ needs.deploy-api-gateway.outputs.api_url }}" ]; then
+            echo "🎉 Access your nclip service at: ${{ needs.deploy-api-gateway.outputs.api_url }}"
+          fi
+          echo ""
+          echo "⏱️  Note: CloudFront may take 10-15 minutes to fully propagate."

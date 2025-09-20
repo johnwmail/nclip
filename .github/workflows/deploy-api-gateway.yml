@@ -1,0 +1,294 @@
+name: Deploy API Gateway (HTTP)
+
+on:
+  workflow_dispatch:
+    inputs:
+      lambda_function_name:
+        description: "Lambda function name to integrate with"
+        required: true
+        default: ""
+      api_gateway_name:
+        description: "API Gateway name (optional, will use default if empty)"
+        required: false
+        default: ""
+      stage_name:
+        description: "API Gateway stage name"
+        required: false
+        default: "prod"
+  push:
+    branches:
+      - 'deploy/api-gateway'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-api-gateway:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          audience: ${{ secrets.AWS_AUDIENCE }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Resolve configuration
+        id: config
+        run: |
+          # Set Lambda function name
+          LAMBDA_FN="${{ inputs.lambda_function_name }}"
+          if [ -z "${LAMBDA_FN}" ]; then
+            LAMBDA_FN="${{ vars.LAMBDA_FUNCTION_NAME }}"
+          fi
+          if [ -z "${LAMBDA_FN}" ]; then
+            echo "Lambda function name is required" >&2
+            exit 1
+          fi
+          echo "lambda_function_name=${LAMBDA_FN}" >> "$GITHUB_OUTPUT"
+          
+          # Set API Gateway name
+          API_NAME="${{ inputs.api_gateway_name }}"
+          if [ -z "${API_NAME}" ]; then
+            API_NAME="nclip-http-api"
+          fi
+          echo "api_gateway_name=${API_NAME}" >> "$GITHUB_OUTPUT"
+          
+          # Set stage name
+          STAGE_NAME="${{ inputs.stage_name }}"
+          if [ -z "${STAGE_NAME}" ]; then
+            STAGE_NAME="prod"
+          fi
+          echo "stage_name=${STAGE_NAME}" >> "$GITHUB_OUTPUT"
+          
+          echo "Configuration resolved:"
+          echo "  Lambda Function: ${LAMBDA_FN}"
+          echo "  API Gateway: ${API_NAME}"
+          echo "  Stage: ${STAGE_NAME}"
+
+      - name: Create CloudFormation template
+        run: |
+          cat > api-gateway-template.yaml << 'EOF'
+          AWSTemplateFormatVersion: '2010-09-09'
+          Description: 'HTTP API Gateway for nclip application'
+          
+          Parameters:
+            LambdaFunctionName:
+              Type: String
+              Description: Name of the Lambda function to integrate with
+            
+            ApiGatewayName:
+              Type: String
+              Description: Name for the API Gateway
+              Default: nclip-http-api
+            
+            StageName:
+              Type: String
+              Description: Stage name for API Gateway
+              Default: prod
+          
+          Resources:
+            # Lambda permission for API Gateway
+            LambdaInvokePermission:
+              Type: AWS::Lambda::Permission
+              Properties:
+                FunctionName: !Ref LambdaFunctionName
+                Action: lambda:InvokeFunction
+                Principal: apigateway.amazonaws.com
+                SourceArn: !Sub '${HttpApi}/*/POST/*'
+                
+            # Lambda permission for API Gateway (GET requests)
+            LambdaInvokePermissionGet:
+              Type: AWS::Lambda::Permission
+              Properties:
+                FunctionName: !Ref LambdaFunctionName
+                Action: lambda:InvokeFunction
+                Principal: apigateway.amazonaws.com
+                SourceArn: !Sub '${HttpApi}/*/GET/*'
+                
+            # Lambda permission for API Gateway (all methods on root)
+            LambdaInvokePermissionRoot:
+              Type: AWS::Lambda::Permission
+              Properties:
+                FunctionName: !Ref LambdaFunctionName
+                Action: lambda:InvokeFunction
+                Principal: apigateway.amazonaws.com
+                SourceArn: !Sub '${HttpApi}/*/*/*'
+          
+            # HTTP API Gateway v2
+            HttpApi:
+              Type: AWS::ApiGatewayV2::Api
+              Properties:
+                Name: !Ref ApiGatewayName
+                Description: HTTP API for nclip clipboard service
+                ProtocolType: HTTP
+                CorsConfiguration:
+                  AllowCredentials: false
+                  AllowHeaders:
+                    - 'Content-Type'
+                    - 'X-Amz-Date'
+                    - 'Authorization'
+                    - 'X-Api-Key'
+                    - 'X-Amz-Security-Token'
+                  AllowMethods:
+                    - GET
+                    - POST
+                    - PUT
+                    - DELETE
+                    - OPTIONS
+                    - HEAD
+                  AllowOrigins:
+                    - '*'
+                  MaxAge: 300
+          
+            # Lambda integration
+            LambdaIntegration:
+              Type: AWS::ApiGatewayV2::Integration
+              Properties:
+                ApiId: !Ref HttpApi
+                IntegrationType: AWS_PROXY
+                IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunctionName}/invocations'
+                PayloadFormatVersion: '2.0'
+                TimeoutInMillis: 29000
+          
+            # Route for root path (POST and GET)
+            RootRoute:
+              Type: AWS::ApiGatewayV2::Route
+              Properties:
+                ApiId: !Ref HttpApi
+                RouteKey: 'ANY /'
+                Target: !Sub 'integrations/${LambdaIntegration}'
+                
+            # Route for all paths
+            CatchAllRoute:
+              Type: AWS::ApiGatewayV2::Route
+              Properties:
+                ApiId: !Ref HttpApi
+                RouteKey: 'ANY /{proxy+}'
+                Target: !Sub 'integrations/${LambdaIntegration}'
+          
+            # Stage
+            ApiStage:
+              Type: AWS::ApiGatewayV2::Stage
+              Properties:
+                ApiId: !Ref HttpApi
+                StageName: !Ref StageName
+                AutoDeploy: true
+                Description: !Sub 'Production stage for ${ApiGatewayName}'
+                DefaultRouteSettings:
+                  ThrottlingBurstLimit: 1000
+                  ThrottlingRateLimit: 500
+          
+          Outputs:
+            ApiGatewayUrl:
+              Description: URL of the HTTP API Gateway
+              Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}'
+              Export:
+                Name: !Sub '${AWS::StackName}-ApiGatewayUrl'
+                
+            ApiGatewayId:
+              Description: ID of the HTTP API Gateway
+              Value: !Ref HttpApi
+              Export:
+                Name: !Sub '${AWS::StackName}-ApiGatewayId'
+                
+            ApiGatewayDomainName:
+              Description: Domain name of the API Gateway
+              Value: !Sub '${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+              Export:
+                Name: !Sub '${AWS::StackName}-ApiGatewayDomainName'
+          EOF
+
+      - name: Deploy API Gateway via CloudFormation
+        id: deploy
+        run: |
+          STACK_NAME="nclip-api-gateway-${{ steps.config.outputs.stage_name }}"
+          echo "Deploying CloudFormation stack: ${STACK_NAME}"
+          
+          aws cloudformation deploy \
+            --stack-name "${STACK_NAME}" \
+            --template-file api-gateway-template.yaml \
+            --parameter-overrides \
+              LambdaFunctionName="${{ steps.config.outputs.lambda_function_name }}" \
+              ApiGatewayName="${{ steps.config.outputs.api_gateway_name }}" \
+              StageName="${{ steps.config.outputs.stage_name }}" \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --no-fail-on-empty-changeset
+          
+          # Get outputs
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+            --output text)
+          
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayId`].OutputValue' \
+            --output text)
+          
+          API_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayDomainName`].OutputValue' \
+            --output text)
+          
+          echo "api_url=${API_URL}" >> "$GITHUB_OUTPUT"
+          echo "api_id=${API_ID}" >> "$GITHUB_OUTPUT"
+          echo "api_domain=${API_DOMAIN}" >> "$GITHUB_OUTPUT"
+          echo "stack_name=${STACK_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Test API Gateway endpoint
+        run: |
+          API_URL="${{ steps.deploy.outputs.api_url }}"
+          echo "Testing API Gateway endpoint: ${API_URL}"
+          
+          # Wait a bit for the API to be fully ready
+          sleep 10
+          
+          # Test health endpoint
+          echo "Testing health endpoint..."
+          curl -f -s "${API_URL}/health" || echo "Health endpoint not ready yet"
+          
+          # Test basic functionality
+          echo "Testing paste creation..."
+          PASTE_URL=$(curl -f -s -X POST "${API_URL}/" -d "Test from API Gateway deployment $(date)")
+          echo "Created paste: ${PASTE_URL}"
+          
+          if [[ "${PASTE_URL}" == https://* ]]; then
+            echo "✅ SUCCESS: API Gateway deployment successful"
+            echo "✅ API URL: ${API_URL}"
+            echo "✅ Paste URL: ${PASTE_URL}"
+          else
+            echo "❌ WARNING: Unexpected response format: ${PASTE_URL}"
+          fi
+
+      - name: Post-deployment info
+        run: |
+          echo "🚀 API Gateway deployment completed successfully!"
+          echo ""
+          echo "📋 Deployment Details:"
+          echo "  Stack Name: ${{ steps.deploy.outputs.stack_name }}"
+          echo "  API Gateway ID: ${{ steps.deploy.outputs.api_id }}"
+          echo "  API Gateway URL: ${{ steps.deploy.outputs.api_url }}"
+          echo "  API Domain: ${{ steps.deploy.outputs.api_domain }}"
+          echo "  Lambda Function: ${{ steps.config.outputs.lambda_function_name }}"
+          echo "  Stage: ${{ steps.config.outputs.stage_name }}"
+          echo ""
+          echo "🔗 You can now access nclip at: ${{ steps.deploy.outputs.api_url }}"
+
+      - name: Upload CloudFormation template
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-gateway-cloudformation-template
+          path: api-gateway-template.yaml
+          retention-days: 30
