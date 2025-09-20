@@ -5,7 +5,7 @@ import (
 	"math/big"
 )
 
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const charset = "abcdefghjkmnpqrstuvwxyz0123456789"
 
 // GenerateSlug creates a random alphanumeric slug of the specified length
 func GenerateSlug(length int) (string, error) {

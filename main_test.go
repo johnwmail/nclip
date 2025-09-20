@@ -325,7 +325,7 @@ func TestNotFound(t *testing.T) {
 	router, _ := setupTestRouter()
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/nonexistent", nil)
+	req, _ := http.NewRequest("GET", "/abcde", nil) // Valid slug format that doesn't exist
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusNotFound {
