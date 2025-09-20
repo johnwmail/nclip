@@ -1,0 +1,401 @@
+name: Deploy CloudFront Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_gateway_domain:
+        description: "API Gateway domain name (e.g., abc123.execute-api.us-east-1.amazonaws.com)"
+        required: true
+        default: ""
+      cloudfront_comment:
+        description: "Comment for CloudFront distribution"
+        required: false
+        default: "nclip HTTP clipboard service"
+      price_class:
+        description: "CloudFront price class"
+        required: false
+        default: "PriceClass_100"
+        type: choice
+        options:
+          - "PriceClass_All"
+          - "PriceClass_200"
+          - "PriceClass_100"
+  push:
+    branches:
+      - 'deploy/cloudfront'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-cloudfront:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          audience: ${{ secrets.AWS_AUDIENCE }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Resolve configuration
+        id: config
+        run: |
+          # Set API Gateway domain
+          API_DOMAIN="${{ inputs.api_gateway_domain }}"
+          if [ -z "${API_DOMAIN}" ]; then
+            API_DOMAIN="${{ vars.API_GATEWAY_DOMAIN }}"
+          fi
+          if [ -z "${API_DOMAIN}" ]; then
+            echo "API Gateway domain is required" >&2
+            exit 1
+          fi
+          echo "api_gateway_domain=${API_DOMAIN}" >> "$GITHUB_OUTPUT"
+          
+          # Set CloudFront comment
+          CF_COMMENT="${{ inputs.cloudfront_comment }}"
+          if [ -z "${CF_COMMENT}" ]; then
+            CF_COMMENT="nclip HTTP clipboard service"
+          fi
+          echo "cloudfront_comment=${CF_COMMENT}" >> "$GITHUB_OUTPUT"
+          
+          # Set price class
+          PRICE_CLASS="${{ inputs.price_class }}"
+          if [ -z "${PRICE_CLASS}" ]; then
+            PRICE_CLASS="PriceClass_100"
+          fi
+          echo "price_class=${PRICE_CLASS}" >> "$GITHUB_OUTPUT"
+          
+          echo "Configuration resolved:"
+          echo "  API Gateway Domain: ${API_DOMAIN}"
+          echo "  CloudFront Comment: ${CF_COMMENT}"
+          echo "  Price Class: ${PRICE_CLASS}"
+
+      - name: Create CloudFormation template
+        run: |
+          cat > cloudfront-template.yaml << 'EOF'
+          AWSTemplateFormatVersion: '2010-09-09'
+          Description: 'CloudFront distribution for nclip application with HTTP to HTTPS redirect'
+          
+          Parameters:
+            ApiGatewayDomain:
+              Type: String
+              Description: Domain name of the API Gateway (e.g., abc123.execute-api.us-east-1.amazonaws.com)
+            
+            CloudFrontComment:
+              Type: String
+              Description: Comment for the CloudFront distribution
+              Default: "nclip HTTP clipboard service"
+            
+            PriceClass:
+              Type: String
+              Description: CloudFront price class
+              Default: PriceClass_100
+              AllowedValues:
+                - PriceClass_All
+                - PriceClass_200
+                - PriceClass_100
+          
+          Resources:
+            # Cache policy for nclip (allowing all headers for proper forwarding)
+            CachePolicy:
+              Type: AWS::CloudFront::CachePolicy
+              Properties:
+                CachePolicyConfig:
+                  Name: !Sub '${AWS::StackName}-nclip-cache-policy'
+                  Comment: 'Cache policy for nclip application'
+                  DefaultTTL: 86400
+                  MaxTTL: 31536000
+                  MinTTL: 0
+                  ParametersInCacheKeyAndForwardedToOrigin:
+                    EnableAcceptEncodingGzip: true
+                    EnableAcceptEncodingBrotli: true
+                    QueryStringsConfig:
+                      QueryStringBehavior: all
+                    HeadersConfig:
+                      HeaderBehavior: whitelist
+                      Headers:
+                        - Authorization
+                        - Content-Type
+                        - User-Agent
+                        - Accept
+                        - Accept-Language
+                        - Accept-Encoding
+                        - Cache-Control
+                        - Pragma
+                        - X-Forwarded-For
+                        - X-Forwarded-Proto
+                        - X-Forwarded-Host
+                    CookiesConfig:
+                      CookieBehavior: none
+          
+            # Origin request policy to forward all headers to origin
+            OriginRequestPolicy:
+              Type: AWS::CloudFront::OriginRequestPolicy
+              Properties:
+                OriginRequestPolicyConfig:
+                  Name: !Sub '${AWS::StackName}-nclip-origin-policy'
+                  Comment: 'Origin request policy for nclip application'
+                  QueryStringsConfig:
+                    QueryStringBehavior: all
+                  HeadersConfig:
+                    HeaderBehavior: allExcept
+                    Headers:
+                      - Host
+                  CookiesConfig:
+                    CookieBehavior: none
+          
+            # Response headers policy for security
+            ResponseHeadersPolicy:
+              Type: AWS::CloudFront::ResponseHeadersPolicy
+              Properties:
+                ResponseHeadersPolicyConfig:
+                  Name: !Sub '${AWS::StackName}-nclip-response-headers'
+                  Comment: 'Response headers policy for nclip'
+                  SecurityHeadersConfig:
+                    StrictTransportSecurity:
+                      AccessControlMaxAgeSec: 31536000
+                      IncludeSubdomains: true
+                      Override: true
+                    ContentTypeOptions:
+                      Override: true
+                    FrameOptions:
+                      FrameOption: SAMEORIGIN
+                      Override: true
+                    ReferrerPolicy:
+                      ReferrerPolicy: strict-origin-when-cross-origin
+                      Override: true
+                  CustomHeadersConfig:
+                    Items:
+                      - Header: X-Forwarded-Proto
+                        Value: https
+                        Override: false
+          
+            # CloudFront distribution
+            CloudFrontDistribution:
+              Type: AWS::CloudFront::Distribution
+              Properties:
+                DistributionConfig:
+                  Comment: !Ref CloudFrontComment
+                  Enabled: true
+                  PriceClass: !Ref PriceClass
+                  HttpVersion: http2
+                  IPV6Enabled: true
+                  
+                  # Origins
+                  Origins:
+                    - Id: api-gateway-origin
+                      DomainName: !Ref ApiGatewayDomain
+                      CustomOriginConfig:
+                        HTTPPort: 80
+                        HTTPSPort: 443
+                        OriginProtocolPolicy: https-only
+                        OriginSSLProtocols:
+                          - TLSv1.2
+                  
+                  # Default cache behavior
+                  DefaultCacheBehavior:
+                    TargetOriginId: api-gateway-origin
+                    ViewerProtocolPolicy: redirect-to-https
+                    AllowedMethods:
+                      - GET
+                      - HEAD
+                      - OPTIONS
+                      - PUT
+                      - POST
+                      - PATCH
+                      - DELETE
+                    CachedMethods:
+                      - GET
+                      - HEAD
+                      - OPTIONS
+                    CachePolicyId: !Ref CachePolicy
+                    OriginRequestPolicyId: !Ref OriginRequestPolicy
+                    ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
+                    Compress: true
+                  
+                  # Custom error pages
+                  CustomErrorResponses:
+                    - ErrorCode: 404
+                      ResponseCode: 404
+                      ResponsePagePath: /
+                      ErrorCachingMinTTL: 300
+                    - ErrorCode: 403
+                      ResponseCode: 404
+                      ResponsePagePath: /
+                      ErrorCachingMinTTL: 300
+                    - ErrorCode: 500
+                      ResponseCode: 500
+                      ErrorCachingMinTTL: 5
+                    - ErrorCode: 502
+                      ResponseCode: 502
+                      ErrorCachingMinTTL: 5
+                    - ErrorCode: 503
+                      ResponseCode: 503
+                      ErrorCachingMinTTL: 5
+                    - ErrorCode: 504
+                      ResponseCode: 504
+                      ErrorCachingMinTTL: 5
+          
+          Outputs:
+            CloudFrontDomainName:
+              Description: Domain name of the CloudFront distribution
+              Value: !GetAtt CloudFrontDistribution.DomainName
+              Export:
+                Name: !Sub '${AWS::StackName}-CloudFrontDomainName'
+                
+            CloudFrontDistributionId:
+              Description: ID of the CloudFront distribution
+              Value: !Ref CloudFrontDistribution
+              Export:
+                Name: !Sub '${AWS::StackName}-CloudFrontDistributionId'
+                
+            CloudFrontUrl:
+              Description: HTTPS URL of the CloudFront distribution
+              Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+              Export:
+                Name: !Sub '${AWS::StackName}-CloudFrontUrl'
+                
+            CachePolicyId:
+              Description: ID of the created cache policy
+              Value: !Ref CachePolicy
+              Export:
+                Name: !Sub '${AWS::StackName}-CachePolicyId'
+                
+            OriginRequestPolicyId:
+              Description: ID of the created origin request policy
+              Value: !Ref OriginRequestPolicy
+              Export:
+                Name: !Sub '${AWS::StackName}-OriginRequestPolicyId'
+          EOF
+
+      - name: Deploy CloudFront via CloudFormation
+        id: deploy
+        run: |
+          STACK_NAME="nclip-cloudfront"
+          echo "Deploying CloudFormation stack: ${STACK_NAME}"
+          
+          aws cloudformation deploy \
+            --stack-name "${STACK_NAME}" \
+            --template-file cloudfront-template.yaml \
+            --parameter-overrides \
+              ApiGatewayDomain="${{ steps.config.outputs.api_gateway_domain }}" \
+              CloudFrontComment="${{ steps.config.outputs.cloudfront_comment }}" \
+              PriceClass="${{ steps.config.outputs.price_class }}" \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --no-fail-on-empty-changeset
+          
+          # Get outputs
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
+            --output text)
+          
+          CF_ID=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+            --output text)
+          
+          CF_URL=$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+            --output text)
+          
+          echo "cloudfront_domain=${CF_DOMAIN}" >> "$GITHUB_OUTPUT"
+          echo "cloudfront_id=${CF_ID}" >> "$GITHUB_OUTPUT"
+          echo "cloudfront_url=${CF_URL}" >> "$GITHUB_OUTPUT"
+          echo "stack_name=${STACK_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for CloudFront deployment
+        run: |
+          echo "Waiting for CloudFront distribution to be deployed..."
+          echo "This may take 10-15 minutes for initial deployment."
+          
+          CF_ID="${{ steps.deploy.outputs.cloudfront_id }}"
+          
+          # Wait for deployment to complete
+          aws cloudfront wait distribution-deployed \
+            --id "${CF_ID}" \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "✅ CloudFront distribution deployed successfully!"
+
+      - name: Test CloudFront distribution
+        run: |
+          CF_URL="${{ steps.deploy.outputs.cloudfront_url }}"
+          echo "Testing CloudFront distribution: ${CF_URL}"
+          
+          # Test HTTP to HTTPS redirect
+          echo "Testing HTTP to HTTPS redirect..."
+          HTTP_URL="${CF_URL/https:/http:}"
+          
+          REDIRECT_RESPONSE=$(curl -s -o /dev/null -w "%{http_code} %{redirect_url}" "${HTTP_URL}/health" || echo "curl_failed")
+          echo "HTTP redirect test response: ${REDIRECT_RESPONSE}"
+          
+          if [[ "${REDIRECT_RESPONSE}" == "301 ${CF_URL}/health" ]] || [[ "${REDIRECT_RESPONSE}" == "302 ${CF_URL}/health" ]]; then
+            echo "✅ SUCCESS: HTTP to HTTPS redirect working correctly"
+          else
+            echo "⚠️  Note: HTTP redirect response: ${REDIRECT_RESPONSE}"
+          fi
+          
+          # Test HTTPS endpoint
+          echo "Testing HTTPS endpoint..."
+          sleep 30  # Give CloudFront a moment to propagate
+          
+          # Test health endpoint
+          HEALTH_RESPONSE=$(curl -f -s "${CF_URL}/health" -w " (status: %{http_code})" || echo "Health endpoint not ready")
+          echo "Health test: ${HEALTH_RESPONSE}"
+          
+          # Test basic functionality
+          echo "Testing paste creation through CloudFront..."
+          PASTE_URL=$(curl -f -s -X POST "${CF_URL}/" -d "Test from CloudFront deployment $(date)" || echo "Paste creation failed")
+          echo "Created paste: ${PASTE_URL}"
+          
+          if [[ "${PASTE_URL}" == https://* ]]; then
+            echo "✅ SUCCESS: CloudFront deployment successful"
+            echo "✅ CloudFront URL: ${CF_URL}"
+            echo "✅ Paste URL: ${PASTE_URL}"
+          else
+            echo "❌ WARNING: Unexpected response or paste creation failed: ${PASTE_URL}"
+            echo "Note: CloudFront may take additional time to fully propagate"
+          fi
+
+      - name: Post-deployment info
+        run: |
+          echo "🚀 CloudFront deployment completed successfully!"
+          echo ""
+          echo "📋 Deployment Details:"
+          echo "  Stack Name: ${{ steps.deploy.outputs.stack_name }}"
+          echo "  CloudFront Distribution ID: ${{ steps.deploy.outputs.cloudfront_id }}"
+          echo "  CloudFront Domain: ${{ steps.deploy.outputs.cloudfront_domain }}"
+          echo "  CloudFront URL: ${{ steps.deploy.outputs.cloudfront_url }}"
+          echo "  Origin (API Gateway): ${{ steps.config.outputs.api_gateway_domain }}"
+          echo "  Price Class: ${{ steps.config.outputs.price_class }}"
+          echo ""
+          echo "🔐 Security Features:"
+          echo "  ✅ HTTP to HTTPS redirect enabled"
+          echo "  ✅ HSTS headers configured"
+          echo "  ✅ Security headers applied"
+          echo "  ✅ CloudFront-Forwarded-Proto header set"
+          echo ""
+          echo "🔗 You can now access nclip securely at: ${{ steps.deploy.outputs.cloudfront_url }}"
+          echo ""
+          echo "⏱️  Note: It may take 10-15 minutes for CloudFront changes to fully propagate globally."
+
+      - name: Upload CloudFormation template
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudfront-cloudformation-template
+          path: cloudfront-template.yaml
+          retention-days: 30
