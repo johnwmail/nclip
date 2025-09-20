@@ -28,20 +28,60 @@ func NewPasteHandler(store storage.PasteStore, config *config.Config) *PasteHand
 	}
 }
 
-// generatePasteURL creates the full URL for a paste, respecting HTTPS-only setting
+// generatePasteURL creates the full URL for a paste, respecting HTTPS-only setting and proxy headers
 func (h *PasteHandler) generatePasteURL(c *gin.Context, slug string) string {
 	// If base URL is explicitly set, use it (takes precedence)
 	if h.config.URL != "" {
 		return fmt.Sprintf("%s/%s", h.config.URL, slug)
 	}
 
-	// Determine scheme
+	// Determine scheme - check for HTTPS indicators
 	scheme := "http"
-	if h.config.HTTPSOnly || c.Request.TLS != nil {
+	if h.config.HTTPSOnly || h.isHTTPS(c) {
 		scheme = "https"
 	}
 
 	return fmt.Sprintf("%s://%s/%s", scheme, c.Request.Host, slug)
+}
+
+// isHTTPS detects if the original request was HTTPS, even behind proxies
+func (h *PasteHandler) isHTTPS(c *gin.Context) bool {
+	// Direct TLS connection
+	if c.Request.TLS != nil {
+		return true
+	}
+
+	// Check common proxy headers for original protocol
+	if proto := c.GetHeader("X-Forwarded-Proto"); proto == "https" {
+		return true
+	}
+	if proto := c.GetHeader("X-Forwarded-Protocol"); proto == "https" {
+		return true
+	}
+	if scheme := c.GetHeader("X-Forwarded-Scheme"); scheme == "https" {
+		return true
+	}
+	if scheme := c.GetHeader("X-Scheme"); scheme == "https" {
+		return true
+	}
+	if c.GetHeader("X-Forwarded-Ssl") == "on" {
+		return true
+	}
+	if c.GetHeader("X-Forwarded-Https") == "on" {
+		return true
+	}
+
+	// AWS Lambda Function URLs may use different headers
+	if c.GetHeader("CloudFront-Forwarded-Proto") == "https" {
+		return true
+	}
+
+	// Check if the original URL scheme can be detected from request URL
+	if strings.HasPrefix(c.Request.Header.Get("Referer"), "https://") {
+		return true
+	}
+
+	return false
 }
 
 // Upload handles paste upload via POST /
