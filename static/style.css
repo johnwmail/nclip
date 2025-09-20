@@ -126,6 +126,13 @@ body.main-page main {
 /* Form Elements */
 .form-group {
     margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.form-group .form-controls {
+    margin-top: auto;
 }
 
 .form-group label {
@@ -174,6 +181,8 @@ input[type="file"] {
     background: var(--surface);
     border: 1px dashed var(--border);
     cursor: pointer;
+    height: 80px;
+    box-sizing: border-box;
 }
 
 input[type="file"]:hover {
