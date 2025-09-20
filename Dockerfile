@@ -40,23 +40,19 @@ COPY --from=builder /app/nclip .
 # Copy static assets for web UI
 COPY --from=builder /app/static ./static
 
-# Create directories and set permissions
-RUN mkdir -p pastes logs && \
-    chown -R nclip:nclip /app
-
 # Switch to non-root user
 USER nclip
-
-# Expose ports
-EXPOSE 8080 8099
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
 
 # Default configuration
 ENV NCLIP_PORT=8080 \
     NCLIP_MONGO_URL=mongodb://localhost:27017
+
+# Expose ports
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${NCLIP_PORT}/health || exit 1
 
 # Run the application
 CMD ["./nclip"]

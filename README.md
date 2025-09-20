@@ -315,7 +315,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🔗 Links
 
 - **Documentation**: [docs/](docs/)
-- **Docker Hub**: `docker pull johnwmail/nclip`
+- **GitHub Registry**: `docker pull ghcr.io/johnwmail/nclip`
 - **GitHub**: https://github.com/johnwmail/nclip
 - **Issues**: https://github.com/johnwmail/nclip/issues
 
