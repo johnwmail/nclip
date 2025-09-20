@@ -201,7 +201,8 @@ test_not_found() {
     log "Testing 404 for non-existent paste..."
     
     local status
-    status=$(curl -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/VAILDSLUG23456789ABCDEFGH")
+    # Slug must be 3-32 chars, so use a valid but non-existent slug (e.g., 5 chars)
+    status=$(curl -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/ZZZZZ")
     
     if [[ "$status" == "404" ]]; then
         success "404 test passed"

@@ -22,6 +22,26 @@ func TestGenerateSlug(t *testing.T) {
 			want:   10,
 		},
 		{
+			name:   "min valid length",
+			length: 3,
+			want:   3,
+		},
+		{
+			name:   "max valid length",
+			length: 32,
+			want:   32,
+		},
+		{
+			name:   "below min length defaults to 5",
+			length: 2,
+			want:   5,
+		},
+		{
+			name:   "above max length defaults to 5",
+			length: 33,
+			want:   5,
+		},
+		{
 			name:   "zero length defaults to 5",
 			length: 0,
 			want:   5,
@@ -58,6 +78,26 @@ func TestIsValidSlug(t *testing.T) {
 		slug string
 		want bool
 	}{
+		{
+			name: "too short",
+			slug: "AB",
+			want: false,
+		},
+		{
+			name: "too long",
+			slug: strings.Repeat("A", 33),
+			want: false,
+		},
+		{
+			name: "min valid length",
+			slug: "ABC",
+			want: true,
+		},
+		{
+			name: "max valid length",
+			slug: strings.Repeat("A", 32),
+			want: true,
+		},
 		{
 			name: "empty string",
 			slug: "",

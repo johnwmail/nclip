@@ -9,7 +9,8 @@ const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 // GenerateSlug creates a random alphanumeric slug of the specified length
 func GenerateSlug(length int) (string, error) {
-	if length <= 0 {
+	// Enforce slug length between 3 and 32, default to 5 if out of range
+	if length < 3 || length > 32 {
 		length = 5
 	}
 
@@ -29,10 +30,10 @@ func GenerateSlug(length int) (string, error) {
 
 // IsValidSlug checks if a slug contains only valid characters
 func IsValidSlug(slug string) bool {
-	if len(slug) == 0 {
+	// Slug must be between 3 and 32 characters
+	if len(slug) < 3 || len(slug) > 32 {
 		return false
 	}
-
 	for _, char := range slug {
 		valid := false
 		for _, validChar := range charset {
@@ -45,6 +46,5 @@ func IsValidSlug(slug string) bool {
 			return false
 		}
 	}
-
 	return true
 }
