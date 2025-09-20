@@ -10,12 +10,14 @@
     <div class="container">
         <header>
             <h1>
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline; margin-right: 0.5rem;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                nclip
+                <a href="/" style="text-decoration: none; color: inherit; display: inline-flex; align-items: center; gap: 0.5rem;">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    NCLIP
+                </a>
             </h1>
-            <p><a href="/">← Back to Upload</a></p>
+            <p>Simple HTTP clipboard service</p>
         </header>
 
         <main>
@@ -54,19 +56,21 @@
                     </div>
                 </div>
                 <div class="content-section">
-                    <div class="content-header">
-                        <h3>Content</h3>
-                        <div class="content-actions">
-                            <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download>Download</a>
-                            <button id="copy-content" class="btn btn-secondary">Copy</button>
-                            <a href="/" class="btn btn-primary">
-                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                </svg>
-                                New Paste
-                            </a>
-                        </div>
+                                    <div class="content-header">
+                    <h3>Content</h3>
+                    <div class="content-actions">
+                        <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download>Download</a>
+                        {{if .IsText}}
+                        <button id="copy-content" class="btn btn-secondary">Copy</button>
+                        {{end}}
+                        <a href="/" class="btn btn-primary">
+                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            New Paste
+                        </a>
                     </div>
+                </div>
                     {{if .IsText}}
                     <div class="content-display">
                         <pre id="content-text"><code>{{.Content}}</code></pre>
@@ -128,35 +132,37 @@
     </div>
 
     <script>
-        // Copy content functionality
+        // Copy content functionality - text only
         document.getElementById('copy-content')?.addEventListener('click', function() {
             const contentText = document.getElementById('content-text');
             if (contentText) {
                 const textToCopy = contentText.textContent || contentText.innerText;
-                
-                // Try modern clipboard API first
-                if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(textToCopy).then(function() {
-                        showCopySuccess();
-                    }).catch(function(err) {
-                        console.error('Clipboard API failed:', err);
-                        fallbackCopy(textToCopy);
-                    });
-                } else {
-                    // Fallback for older browsers or non-HTTPS
-                    fallbackCopy(textToCopy);
-                }
+                copyTextContent(textToCopy);
             }
         });
+        
+        function copyTextContent(text) {
+            // Try modern clipboard API first
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(function() {
+                    showCopySuccess();
+                }).catch(function(err) {
+                    console.error('Clipboard API failed:', err);
+                    fallbackCopy(text);
+                });
+            } else {
+                // Fallback for older browsers or non-HTTPS
+                fallbackCopy(text);
+            }
+        }
         
         function showCopySuccess() {
             const btn = document.getElementById('copy-content');
             if (btn) {
-                const originalText = btn.textContent;
                 btn.textContent = 'Copied!';
                 btn.classList.add('btn-success');
                 setTimeout(function() {
-                    btn.textContent = originalText;
+                    btn.textContent = 'Copy';
                     btn.classList.remove('btn-success');
                 }, 2000);
             }
