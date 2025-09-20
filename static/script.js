@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateUsageExamples(url, slug);
         
         resultSection.style.display = 'block';
-        resultSection.scrollIntoView({ behavior: 'smooth' });
+        // Removed auto-scroll - let user stay at current position
         
         // Clear forms
         textContent.value = '';
