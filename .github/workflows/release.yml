@@ -40,7 +40,10 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ env.GO_VERSION }}
-        
+
+    - name: Clean Go modules directory
+      run: rm -rf ~/go/pkg/mod
+
     - name: Cache Go modules
       uses: actions/cache@v4
       with:
@@ -75,9 +78,6 @@ jobs:
         cd dist/
         echo "Files in dist directory:"
         ls -la
-        for file in *; do
-          echo "Checking: $file"
-          echo "Type: $(file "$file")"
         for file in *; do
           echo "Checking: $file"
           echo "Type: $(file "$file")"
