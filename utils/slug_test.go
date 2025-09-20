@@ -65,22 +65,32 @@ func TestIsValidSlug(t *testing.T) {
 		},
 		{
 			name: "valid alphanumeric",
-			slug: "abc123",
+			slug: "ABC234",
 			want: true,
 		},
 		{
 			name: "contains invalid character",
-			slug: "abc-123",
+			slug: "ABC-234",
 			want: false,
 		},
 		{
 			name: "contains space",
-			slug: "abc 123",
+			slug: "ABC 234",
 			want: false,
 		},
 		{
 			name: "contains special characters",
-			slug: "abc@123",
+			slug: "ABC@234",
+			want: false,
+		},
+		{
+			name: "contains lowercase",
+			slug: "abc234",
+			want: false,
+		},
+		{
+			name: "contains confusing chars 0,1,O,I",
+			slug: "AB01OI",
 			want: false,
 		},
 	}
@@ -147,7 +157,7 @@ func TestSlugUniqueness(t *testing.T) {
 
 func TestSlugDoesNotContainConfusingCharacters(t *testing.T) {
 	// Generate many slugs to verify no confusing characters are used
-	confusingChars := "iloILO" // chars that can be confused with numbers
+	confusingChars := "01OI" // chars that can be confused with other chars
 
 	for i := 0; i < 1000; i++ {
 		slug, err := GenerateSlug(10)
@@ -163,8 +173,8 @@ func TestSlugDoesNotContainConfusingCharacters(t *testing.T) {
 	}
 }
 
-func TestSlugOnlyContainsLowercaseAndNumbers(t *testing.T) {
-	// Generate many slugs to verify only lowercase letters and numbers are used
+func TestSlugOnlyContainsUppercaseAndNumbers(t *testing.T) {
+	// Generate many slugs to verify only uppercase letters and numbers (excluding 0,1,O,I) are used
 	for i := 0; i < 1000; i++ {
 		slug, err := GenerateSlug(10)
 		if err != nil {
@@ -172,11 +182,15 @@ func TestSlugOnlyContainsLowercaseAndNumbers(t *testing.T) {
 		}
 
 		for _, char := range slug {
-			if char >= 'A' && char <= 'Z' {
-				t.Errorf("Slug contains uppercase character %c: %s", char, slug)
+			if char >= 'a' && char <= 'z' {
+				t.Errorf("Slug contains lowercase character %c: %s", char, slug)
 			}
-			if !((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
+			if !((char >= 'A' && char <= 'Z') || (char >= '2' && char <= '9')) {
 				t.Errorf("Slug contains invalid character %c: %s", char, slug)
+			}
+			// Check for excluded characters
+			if char == '0' || char == '1' || char == 'O' || char == 'I' {
+				t.Errorf("Slug contains excluded character %c: %s", char, slug)
 			}
 		}
 	}

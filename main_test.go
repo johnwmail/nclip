@@ -152,7 +152,7 @@ func TestGetPaste(t *testing.T) {
 
 	// First, create a paste
 	paste := &models.Paste{
-		ID:          "test1",
+		ID:          "TEST2",
 		CreatedAt:   time.Now(),
 		Size:        5,
 		ContentType: "text/plain",
@@ -162,7 +162,7 @@ func TestGetPaste(t *testing.T) {
 
 	// Now retrieve it
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/test1", nil)
+	req, _ := http.NewRequest("GET", "/TEST2", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -175,7 +175,7 @@ func TestGetRawPaste(t *testing.T) {
 
 	content := []byte("raw content")
 	paste := &models.Paste{
-		ID:          "test2",
+		ID:          "TEST3",
 		CreatedAt:   time.Now(),
 		Size:        int64(len(content)),
 		ContentType: "text/plain",
@@ -184,7 +184,7 @@ func TestGetRawPaste(t *testing.T) {
 	store.Store(paste)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/raw/test2", nil)
+	req, _ := http.NewRequest("GET", "/raw/TEST3", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -200,7 +200,7 @@ func TestGetMetadata(t *testing.T) {
 	router, store := setupTestRouter()
 
 	paste := &models.Paste{
-		ID:          "test3",
+		ID:          "TEST4",
 		CreatedAt:   time.Now(),
 		Size:        10,
 		ContentType: "text/plain",
@@ -209,7 +209,7 @@ func TestGetMetadata(t *testing.T) {
 	store.Store(paste)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/api/v1/meta/test3", nil)
+	req, _ := http.NewRequest("GET", "/api/v1/meta/TEST4", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -219,8 +219,8 @@ func TestGetMetadata(t *testing.T) {
 	var response map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &response)
 
-	if response["id"] != "test3" {
-		t.Errorf("Expected id 'test3', got %v", response["id"])
+	if response["id"] != "TEST4" {
+		t.Errorf("Expected id 'TEST4', got %v", response["id"])
 	}
 
 	if response["size"] != float64(10) {
@@ -232,7 +232,7 @@ func TestGetMetadataAlias(t *testing.T) {
 	router, store := setupTestRouter()
 
 	paste := &models.Paste{
-		ID:          "test4",
+		ID:          "TEST5",
 		CreatedAt:   time.Now(),
 		Size:        15,
 		ContentType: "text/plain",
@@ -242,7 +242,7 @@ func TestGetMetadataAlias(t *testing.T) {
 
 	// Test the /json/:slug alias
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/json/test4", nil)
+	req, _ := http.NewRequest("GET", "/json/TEST5", nil)
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -252,8 +252,8 @@ func TestGetMetadataAlias(t *testing.T) {
 	var response map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &response)
 
-	if response["id"] != "test4" {
-		t.Errorf("Expected id 'test4', got %v", response["id"])
+	if response["id"] != "TEST5" {
+		t.Errorf("Expected id 'TEST5', got %v", response["id"])
 	}
 
 	if response["size"] != float64(15) {
@@ -262,7 +262,7 @@ func TestGetMetadataAlias(t *testing.T) {
 
 	// Verify both endpoints return the same data
 	w2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/api/v1/meta/test4", nil)
+	req2, _ := http.NewRequest("GET", "/api/v1/meta/TEST5", nil)
 	router.ServeHTTP(w2, req2)
 
 	if w.Body.String() != w2.Body.String() {
@@ -325,7 +325,7 @@ func TestNotFound(t *testing.T) {
 	router, _ := setupTestRouter()
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/abcde", nil) // Valid slug format that doesn't exist
+	req, _ := http.NewRequest("GET", "/ABCDE", nil) // Valid slug format that doesn't exist
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusNotFound {
