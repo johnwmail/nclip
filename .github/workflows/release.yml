@@ -76,20 +76,28 @@ jobs:
         echo "Files in dist directory:"
         ls -la
         for file in *; do
+          echo "Checking: $file"
+          echo "Type: $(file "$file")"
+        for file in *; do
+          echo "Checking: $file"
+          echo "Type: $(file "$file")"
           if [ -f "$file" ]; then
-            # Create a directory for each binary with static assets
-            dir_name="${file}"
-            echo "Processing file: $file -> directory: $dir_name"
+            # Create a temporary directory for packaging
+            pkg_dir="package_${file}"
+            echo "Processing binary file: $file -> package directory: $pkg_dir"
             
             # Remove directory if it exists to avoid conflicts
-            rm -rf "$dir_name"
+            rm -rf "$pkg_dir"
             
-            mkdir "$dir_name"
-            mv "$file" "$dir_name/nclip"
-            cp -r ../static "$dir_name/"
-            tar -czf "${file}.tar.gz" "$dir_name"
-            rm -rf "$dir_name"
+            mkdir "$pkg_dir"
+            # Copy the binary and rename it to generic 'nclip'
+            cp "$file" "$pkg_dir/nclip"
+            cp -r ../static "$pkg_dir/"
+            tar -czf "${file}.tar.gz" "$pkg_dir"
+            rm -rf "$pkg_dir"
             echo "Created archive: ${file}.tar.gz"
+          else
+            echo "Skipping $file (not a regular file)"
           fi
         done
         echo "Final archives:"

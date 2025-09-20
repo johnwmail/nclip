@@ -56,9 +56,7 @@
                     </div>
                 </div>
                 <div class="content-section">
-                                    <div class="content-header">
-                    <h3>Content</h3>
-                    <div class="content-actions">
+                    <div class="action-buttons">
                         <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download>Download</a>
                         {{if .IsText}}
                         <button id="copy-content" class="btn btn-secondary">Copy</button>
@@ -70,7 +68,7 @@
                             New Paste
                         </a>
                     </div>
-                </div>
+                    <h3 style="margin-top: 2rem;">Content</h3>
                     {{if .IsText}}
                     <div class="content-display">
                         <pre id="content-text"><code>{{.Content}}</code></pre>
