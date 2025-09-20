@@ -207,13 +207,40 @@ aws dynamodb create-table \
 
 ### Deploy via GitHub Actions
 ```bash
-# Push to lambda deployment branch
+# Deploy Lambda function
 git push origin feature/gin:deploy/lambda
+
+# Deploy complete infrastructure (API Gateway + CloudFront)
+gh workflow run deploy-infrastructure.yml \
+  -f lambda_function_name="your-lambda-function-name"
 ```
 
 Environment variables for Lambda:
 - `NCLIP_DYNAMO_TABLE=nclip-pastes`
 - `GIN_MODE=release`
+
+### Infrastructure Deployment
+
+After deploying the Lambda function, you can create the complete web infrastructure:
+
+- **API Gateway (HTTP)**: Cost-effective HTTP API with Lambda integration
+- **CloudFront**: Global CDN with HTTP→HTTPS redirect and caching
+
+```bash
+# Complete infrastructure deployment
+gh workflow run deploy-infrastructure.yml \
+  -f lambda_function_name="nclip-lambda"
+
+# Just API Gateway
+gh workflow run deploy-api-gateway.yml \
+  -f lambda_function_name="nclip-lambda"
+
+# Just CloudFront (requires existing API Gateway)
+gh workflow run deploy-cloudfront.yml \
+  -f api_gateway_domain="abc123.execute-api.us-east-1.amazonaws.com"
+```
+
+See [`.github/workflows/README.md`](.github/workflows/README.md) for detailed setup instructions.
 
 ## 🗄️ Storage Backends
 
