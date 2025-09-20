@@ -16,6 +16,7 @@ type Config struct {
 	DefaultTTL    time.Duration `json:"default_ttl"`
 	EnableMetrics bool          `json:"enable_metrics"`
 	EnableWebUI   bool          `json:"enable_webui"`
+	HTTPSOnly     bool          `json:"https_only"`
 	MongoURL      string        `json:"mongo_url"`
 	DynamoTable   string        `json:"dynamo_table"`
 }
@@ -30,6 +31,7 @@ func LoadConfig() *Config {
 		DefaultTTL:    24 * time.Hour,
 		EnableMetrics: true,
 		EnableWebUI:   true,
+		HTTPSOnly:     false,
 		MongoURL:      "mongodb://localhost:27017",
 		DynamoTable:   "nclip-pastes",
 	}
@@ -42,6 +44,7 @@ func LoadConfig() *Config {
 	flag.DurationVar(&config.DefaultTTL, "ttl", config.DefaultTTL, "Default paste expiration time")
 	flag.BoolVar(&config.EnableMetrics, "enable-metrics", config.EnableMetrics, "Enable Prometheus metrics")
 	flag.BoolVar(&config.EnableWebUI, "enable-webui", config.EnableWebUI, "Enable web UI")
+	flag.BoolVar(&config.HTTPSOnly, "https-only", config.HTTPSOnly, "Force HTTPS URLs when base URL is not set")
 	flag.StringVar(&config.MongoURL, "mongo-url", config.MongoURL, "MongoDB connection URL")
 	flag.StringVar(&config.DynamoTable, "dynamo-table", config.DynamoTable, "DynamoDB table name")
 	flag.Parse()
@@ -75,6 +78,9 @@ func LoadConfig() *Config {
 	}
 	if val := os.Getenv("NCLIP_ENABLE_WEBUI"); val != "" {
 		config.EnableWebUI = val == "true"
+	}
+	if val := os.Getenv("NCLIP_HTTPS_ONLY"); val != "" {
+		config.HTTPSOnly = val == "true"
 	}
 	if val := os.Getenv("NCLIP_MONGO_URL"); val != "" {
 		config.MongoURL = val

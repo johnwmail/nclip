@@ -128,9 +128,24 @@ func lambdaHandler(ctx context.Context, event interface{}) (interface{}, error) 
 	log.Printf("Unable to parse event as APIGateway v1 or v2 format")
 	log.Printf("Event JSON: %s", string(eventBytes))
 
+	// Check if this is a Lambda test event (contains test keys like key1, key2, key3)
+	var testEvent map[string]interface{}
+	if err := json.Unmarshal(eventBytes, &testEvent); err == nil {
+		if _, hasKey1 := testEvent["key1"]; hasKey1 {
+			log.Printf("Detected Lambda test event, returning success response")
+			return events.APIGatewayV2HTTPResponse{
+				StatusCode: 200,
+				Body:       `{"message": "nclip Lambda function is working! Use a real HTTP request or API Gateway integration."}`,
+				Headers: map[string]string{
+					"Content-Type": "application/json",
+				},
+			}, nil
+		}
+	}
+
 	return events.APIGatewayV2HTTPResponse{
 		StatusCode: 500,
-		Body:       "Unsupported event type",
+		Body:       "Unsupported event type - this function expects API Gateway or Lambda Function URL events",
 		Headers: map[string]string{
 			"Content-Type": "text/plain",
 		},
