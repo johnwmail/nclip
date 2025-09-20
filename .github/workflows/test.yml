@@ -297,6 +297,80 @@ jobs:
         echo "Running integration tests..."
         bash scripts/integration-test.sh
         
+    - name: Stop nclip server (for HTTPS-only test)
+      run: |
+        if [ -n "${NCLIP_PID:-}" ]; then
+          echo "Stopping nclip server (PID: $NCLIP_PID)"
+          kill $NCLIP_PID || true
+          sleep 2
+          kill -9 $NCLIP_PID 2>/dev/null || true
+        fi
+        
+    - name: Start nclip server with HTTPS-only
+      env:
+        NCLIP_MONGO_URL: mongodb://nclip:secure_password_123@localhost:27017/nclip?authSource=admin
+        NCLIP_PORT: 8080
+        NCLIP_ENABLE_WEBUI: true
+        NCLIP_ENABLE_METRICS: true
+        NCLIP_HTTPS_ONLY: true
+        GIN_MODE: release
+      run: |
+        echo "Starting nclip server with NCLIP_HTTPS_ONLY=true..."
+        ./nclip &
+        NCLIP_PID=$!
+        echo "NCLIP_PID=$NCLIP_PID" >> $GITHUB_ENV
+        echo "nclip started with PID: $NCLIP_PID"
+        
+    - name: Run HTTPS-only integration tests
+      env:
+        NCLIP_URL: http://localhost:8080
+      run: |
+        echo "Running HTTPS-only integration tests..."
+        # Wait for nclip to be ready
+        for i in {1..15}; do
+          if curl -f -s "$NCLIP_URL/health" > /dev/null 2>&1; then
+            echo "nclip is ready!"
+            break
+          elif [ $i -eq 15 ]; then
+            echo "nclip failed to become ready"
+            exit 1
+          else
+            echo "Attempt $i/15: nclip not ready, waiting 2s..."
+            sleep 2
+          fi
+        done
+        
+        # Test that paste creation returns HTTPS URLs
+        echo "Testing paste creation with --https-only..."
+        test_content="HTTPS-only test content $(date)"
+        paste_url=$(curl -f -s -X POST "$NCLIP_URL/" -d "$test_content")
+        
+        echo "Created paste URL: $paste_url"
+        
+        # Verify URL uses HTTPS protocol
+        if [[ "$paste_url" == https://localhost:8080/* ]]; then
+          echo "✅ SUCCESS: Paste URL uses HTTPS protocol as expected"
+        else
+          echo "❌ FAILED: Expected HTTPS URL, got: $paste_url"
+          exit 1
+        fi
+        
+        # Test that paste is still accessible (replace https with http for testing)
+        http_url="${paste_url/https:/http:}"
+        echo "Testing paste accessibility at: $http_url"
+        retrieved_content=$(curl -f -s "$http_url")
+        
+        if [[ "$retrieved_content" == "$test_content" ]]; then
+          echo "✅ SUCCESS: Paste content retrieved successfully"
+        else
+          echo "❌ FAILED: Could not retrieve paste content"
+          echo "Expected: $test_content"
+          echo "Got: $retrieved_content"
+          exit 1
+        fi
+        
+        echo "🎉 HTTPS-only integration test completed successfully!"
+        
     - name: Stop nclip server
       if: always()
       run: |

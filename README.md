@@ -7,7 +7,7 @@
 
 # nclip
 
-A modern, high-performance HTTP clipboard service written in Go with Gin framework, inspired by [fiche](https://github.com/solusipse/fiche).
+A modern, high-performance HTTP clipboard service written in Go with Gin framework.
 
 ## Overview
 
@@ -309,7 +309,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Inspired by [fiche](https://github.com/solusipse/fiche)
 - Built with [Go](https://golang.org/) and [Gin](https://gin-gonic.com/)
 - Supports modern cloud-native deployments
 
