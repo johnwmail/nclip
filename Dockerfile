@@ -1,6 +1,11 @@
 # Multi-stage build for smaller production image
 FROM golang:1.25-alpine AS builder
 
+# Build-time variables for versioning
+ARG VERSION=dev
+ARG BUILD_TIME
+ARG GIT_COMMIT
+
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
 
@@ -18,7 +23,7 @@ COPY . .
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w -X main.version=$VERSION -X main.buildTime=$BUILD_TIME -X main.gitCommit=$GIT_COMMIT" \
+    -ldflags="-s -w -X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.CommitHash=$GIT_COMMIT" \
     -o nclip .
 
 # Production stage

@@ -19,6 +19,9 @@ type Config struct {
 	HTTPSOnly     bool          `json:"https_only"`
 	MongoURL      string        `json:"mongo_url"`
 	DynamoTable   string        `json:"dynamo_table"`
+	Version       string        `json:"version"`
+	BuildTime     string        `json:"build_time"`
+	CommitHash    string        `json:"commit_hash"`
 }
 
 // LoadConfig loads configuration from environment variables and CLI flags
