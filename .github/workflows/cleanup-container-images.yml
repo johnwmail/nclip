@@ -90,10 +90,11 @@ jobs:
           try {
             // Get all packages for the repository
             console.log('📦 Fetching packages...');
-            const { data: packages } = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
+            const { data: packages } = await github.rest.packages.getAllPackageVersionsForPackageOwnedByRepo({
               package_type: 'container',
               package_name: repo,
-              org: owner,
+              owner,
+              repo,
               per_page: 100,
               state: 'active'
             });
@@ -155,20 +156,20 @@ jobs:
                 console.log(`🗑️  DELETE: ID ${pkg.id}, Age: ${age}d, Tags: [${tags.join(', ')}]`);
                 
                 if (!dryRun) {
-                  try {
-                    await github.rest.packages.deletePackageVersionForOrg({
+                    try {
+                    await github.rest.packages.deletePackageVersionForUser({
                       package_type: 'container',
                       package_name: repo,
-                      org: owner,
+                      username: owner,
                       package_version_id: pkg.id
                     });
                     console.log(`    ✅ Successfully deleted package version ${pkg.id}`);
-                  } catch (error) {
+                    } catch (error) {
                     const errorMsg = `Failed to delete package version ${pkg.id}: ${error.message}`;
                     console.log(`    ❌ ${errorMsg}`);
                     errors.push(errorMsg);
                     continue;
-                  }
+                    }
                 }
                 deletedCount++;
               } else {
