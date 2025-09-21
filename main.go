@@ -23,6 +23,13 @@ import (
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 )
 
+// Version/build info (set via -ldflags at build time)
+var (
+	Version    = "dev"
+	BuildTime  = "unknown"
+	CommitHash = "none"
+)
+
 // Lambda-specific variables
 var (
 	ginLambdaV1   *ginadapter.GinLambda
@@ -36,8 +43,17 @@ func isLambdaEnvironment() bool {
 }
 
 func main() {
+
+	// Print version/build info at startup
+	log.Printf("NCLIP Version: %s", Version)
+	log.Printf("Build Time:    %s", BuildTime)
+	log.Printf("Commit Hash:   %s", CommitHash)
+
 	// Load configuration
 	cfg := config.LoadConfig()
+	cfg.Version = Version
+	cfg.BuildTime = BuildTime
+	cfg.CommitHash = CommitHash
 
 	// Set Gin mode based on environment
 	if os.Getenv("GIN_MODE") == "" {
@@ -54,6 +70,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to initialize DynamoDB storage for Lambda: %v", err)
 		}
+		// Print DynamoDB table name if GIN_MODE is debug (avoid printing sensitive info)
+		if os.Getenv("GIN_MODE") == "debug" {
+			log.Printf("DynamoDB Table: %s", cfg.DynamoTable)
+		}
 		log.Println("Lambda mode: Using DynamoDB storage")
 	} else {
 		// Container mode: Always use MongoDB
@@ -61,7 +81,12 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to initialize MongoDB storage: %v", err)
 		}
-		log.Println("Container mode: Using MongoDB storage")
+		// Running in non-Lambda (server) mode; may be a container or a standalone binary
+		log.Println("Server mode: Using MongoDB storage")
+		if os.Getenv("GIN_MODE") == "debug" {
+			log.Printf("Listening on port: %d", cfg.Port)
+			log.Printf("MongoDB URL: %s", cfg.MongoURL)
+		}
 	}
 
 	// Setup router

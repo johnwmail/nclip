@@ -33,13 +33,19 @@ func (h *WebUIHandler) Index(c *gin.Context) {
 		baseURL = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
 	}
 
-	c.HTML(http.StatusOK, "index.html", gin.H{
-		"Title": "nclip - HTTP Clipboard",
-		"Config": struct {
-			URL string
-		}{
-			URL: baseURL,
-		},
+	// Pass version info to template
+	c.HTML(http.StatusOK, "index.html", struct {
+		Title      string
+		Config     struct{ URL string }
+		Version    string
+		BuildTime  string
+		CommitHash string
+	}{
+		Title:      "NCLIP - HTTP Clipboard",
+		Config:     struct{ URL string }{URL: baseURL},
+		Version:    h.config.Version,
+		BuildTime:  h.config.BuildTime,
+		CommitHash: h.config.CommitHash,
 	})
 }
 

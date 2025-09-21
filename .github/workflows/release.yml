@@ -70,7 +70,7 @@ jobs:
         
         echo "Building $BINARY_NAME for $GOOS/$GOARCH..."
         go build -v \
-          -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.gitCommit=${GITHUB_SHA:0:7}" \
+          -ldflags="-s -w -X main.Version=${VERSION} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.CommitHash=${GITHUB_SHA:0:7}" \
           -o "dist/${BINARY_NAME}_${GOOS}_${GOARCH}" \
           .
           

@@ -256,18 +256,36 @@ func (h *PasteHandler) View(c *gin.Context) {
 	slug := c.Param("slug")
 
 	if !utils.IsValidSlug(slug) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
+		c.HTML(http.StatusBadRequest, "view.html", gin.H{
+			"Title":      "NCLIP - Error",
+			"Error":      "Invalid slug format",
+			"Version":    h.config.Version,
+			"BuildTime":  h.config.BuildTime,
+			"CommitHash": h.config.CommitHash,
+		})
 		return
 	}
 
 	paste, err := h.store.Get(slug)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve paste"})
+		c.HTML(http.StatusInternalServerError, "view.html", gin.H{
+			"Title":      "NCLIP - Error",
+			"Error":      "Failed to retrieve paste",
+			"Version":    h.config.Version,
+			"BuildTime":  h.config.BuildTime,
+			"CommitHash": h.config.CommitHash,
+		})
 		return
 	}
 
 	if paste == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found"})
+		c.HTML(http.StatusNotFound, "view.html", gin.H{
+			"Title":      "NCLIP - Error",
+			"Error":      "Paste not found",
+			"Version":    h.config.Version,
+			"BuildTime":  h.config.BuildTime,
+			"CommitHash": h.config.CommitHash,
+		})
 		return
 	}
 
@@ -299,9 +317,13 @@ func (h *PasteHandler) View(c *gin.Context) {
 	// Return HTML view for browsers
 	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
 		c.HTML(http.StatusOK, "view.html", gin.H{
-			"Paste":   paste,
-			"IsText":  utils.IsTextContent(paste.ContentType),
-			"Content": string(paste.Content),
+			"Title":      fmt.Sprintf("NCLIP - Paste %s", paste.ID),
+			"Paste":      paste,
+			"IsText":     utils.IsTextContent(paste.ContentType),
+			"Content":    string(paste.Content),
+			"Version":    h.config.Version,
+			"BuildTime":  h.config.BuildTime,
+			"CommitHash": h.config.CommitHash,
 		})
 		return
 	}
