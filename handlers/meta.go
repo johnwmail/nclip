@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -40,8 +41,8 @@ func (h *MetaHandler) GetMetadata(c *gin.Context) {
 		return
 	}
 
-	// Return metadata without content
-	c.JSON(http.StatusOK, gin.H{
+	// Return metadata without content, pretty-printed JSON
+	response := gin.H{
 		"id":              paste.ID,
 		"created_at":      paste.CreatedAt,
 		"expires_at":      paste.ExpiresAt,
@@ -49,5 +50,12 @@ func (h *MetaHandler) GetMetadata(c *gin.Context) {
 		"content_type":    paste.ContentType,
 		"burn_after_read": paste.BurnAfterRead,
 		"read_count":      paste.ReadCount,
-	})
+	}
+
+	jsonBytes, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal JSON"})
+		return
+	}
+	c.Data(http.StatusOK, "application/json; charset=utf-8", jsonBytes)
 }

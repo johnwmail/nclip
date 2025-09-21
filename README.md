@@ -51,11 +51,13 @@ go build -o nclip .
 
 # Upload content via curl
 echo "Hello World!" | curl --data-binary @- http://localhost:8080
-# Returns: http://localhost:8080/abc123
+# Returns: http://localhost:8080/2F4D6
 
 # Access content
-curl http://localhost:8080/abc123          # HTML view
-curl http://localhost:8080/raw/abc123      # Raw content
+curl http://localhost:8080/2F4D6          # HTML view
+curl http://localhost:8080/raw/2F4D6      # Raw content
+
+# Slug length: Slugs must be 3–32 characters. If out of range, default is 5.
 
 # Web interface
 open http://localhost:8080
@@ -115,8 +117,8 @@ curl --data-binary @document.pdf http://localhost:8080
 echo "Self-destruct message" | curl --data-binary @- http://localhost:8080/burn/
 
 # Get metadata as JSON
-curl http://localhost:8080/json/abc123
-curl http://localhost:8080/api/v1/meta/abc123
+curl http://localhost:8080/json/2F4D6
+curl http://localhost:8080/api/v1/meta/2F4D6
 ```
 
 ### Configuration
@@ -230,12 +232,13 @@ nclip supports configuration via environment variables and CLI flags.
 
 ### Environment Variables
 ```bash
+
 # Server configuration
 NCLIP_PORT=8080                    # HTTP port
 NCLIP_URL=https://paste.example.com # Base URL for paste links
-NCLIP_SLUG_LENGTH=5               # Length of generated slugs
-NCLIP_BUFFER_SIZE=1048576         # Max upload size (1MB)
-NCLIP_TTL=24h                     # Default paste expiration
+NCLIP_SLUG_LENGTH=5                # Slug length (must be 3–32, default 5 if out of range)
+NCLIP_BUFFER_SIZE=1048576          # Max upload size (1MB)
+NCLIP_TTL=24h                      # Default paste expiration
 
 # Feature toggles
 NCLIP_ENABLE_METRICS=true         # Prometheus metrics
