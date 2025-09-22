@@ -28,7 +28,7 @@ func NewPasteHandler(store storage.PasteStore, config *config.Config) *PasteHand
 	}
 }
 
-// generatePasteURL creates the full URL for a paste, respecting HTTPS-only setting and proxy headers
+// generatePasteURL creates the full URL for a paste, detecting HTTPS from proxy headers
 func (h *PasteHandler) generatePasteURL(c *gin.Context, slug string) string {
 	// If base URL is explicitly set, use it (takes precedence)
 	if h.config.URL != "" {
@@ -37,7 +37,7 @@ func (h *PasteHandler) generatePasteURL(c *gin.Context, slug string) string {
 
 	// Determine scheme - check for HTTPS indicators
 	scheme := "http"
-	if h.config.HTTPSOnly || h.isHTTPS(c) {
+	if h.isHTTPS(c) {
 		scheme = "https"
 	}
 

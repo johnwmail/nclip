@@ -14,7 +14,6 @@ type Config struct {
 	SlugLength  int           `json:"slug_length"`
 	BufferSize  int64         `json:"buffer_size"`
 	DefaultTTL  time.Duration `json:"default_ttl"`
-	HTTPSOnly   bool          `json:"https_only"`
 	MongoURL    string        `json:"mongo_url"`
 	DynamoTable string        `json:"dynamo_table"`
 	Version     string        `json:"version"`
@@ -30,7 +29,6 @@ func LoadConfig() *Config {
 		SlugLength:  5,
 		BufferSize:  1048576, // 1MB
 		DefaultTTL:  24 * time.Hour,
-		HTTPSOnly:   false,
 		MongoURL:    "mongodb://localhost:27017",
 		DynamoTable: "nclip-pastes",
 	}
@@ -41,7 +39,6 @@ func LoadConfig() *Config {
 	flag.IntVar(&config.SlugLength, "slug-length", config.SlugLength, "Length of generated slugs")
 	flag.Int64Var(&config.BufferSize, "buffer-size", config.BufferSize, "Maximum upload size in bytes")
 	flag.DurationVar(&config.DefaultTTL, "ttl", config.DefaultTTL, "Default paste expiration time")
-	flag.BoolVar(&config.HTTPSOnly, "https-only", config.HTTPSOnly, "Force HTTPS URLs when base URL is not set")
 	flag.StringVar(&config.MongoURL, "mongo-url", config.MongoURL, "MongoDB connection URL")
 	flag.StringVar(&config.DynamoTable, "dynamo-table", config.DynamoTable, "DynamoDB table name")
 	flag.Parse()
@@ -69,9 +66,6 @@ func LoadConfig() *Config {
 		if ttl, err := time.ParseDuration(val); err == nil {
 			config.DefaultTTL = ttl
 		}
-	}
-	if val := os.Getenv("NCLIP_HTTPS_ONLY"); val != "" {
-		config.HTTPSOnly = val == "true"
 	}
 	if val := os.Getenv("NCLIP_MONGO_URL"); val != "" {
 		config.MongoURL = val

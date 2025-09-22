@@ -27,7 +27,7 @@ func (h *WebUIHandler) Index(c *gin.Context) {
 	if baseURL == "" {
 		// Determine scheme - check for HTTPS indicators
 		scheme := "http"
-		if h.config.HTTPSOnly || h.isHTTPS(c) {
+		if h.isHTTPS(c) {
 			scheme = "https"
 		}
 		baseURL = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
