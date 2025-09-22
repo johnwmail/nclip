@@ -1,4 +1,4 @@
-# nclip Copilot Instructions
+# Nclip Copilot Instructions
 
 This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The service supports both MongoDB (container/on-prem) and DynamoDB (AWS Lambda) storage backends.
 
@@ -161,8 +161,6 @@ All config via env vars with CLI flag alternatives:
 - `NCLIP_MONGO_URL` / `--mongo-url` (default: "mongodb://localhost:27017") — MongoDB connection URL (container mode)
 - `NCLIP_DYNAMO_TABLE` / `--dynamo-table` (default: "nclip-pastes") — DynamoDB table name (Lambda mode)
 - `NCLIP_HTTPS_ONLY` / `--https-only` (default: false) — If true (and NCLIP_URL is not set), only generate HTTPS URLs for pastes. If false, use HTTP or HTTPS based on the request scheme. This is useful when behind a reverse proxy that handles TLS termination.
-
-**Note**: Web UI is always enabled and cannot be disabled.
 
 **Note**: Storage backend is automatically selected based on deployment environment:
 - Container/K8s: Uses MongoDB (NCLIP_MONGO_URL)
