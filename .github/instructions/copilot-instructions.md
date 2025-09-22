@@ -1,4 +1,4 @@
-# nclip Copilot Instructions
+# Nclip Copilot Instructions
 
 This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The service supports both MongoDB (container/on-prem) and DynamoDB (AWS Lambda) storage backends.
 
@@ -51,7 +51,6 @@ type Config struct {
     BufferSize     int64  `default:"1048576"` // 1MB
     DefaultTTL     time.Duration `default:"24h"`
     EnableMetrics  bool   `default:"true"`
-    EnableWebUI    bool   `default:"true"`
     MongoURL       string `default:"mongodb://localhost:27017"`
     DynamoTable    string `default:"nclip-pastes"`
 }
@@ -159,7 +158,6 @@ All config via env vars with CLI flag alternatives:
 - `NCLIP_BUFFER_SIZE` / `--buffer-size` (default: 1048576) — Max upload size in bytes (1MB)
 - `NCLIP_TTL` / `--ttl` (default: "24h") — Default paste expiration time
 - `NCLIP_ENABLE_METRICS` / `--enable-metrics` (default: true) — Enable Prometheus metrics endpoint
-- `NCLIP_ENABLE_WEBUI` / `--enable-webui` (default: true) — Enable web UI interface
 - `NCLIP_MONGO_URL` / `--mongo-url` (default: "mongodb://localhost:27017") — MongoDB connection URL (container mode)
 - `NCLIP_DYNAMO_TABLE` / `--dynamo-table` (default: "nclip-pastes") — DynamoDB table name (Lambda mode)
 - `NCLIP_HTTPS_ONLY` / `--https-only` (default: false) — If true (and NCLIP_URL is not set), only generate HTTPS URLs for pastes. If false, use HTTP or HTTPS based on the request scheme. This is useful when behind a reverse proxy that handles TLS termination.

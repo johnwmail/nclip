@@ -142,8 +142,8 @@ Invoke-RestMethod -Uri http://localhost:8080/raw/2F4D6
 # Custom TTL and buffer size
 ./nclip --ttl 48h --buffer-size 5242880  # 5MB max
 
-# Disable web UI or metrics
-./nclip --enable-webui=false --enable-metrics=false
+# Disable metrics
+./nclip --enable-metrics=false
 
 # Environment variables
 export NCLIP_URL=https://paste.example.com
@@ -258,7 +258,6 @@ NCLIP_TTL=24h                      # Default paste expiration
 
 # Feature toggles
 NCLIP_ENABLE_METRICS=true         # Prometheus metrics
-NCLIP_ENABLE_WEBUI=true          # Web UI
 
 # Storage configuration
 NCLIP_MONGO_URL=mongodb://localhost:27017  # MongoDB connection

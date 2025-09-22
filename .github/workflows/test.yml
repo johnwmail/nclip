@@ -280,7 +280,6 @@ jobs:
       env:
         NCLIP_MONGO_URL: mongodb://nclip:secure_password_123@localhost:27017/nclip?authSource=admin
         NCLIP_PORT: 8080
-        NCLIP_ENABLE_WEBUI: true
         NCLIP_ENABLE_METRICS: true
         GIN_MODE: release
       run: |
@@ -310,7 +309,6 @@ jobs:
       env:
         NCLIP_MONGO_URL: mongodb://nclip:secure_password_123@localhost:27017/nclip?authSource=admin
         NCLIP_PORT: 8080
-        NCLIP_ENABLE_WEBUI: true
         NCLIP_ENABLE_METRICS: true
         NCLIP_HTTPS_ONLY: true
         GIN_MODE: release
