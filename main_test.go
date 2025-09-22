@@ -592,23 +592,67 @@ func TestPowerShellViewPaste(t *testing.T) {
 	req2.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.19041; en-US) PowerShell/7.4.0")
 	router.ServeHTTP(w2, req2)
 
-	if w2.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w2.Code)
+	// PowerShell should get a redirect to /raw endpoint
+	if w2.Code != http.StatusFound {
+		t.Errorf("Expected status 302 (redirect), got %d", w2.Code)
 	}
 
-	// PowerShell should get raw content directly, not HTML
-	responseBody := w2.Body.String()
-	if responseBody != content {
-		t.Errorf("Expected raw content '%s' for PowerShell view, got: '%s'", content, responseBody)
+	// Check redirect location
+	location := w2.Header().Get("Location")
+	expectedLocation := "/raw/" + slug
+	if location != expectedLocation {
+		t.Errorf("Expected redirect to '%s', got '%s'", expectedLocation, location)
 	}
 
-	// Verify the paste still exists (increment read count should have worked)
+	// Verify the paste still exists (no read count increment for redirects)
 	paste, err := store.Get(slug)
 	if err != nil {
 		t.Errorf("Failed to get paste: %v", err)
 	}
 	if paste == nil {
-		t.Errorf("Paste should still exist after PowerShell view")
+		t.Errorf("Paste should still exist after PowerShell redirect")
+	}
+}
+
+func TestPowerShellFollowsRedirectToRaw(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// First, create a paste
+	content := "Test content for PowerShell raw endpoint"
+	w1 := httptest.NewRecorder()
+	req1, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req1.Header.Set("Content-Type", "text/plain")
+	router.ServeHTTP(w1, req1)
+
+	if w1.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w1.Code)
+	}
+
+	// Parse the JSON response to get the slug
+	var response map[string]interface{}
+	if err := json.Unmarshal(w1.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse JSON response: %v", err)
+	}
+
+	slug, ok := response["slug"].(string)
+	if !ok {
+		t.Fatalf("Slug not found in response")
+	}
+
+	// Test accessing the /raw endpoint directly with PowerShell user agent
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("GET", "/raw/"+slug, nil)
+	req2.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.19041; en-US) PowerShell/7.4.0")
+	router.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for /raw endpoint, got %d", w2.Code)
+	}
+
+	// PowerShell should get raw content from /raw endpoint
+	responseBody := w2.Body.String()
+	if responseBody != content {
+		t.Errorf("Expected raw content '%s' from /raw endpoint, got: '%s'", content, responseBody)
 	}
 }
 

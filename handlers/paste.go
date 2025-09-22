@@ -311,11 +311,17 @@ func (h *PasteHandler) View(c *gin.Context) {
 		}
 	}
 
-	// Check if this is a curl/wget/PowerShell request - serve raw content directly
+	// Check if this is a curl/wget request - serve raw content directly
+	// Check if this is a PowerShell request - redirect to /raw endpoint  
 	userAgent := c.Request.Header.Get("User-Agent")
+	if h.isPowerShellClient(c) {
+		// Redirect PowerShell clients to /raw endpoint
+		c.Redirect(http.StatusFound, fmt.Sprintf("/raw/%s", slug))
+		return
+	}
+	
 	if strings.Contains(strings.ToLower(userAgent), "curl") ||
-		strings.Contains(strings.ToLower(userAgent), "wget") ||
-		h.isPowerShellClient(c) {
+		strings.Contains(strings.ToLower(userAgent), "wget") {
 		// Serve raw content directly instead of redirecting
 		c.Header("Content-Type", paste.ContentType)
 		c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
