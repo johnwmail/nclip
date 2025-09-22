@@ -5,16 +5,16 @@
 [![GitHub release](https://img.shields.io/github/release/johnwmail/nclip.svg)](https://github.com/johnwmail/nclip/releases)
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org/)
 
-# nclip
+# NCLIP
 
 A modern, high-performance HTTP clipboard service written in Go with Gin framework.
 
 ## Overview
 
 nclip is a versatile clipboard service that accepts content via:
-- **HTTP/curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
 - **Web UI** - Browser interface at `http://localhost:8080`
-- **File upload** - Upload files via web UI or curl multipart forms
+- **Curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
+- **File upload** - Upload (small) files via web UI or curl: `curl --data-binary @/path/file http://localhost:8080`
 - **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG`
 - **Burn after reading** - Content that self-destructs after being accessed once
 
@@ -26,7 +26,6 @@ nclip is a versatile clipboard service that accepts content via:
 - 🐳 **Container Ready**: Docker & Kubernetes deployment
 - ⏰ **Auto-Expiration**: TTL support with configurable defaults
 - 🛡️ **Production Ready**: Health checks, Prometheus metrics
-- 📊 **JSON Metadata API**: Programmatic access to paste information
 - 🔧 **Configurable**: Environment variables & CLI flags
 
 ## 🚀 Quick Start
@@ -107,7 +106,7 @@ Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** includ
 # Upload text
 echo "Secret message" | curl --data-binary @- http://localhost:8080
 
-# Upload file
+# Upload text file
 curl --data-binary @myfile.txt http://localhost:8080
 
 # Upload binary file
@@ -119,6 +118,20 @@ echo "Self-destruct message" | curl --data-binary @- http://localhost:8080/burn/
 # Get metadata as JSON
 curl http://localhost:8080/json/2F4D6
 curl http://localhost:8080/api/v1/meta/2F4D6
+
+### PowerShell / Windows
+```powershell
+# Post plain text
+Invoke-WebRequest -Uri http://localhost:8080 -Method POST -Body "Hello from PowerShell!" -UseBasicParsing
+
+# Post a text or binary file
+Invoke-WebRequest -Uri http://localhost:8080 -Method POST -InFile "C:\path\to\file.txt" -UseBasicParsing
+
+# Using Invoke-RestMethod (for text)
+Invoke-RestMethod -Uri http://localhost:8080 -Method POST -Body "Hello from PowerShell!"
+
+# Using Invoke-RestMethod (for retire)
+Invoke-RestMethod -Uri http://localhost:8080/raw/2F4D6
 ```
 
 ### Configuration
@@ -153,7 +166,6 @@ docker-compose up -d
 
 ### Docker Compose (with MongoDB)
 ```yaml
-version: '3.8'
 services:
   nclip:
     image: johnwmail/nclip:latest
@@ -208,12 +220,16 @@ aws dynamodb create-table \
 ```
 
 ### Deploy via GitHub Actions
+
+When you push to the `deploy/lambda` branch, a GitHub Actions workflow automatically builds and deploys the Lambda function using the configuration in [`.github/workflows/lambda.yml`](.github/workflows/lambda.yml).
 ```bash
 # Push to lambda deployment branch
-git push origin feature/gin:deploy/lambda
+git push origin deploy/lambda
 ```
+- `NCLIP_DYNAMO_TABLE=nclip-pastes`
+- `GIN_MODE=release`
 
-Environment variables for Lambda:
+> **Note:** Ensure your Lambda function has appropriate AWS credentials and an IAM role with permissions for DynamoDB access (e.g., `dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:UpdateItem`, `dynamodb:DeleteItem` on the target table).
 - `NCLIP_DYNAMO_TABLE=nclip-pastes`
 - `GIN_MODE=release`
 
