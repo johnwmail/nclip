@@ -183,6 +183,7 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	pasteHandler := handlers.NewPasteHandler(store, cfg)
 	metaHandler := handlers.NewMetaHandler(store)
 	systemHandler := handlers.NewSystemHandler()
+	webuiHandler := handlers.NewWebUIHandler(cfg)
 
 	// Create Gin router
 	router := gin.New()
@@ -190,6 +191,18 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	// Add logging middleware
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
+
+	// Load favicon
+	router.StaticFile("/favicon.ico", "./static/favicon.ico")
+
+	// Load HTML templates
+	router.LoadHTMLGlob("static/*.html")
+
+	// Serve static files
+	router.Static("/static", "./static")
+
+	// Web UI routes (always enabled)
+	router.GET("/", webuiHandler.Index)
 
 	// Core API routes
 	router.POST("/", pasteHandler.Upload)
@@ -231,6 +244,7 @@ func runHTTPServer(router *gin.Engine, cfg *config.Config, store storage.PasteSt
 	go func() {
 		log.Printf("Starting nclip server on port %d", cfg.Port)
 		log.Printf("Storage backend: MongoDB (container mode)")
+		log.Printf("Web UI: enabled")
 		log.Printf("Metrics enabled: %t", cfg.EnableMetrics)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

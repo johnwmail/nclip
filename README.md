@@ -12,15 +12,16 @@ A modern, high-performance HTTP clipboard service written in Go with Gin framewo
 ## Overview
 
 nclip is a versatile clipboard service that accepts content via:
+- **Web UI** - Browser interface at `http://localhost:8080`
 - **Curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
-- **File upload** - Upload (small) files via curl: `curl --data-binary @/path/file http://localhost:8080`
+- **File upload** - Upload (small) files via web UI or curl: `curl --data-binary @/path/file http://localhost:8080`
 - **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG`
 - **Burn after reading** - Content that self-destructs after being accessed once
 
 ## ✨ Features
 
 - 🚀 **Dual Deployment**: Container/Kubernetes (MongoDB) + AWS Lambda (DynamoDB)
-- 🎯 **Unified Codebase**: Same code and logic for both environments
+- 🎯 **Unified Codebase**: Same code, logic, and UI for both environments
 - 🗄️ **Multi-Storage Backend**: MongoDB for containers, DynamoDB for serverless
 - 🐳 **Container Ready**: Docker & Kubernetes deployment
 - ⏰ **Auto-Expiration**: TTL support with configurable defaults
@@ -66,9 +67,10 @@ open http://localhost:8080
 ## 📋 API Endpoints
 
 ### Core Endpoints
+- `GET /` — Web UI (upload form, stats)
 - `POST /` — Upload paste (returns URL)
 - `POST /burn/` — Create burn-after-read paste
-- `GET /{slug}` — View paste content
+- `GET /{slug}` — HTML view of paste
 - `GET /raw/{slug}` — Raw content download
 
 ### Metadata API
@@ -307,6 +309,7 @@ GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o bootstrap .  # Lambda
 │   └── dynamodb.go      # DynamoDB implementation
 ├── handlers/            # HTTP request handlers
 ├── models/              # Data models
+├── static/              # Web UI assets
 └── utils/               # Utilities (slug generation, MIME detection)
 ```
 

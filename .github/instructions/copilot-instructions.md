@@ -14,9 +14,10 @@ This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The 
 ## API Endpoints
 
 ### Core Endpoints
+- `GET /` — Web UI (upload form, stats)
 - `POST /` — Upload paste (returns URL)
 - `POST /burn/` — Create burn-after-read paste
-- `GET /{slug}` — View paste content
+- `GET /{slug}` — HTML view of paste
 - `GET /raw/{slug}` — Raw content download
 - `GET /api/v1/meta/{slug}` — JSON metadata (no content)
 - `GET /json/{slug}` — Alias for `/api/v1/meta/{slug}` (shortcut)
@@ -100,6 +101,13 @@ type PasteStore interface {
 - Prometheus metrics for requests, errors, paste counts
 - Optional tracing for debugging
 
+### Web UI
+- Simple HTML form for paste upload
+- Display paste URL after upload
+- Show paste statistics (size, type, etc.)
+- Raw/download buttons for existing pastes
+- Responsive design for mobile
+
 ### CLI Compatibility
 - `curl --data-binary @- http://host/` — Upload from stdin
 - `curl --data-binary @file http://host/` — Upload file
@@ -124,6 +132,10 @@ type PasteStore interface {
 │   └── system.go        # Health, metrics endpoints
 ├── models/
 │   └── paste.go         # Paste struct and utilities
+├── static/
+│   ├── index.html       # Web UI
+│   ├── style.css        # Styling
+│   └── script.js        # Frontend JS
 └── utils/
     ├── slug.go          # Slug generation
     └── mime.go          # Content-type detection
@@ -149,6 +161,8 @@ All config via env vars with CLI flag alternatives:
 - `NCLIP_MONGO_URL` / `--mongo-url` (default: "mongodb://localhost:27017") — MongoDB connection URL (container mode)
 - `NCLIP_DYNAMO_TABLE` / `--dynamo-table` (default: "nclip-pastes") — DynamoDB table name (Lambda mode)
 - `NCLIP_HTTPS_ONLY` / `--https-only` (default: false) — If true (and NCLIP_URL is not set), only generate HTTPS URLs for pastes. If false, use HTTP or HTTPS based on the request scheme. This is useful when behind a reverse proxy that handles TLS termination.
+
+**Note**: Web UI is always enabled and cannot be disabled.
 
 **Note**: Storage backend is automatically selected based on deployment environment:
 - Container/K8s: Uses MongoDB (NCLIP_MONGO_URL)

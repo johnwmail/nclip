@@ -78,10 +78,14 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	pasteHandler := handlers.NewPasteHandler(store, cfg)
 	metaHandler := handlers.NewMetaHandler(store)
 	systemHandler := handlers.NewSystemHandler()
+	webuiHandler := handlers.NewWebUIHandler(cfg)
 
 	router := gin.New()
+	router.LoadHTMLGlob("static/*.html")
+	router.Static("/static", "./static")
 
-	// Routes
+	// Routes (WebUI always enabled)
+	router.GET("/", webuiHandler.Index)
 	router.POST("/", pasteHandler.Upload)
 	router.POST("/burn/", pasteHandler.UploadBurn)
 	router.GET("/:slug", pasteHandler.View)
