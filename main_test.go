@@ -71,7 +71,6 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 		BufferSize:    1048576,
 		DefaultTTL:    24 * time.Hour,
 		EnableMetrics: true,
-		EnableWebUI:   true,
 	}
 
 	store := NewMockStore()
@@ -79,16 +78,10 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	pasteHandler := handlers.NewPasteHandler(store, cfg)
 	metaHandler := handlers.NewMetaHandler(store)
 	systemHandler := handlers.NewSystemHandler()
-	webuiHandler := handlers.NewWebUIHandler(cfg)
 
 	router := gin.New()
-	router.LoadHTMLGlob("static/*.html")
-	router.Static("/static", "./static")
 
 	// Routes
-	if cfg.EnableWebUI {
-		router.GET("/", webuiHandler.Index)
-	}
 	router.POST("/", pasteHandler.Upload)
 	router.POST("/burn/", pasteHandler.UploadBurn)
 	router.GET("/:slug", pasteHandler.View)
@@ -353,7 +346,6 @@ func TestHTTPSOnly(t *testing.T) {
 		BufferSize:    1048576,
 		DefaultTTL:    24 * time.Hour,
 		EnableMetrics: false,
-		EnableWebUI:   true,
 		HTTPSOnly:     true, // Enable HTTPS-only
 		URL:           "",   // No explicit URL set
 	}
@@ -397,7 +389,6 @@ func TestHTTPSOnlyWithExplicitURL(t *testing.T) {
 		BufferSize:    1048576,
 		DefaultTTL:    24 * time.Hour,
 		EnableMetrics: false,
-		EnableWebUI:   true,
 		HTTPSOnly:     true,                            // Enable HTTPS-only
 		URL:           "http://custom-domain.com:8080", // Explicit URL with HTTP
 	}
@@ -441,7 +432,6 @@ func TestHTTPSOnlyDisabled(t *testing.T) {
 		BufferSize:    1048576,
 		DefaultTTL:    24 * time.Hour,
 		EnableMetrics: false,
-		EnableWebUI:   true,
 		HTTPSOnly:     false, // Disable HTTPS-only
 		URL:           "",    // No explicit URL set
 	}
