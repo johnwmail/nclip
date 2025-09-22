@@ -476,3 +476,168 @@ func TestHTTPSOnlyDisabled(t *testing.T) {
 		t.Errorf("Expected URL to start with %s, got %s", expectedPrefix, url)
 	}
 }
+
+func TestPowerShellUserAgent(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// Test PowerShell Core user agent
+	content := "Hello from PowerShell Core"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.19041; en-US) PowerShell/7.4.0")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// PowerShell should get plain text response (URL + newline)
+	responseBody := w.Body.String()
+	if !bytes.HasSuffix(w.Body.Bytes(), []byte("\n")) {
+		t.Errorf("Expected plain text response ending with newline for PowerShell, got: %s", responseBody)
+	}
+
+	// Response should not be JSON
+	var jsonResp map[string]interface{}
+	if json.Unmarshal(w.Body.Bytes(), &jsonResp) == nil {
+		t.Errorf("Expected plain text response for PowerShell, but got JSON: %s", responseBody)
+	}
+}
+
+func TestWindowsPowerShellUserAgent(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// Test Windows PowerShell 5.1 user agent
+	content := "Hello from Windows PowerShell"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) WindowsPowerShell/5.1.19041.906")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// PowerShell should get plain text response (URL + newline)
+	responseBody := w.Body.String()
+	if !bytes.HasSuffix(w.Body.Bytes(), []byte("\n")) {
+		t.Errorf("Expected plain text response ending with newline for Windows PowerShell, got: %s", responseBody)
+	}
+
+	// Response should not be JSON
+	var jsonResp map[string]interface{}
+	if json.Unmarshal(w.Body.Bytes(), &jsonResp) == nil {
+		t.Errorf("Expected plain text response for Windows PowerShell, but got JSON: %s", responseBody)
+	}
+}
+
+func TestPowerShellBurnAfterRead(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// Test PowerShell with burn-after-read
+	content := "Burn after reading from PowerShell"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/burn/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.19041; en-US) PowerShell/7.4.0")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// PowerShell should get plain text response (URL + newline)
+	responseBody := w.Body.String()
+	if !bytes.HasSuffix(w.Body.Bytes(), []byte("\n")) {
+		t.Errorf("Expected plain text response ending with newline for PowerShell burn, got: %s", responseBody)
+	}
+
+	// Response should not be JSON
+	var jsonResp map[string]interface{}
+	if json.Unmarshal(w.Body.Bytes(), &jsonResp) == nil {
+		t.Errorf("Expected plain text response for PowerShell burn, but got JSON: %s", responseBody)
+	}
+}
+
+func TestPowerShellViewPaste(t *testing.T) {
+	router, store := setupTestRouter()
+
+	// First, create a paste
+	content := "Test content for PowerShell view"
+	w1 := httptest.NewRecorder()
+	req1, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req1.Header.Set("Content-Type", "text/plain")
+	router.ServeHTTP(w1, req1)
+
+	if w1.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w1.Code)
+	}
+
+	// Parse the JSON response to get the slug
+	var response map[string]interface{}
+	if err := json.Unmarshal(w1.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse JSON response: %v", err)
+	}
+
+	slug, ok := response["slug"].(string)
+	if !ok {
+		t.Fatalf("Slug not found in response")
+	}
+
+	// Now test viewing with PowerShell user agent
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("GET", "/"+slug, nil)
+	req2.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.19041; en-US) PowerShell/7.4.0")
+	router.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w2.Code)
+	}
+
+	// PowerShell should get raw content directly, not HTML
+	responseBody := w2.Body.String()
+	if responseBody != content {
+		t.Errorf("Expected raw content '%s' for PowerShell view, got: '%s'", content, responseBody)
+	}
+
+	// Verify the paste still exists (increment read count should have worked)
+	paste, err := store.Get(slug)
+	if err != nil {
+		t.Errorf("Failed to get paste: %v", err)
+	}
+	if paste == nil {
+		t.Errorf("Paste should still exist after PowerShell view")
+	}
+}
+
+func TestNonPowerShellUserAgentStillWorksAsJSON(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// Test with a regular browser user agent to ensure it still returns JSON
+	content := "Hello from regular browser"
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	// Regular browser should get JSON response
+	var jsonResp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &jsonResp); err != nil {
+		t.Errorf("Expected JSON response for regular browser, but got error: %v, body: %s", err, w.Body.String())
+	}
+
+	// Should have url and slug fields
+	if _, hasURL := jsonResp["url"]; !hasURL {
+		t.Errorf("Expected 'url' field in JSON response")
+	}
+	if _, hasSlug := jsonResp["slug"]; !hasSlug {
+		t.Errorf("Expected 'slug' field in JSON response")
+	}
+}
