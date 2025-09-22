@@ -192,6 +192,9 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 
+	// Load favicon
+	router.StaticFile("/favicon.ico", "./static/favicon.ico")
+
 	// Load HTML templates
 	router.LoadHTMLGlob("static/*.html")
 
