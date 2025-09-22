@@ -42,9 +42,6 @@ WORKDIR /app
 # Copy binary from builder stage
 COPY --from=builder /app/nclip .
 
-# Copy static assets for web UI
-COPY --from=builder /app/static ./static
-
 # Switch to non-root user
 USER nclip
 
