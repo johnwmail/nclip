@@ -66,11 +66,10 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{
-		Port:        8080,
-		SlugLength:  5,
-		BufferSize:  1048576,
-		DefaultTTL:  24 * time.Hour,
-		EnableWebUI: true,
+		Port:       8080,
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
 	}
 
 	store := NewMockStore()
@@ -366,12 +365,11 @@ func TestHTTPSOnly(t *testing.T) {
 	// Test with HTTPS-only enabled
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:  5,
-		BufferSize:  1048576,
-		DefaultTTL:  24 * time.Hour,
-		EnableWebUI: true,
-		HTTPSOnly:   true, // Enable HTTPS-only
-		URL:         "",   // No explicit URL set
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
+		HTTPSOnly:  true, // Enable HTTPS-only
+		URL:        "",   // No explicit URL set
 	}
 
 	router := setupRouter(store, cfg)
@@ -409,12 +407,11 @@ func TestHTTPSOnlyWithExplicitURL(t *testing.T) {
 	// Test that explicit URL takes precedence over HTTPS-only
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:  5,
-		BufferSize:  1048576,
-		DefaultTTL:  24 * time.Hour,
-		EnableWebUI: true,
-		HTTPSOnly:   true,                            // Enable HTTPS-only
-		URL:         "http://custom-domain.com:8080", // Explicit URL with HTTP
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
+		HTTPSOnly:  true,                            // Enable HTTPS-only
+		URL:        "http://custom-domain.com:8080", // Explicit URL with HTTP
 	}
 
 	router := setupRouter(store, cfg)
@@ -452,12 +449,11 @@ func TestHTTPSOnlyDisabled(t *testing.T) {
 	// Test with HTTPS-only disabled (default behavior)
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:  5,
-		BufferSize:  1048576,
-		DefaultTTL:  24 * time.Hour,
-		EnableWebUI: true,
-		HTTPSOnly:   false, // Disable HTTPS-only
-		URL:         "",    // No explicit URL set
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
+		HTTPSOnly:  false, // Disable HTTPS-only
+		URL:        "",    // No explicit URL set
 	}
 
 	router := setupRouter(store, cfg)

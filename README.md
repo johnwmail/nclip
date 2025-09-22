@@ -252,9 +252,6 @@ NCLIP_SLUG_LENGTH=5                # Slug length (must be 3–32, default 5 if o
 NCLIP_BUFFER_SIZE=1048576          # Max upload size (1MB)
 NCLIP_TTL=24h                      # Default paste expiration
 
-# Feature toggles
-NCLIP_ENABLE_WEBUI=true          # Web UI
-
 # Storage configuration
 NCLIP_MONGO_URL=mongodb://localhost:27017  # MongoDB connection
 NCLIP_DYNAMO_TABLE=nclip-pastes             # DynamoDB table
