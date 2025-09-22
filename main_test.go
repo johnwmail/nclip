@@ -66,11 +66,11 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{
-		Port:          8080,
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: true,
+		Port:        8080,
+		SlugLength:  5,
+		BufferSize:  1048576,
+		DefaultTTL:  24 * time.Hour,
+		EnableWebUI: true,
 	}
 
 	store := NewMockStore()
@@ -93,9 +93,6 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
 	router.GET("/json/:slug", metaHandler.GetMetadata)
 	router.GET("/health", systemHandler.Health)
-	if cfg.EnableMetrics {
-		router.GET("/metrics", systemHandler.Metrics)
-	}
 
 	return router, store
 }
@@ -346,12 +343,12 @@ func TestHTTPSOnly(t *testing.T) {
 	// Test with HTTPS-only enabled
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		HTTPSOnly:     true, // Enable HTTPS-only
-		URL:           "",   // No explicit URL set
+		SlugLength:  5,
+		BufferSize:  1048576,
+		DefaultTTL:  24 * time.Hour,
+		EnableWebUI: true,
+		HTTPSOnly:   true, // Enable HTTPS-only
+		URL:         "",   // No explicit URL set
 	}
 
 	router := setupRouter(store, cfg)
@@ -389,12 +386,12 @@ func TestHTTPSOnlyWithExplicitURL(t *testing.T) {
 	// Test that explicit URL takes precedence over HTTPS-only
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		HTTPSOnly:     true,                            // Enable HTTPS-only
-		URL:           "http://custom-domain.com:8080", // Explicit URL with HTTP
+		SlugLength:  5,
+		BufferSize:  1048576,
+		DefaultTTL:  24 * time.Hour,
+		EnableWebUI: true,
+		HTTPSOnly:   true,                            // Enable HTTPS-only
+		URL:         "http://custom-domain.com:8080", // Explicit URL with HTTP
 	}
 
 	router := setupRouter(store, cfg)
@@ -432,12 +429,12 @@ func TestHTTPSOnlyDisabled(t *testing.T) {
 	// Test with HTTPS-only disabled (default behavior)
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		HTTPSOnly:     false, // Disable HTTPS-only
-		URL:           "",    // No explicit URL set
+		SlugLength:  5,
+		BufferSize:  1048576,
+		DefaultTTL:  24 * time.Hour,
+		EnableWebUI: true,
+		HTTPSOnly:   false, // Disable HTTPS-only
+		URL:         "",    // No explicit URL set
 	}
 
 	router := setupRouter(store, cfg)
