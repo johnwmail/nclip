@@ -116,6 +116,29 @@ func TestHealthCheck(t *testing.T) {
 	}
 }
 
+func TestMetricsEndpointRemoved(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/metrics", nil)
+	router.ServeHTTP(w, req)
+
+	// The /metrics endpoint should no longer exist as a specific route.
+	// It will be caught by the /:slug route and return 400 (invalid slug format)
+	// or 404 (slug not found). Either way, it's not a 200 with metrics data.
+	if w.Code == http.StatusOK {
+		t.Errorf("Metrics endpoint should NOT return 200 (metrics removed), got %d", w.Code)
+	}
+	
+	// Verify it's not returning Prometheus metrics format
+	body := w.Body.String()
+	if bytes.Contains(w.Body.Bytes(), []byte("# HELP")) || 
+	   bytes.Contains(w.Body.Bytes(), []byte("# TYPE")) ||
+	   bytes.Contains(w.Body.Bytes(), []byte("prometheus")) {
+		t.Errorf("Response should not contain Prometheus metrics format, but it does: %s", body)
+	}
+}
+
 func TestUploadText(t *testing.T) {
 	router, store := setupTestRouter()
 
