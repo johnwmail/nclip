@@ -128,12 +128,12 @@ func TestMetricsEndpointRemoved(t *testing.T) {
 	if w.Code == http.StatusOK {
 		t.Errorf("Metrics endpoint should NOT return 200 (metrics removed), got %d", w.Code)
 	}
-	
+
 	// Verify it's not returning Prometheus metrics format
 	body := w.Body.String()
-	if bytes.Contains(w.Body.Bytes(), []byte("# HELP")) || 
-	   bytes.Contains(w.Body.Bytes(), []byte("# TYPE")) ||
-	   bytes.Contains(w.Body.Bytes(), []byte("prometheus")) {
+	if bytes.Contains(w.Body.Bytes(), []byte("# HELP")) ||
+		bytes.Contains(w.Body.Bytes(), []byte("# TYPE")) ||
+		bytes.Contains(w.Body.Bytes(), []byte("prometheus")) {
 		t.Errorf("Response should not contain Prometheus metrics format, but it does: %s", body)
 	}
 }
