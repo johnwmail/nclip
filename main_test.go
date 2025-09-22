@@ -66,11 +66,10 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{
-		Port:          8080,
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: true,
+		Port:       8080,
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
 	}
 
 	store := NewMockStore()
@@ -93,9 +92,6 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
 	router.GET("/json/:slug", metaHandler.GetMetadata)
 	router.GET("/health", systemHandler.Health)
-	if cfg.EnableMetrics {
-		router.GET("/metrics", systemHandler.Metrics)
-	}
 
 	return router, store
 }
@@ -116,6 +112,29 @@ func TestHealthCheck(t *testing.T) {
 
 	if response["status"] != "ok" {
 		t.Errorf("Expected status 'ok', got %v", response["status"])
+	}
+}
+
+func TestMetricsEndpointRemoved(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/metrics", nil)
+	router.ServeHTTP(w, req)
+
+	// The /metrics endpoint should no longer exist as a specific route.
+	// It will be caught by the /:slug route and return 400 (invalid slug format)
+	// or 404 (slug not found). Either way, it's not a 200 with metrics data.
+	if w.Code == http.StatusOK {
+		t.Errorf("Metrics endpoint should NOT return 200 (metrics removed), got %d", w.Code)
+	}
+	
+	// Verify it's not returning Prometheus metrics format
+	body := w.Body.String()
+	if bytes.Contains(w.Body.Bytes(), []byte("# HELP")) || 
+	   bytes.Contains(w.Body.Bytes(), []byte("# TYPE")) ||
+	   bytes.Contains(w.Body.Bytes(), []byte("prometheus")) {
+		t.Errorf("Response should not contain Prometheus metrics format, but it does: %s", body)
 	}
 }
 
@@ -346,12 +365,11 @@ func TestHTTPSOnly(t *testing.T) {
 	// Test with HTTPS-only enabled
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		HTTPSOnly:     true, // Enable HTTPS-only
-		URL:           "",   // No explicit URL set
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
+		HTTPSOnly:  true, // Enable HTTPS-only
+		URL:        "",   // No explicit URL set
 	}
 
 	router := setupRouter(store, cfg)
@@ -389,12 +407,11 @@ func TestHTTPSOnlyWithExplicitURL(t *testing.T) {
 	// Test that explicit URL takes precedence over HTTPS-only
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		HTTPSOnly:     true,                            // Enable HTTPS-only
-		URL:           "http://custom-domain.com:8080", // Explicit URL with HTTP
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
+		HTTPSOnly:  true,                            // Enable HTTPS-only
+		URL:        "http://custom-domain.com:8080", // Explicit URL with HTTP
 	}
 
 	router := setupRouter(store, cfg)
@@ -432,12 +449,11 @@ func TestHTTPSOnlyDisabled(t *testing.T) {
 	// Test with HTTPS-only disabled (default behavior)
 	store := NewMockStore()
 	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		HTTPSOnly:     false, // Disable HTTPS-only
-		URL:           "",    // No explicit URL set
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
+		HTTPSOnly:  false, // Disable HTTPS-only
+		URL:        "",    // No explicit URL set
 	}
 
 	router := setupRouter(store, cfg)
