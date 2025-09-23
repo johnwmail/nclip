@@ -7,11 +7,11 @@
 
 # NCLIP
 
-A modern, high-performance HTTP clipboard service written in Go with Gin framework.
+A modern, high-performance HTTP clipboard apps written in Go with Gin framework.
 
 ## Overview
 
-nclip is a versatile clipboard service that accepts content via:
+nclip is a versatile clipboard apps that accepts content via:
 - **Web UI** - Browser interface at `http://localhost:8080`
 - **Curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
 - **File upload** - Upload (small) files via web UI or curl: `curl --data-binary @/path/file http://localhost:8080`
@@ -25,7 +25,7 @@ nclip is a versatile clipboard service that accepts content via:
 - 🗄️ **Multi-Storage Backend**: MongoDB for containers, DynamoDB for serverless
 - 🐳 **Container Ready**: Docker & Kubernetes deployment
 - ⏰ **Auto-Expiration**: TTL support with configurable defaults
-- 🛡️ **Production Ready**: Health checks, Prometheus metrics
+- 🛡️ **Production Ready**: Health checks, structured logging
 - 🔧 **Configurable**: Environment variables & CLI flags
 
 ## 🚀 Quick Start
@@ -79,7 +79,6 @@ open http://localhost:8080
 
 ### System Endpoints
 - `GET /health` — Health check (200 OK)
-- `GET /metrics` — Prometheus metrics (optional)
 
 ## 📊 Paste Metadata (JSON)
 
@@ -142,9 +141,6 @@ Invoke-RestMethod -Uri http://localhost:8080/raw/2F4D6
 # Custom TTL and buffer size
 ./nclip --ttl 48h --buffer-size 5242880  # 5MB max
 
-# Disable web UI or metrics
-./nclip --enable-webui=false --enable-metrics=false
-
 # Environment variables
 export NCLIP_URL=https://paste.example.com
 export NCLIP_TTL=24h
@@ -202,6 +198,7 @@ kubectl apply -f k8s/nclip-mongodb.yaml
 docker build -t nclip .
 kubectl create deployment nclip --image=nclip
 kubectl expose deployment nclip --port=8080 --type=LoadBalancer
+See [docs/KUBERNETES.md](docs/KUBERNETES.md) for detailed Kubernetes deployment instructions.
 ```
 
 ## ☁️ AWS Lambda Deployment
@@ -256,10 +253,6 @@ NCLIP_SLUG_LENGTH=5                # Slug length (must be 3–32, default 5 if o
 NCLIP_BUFFER_SIZE=1048576          # Max upload size (1MB)
 NCLIP_TTL=24h                      # Default paste expiration
 
-# Feature toggles
-NCLIP_ENABLE_METRICS=true         # Prometheus metrics
-NCLIP_ENABLE_WEBUI=true          # Web UI
-
 # Storage configuration
 NCLIP_MONGO_URL=mongodb://localhost:27017  # MongoDB connection
 NCLIP_DYNAMO_TABLE=nclip-pastes             # DynamoDB table
@@ -274,15 +267,7 @@ All environment variables have corresponding CLI flags:
 ## 📊 Monitoring
 
 - **Health Check**: `GET /health` - Returns 200 OK with system status
-- **Metrics**: `GET /metrics` - Prometheus format metrics
 - **Structured Logging**: JSON format with request tracing
-
-Example metrics:
-```
-nclip_pastes_total{status="created"} 1234
-nclip_pastes_total{status="accessed"} 5678
-nclip_http_requests_total{method="POST",status="200"} 1000
-```
 
 ## 🔧 Development
 

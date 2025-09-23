@@ -66,12 +66,10 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{
-		Port:          8080,
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: true,
-		EnableWebUI:   true,
+		Port:       8080,
+		SlugLength: 5,
+		BufferSize: 1048576,
+		DefaultTTL: 24 * time.Hour,
 	}
 
 	store := NewMockStore()
@@ -85,10 +83,8 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	router.LoadHTMLGlob("static/*.html")
 	router.Static("/static", "./static")
 
-	// Routes
-	if cfg.EnableWebUI {
-		router.GET("/", webuiHandler.Index)
-	}
+	// Routes (WebUI always enabled)
+	router.GET("/", webuiHandler.Index)
 	router.POST("/", pasteHandler.Upload)
 	router.POST("/burn/", pasteHandler.UploadBurn)
 	router.GET("/:slug", pasteHandler.View)
@@ -96,9 +92,6 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
 	router.GET("/json/:slug", metaHandler.GetMetadata)
 	router.GET("/health", systemHandler.Health)
-	if cfg.EnableMetrics {
-		router.GET("/metrics", systemHandler.Metrics)
-	}
 
 	return router, store
 }
@@ -119,6 +112,29 @@ func TestHealthCheck(t *testing.T) {
 
 	if response["status"] != "ok" {
 		t.Errorf("Expected status 'ok', got %v", response["status"])
+	}
+}
+
+func TestMetricsEndpointRemoved(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/metrics", nil)
+	router.ServeHTTP(w, req)
+
+	// The /metrics endpoint should no longer exist as a specific route.
+	// It will be caught by the /:slug route and return 400 (invalid slug format)
+	// or 404 (slug not found). Either way, it's not a 200 with metrics data.
+	if w.Code == http.StatusOK {
+		t.Errorf("Metrics endpoint should NOT return 200 (metrics removed), got %d", w.Code)
+	}
+
+	// Verify it's not returning Prometheus metrics format
+	body := w.Body.String()
+	if bytes.Contains(w.Body.Bytes(), []byte("# HELP")) ||
+		bytes.Contains(w.Body.Bytes(), []byte("# TYPE")) ||
+		bytes.Contains(w.Body.Bytes(), []byte("prometheus")) {
+		t.Errorf("Response should not contain Prometheus metrics format, but it does: %s", body)
 	}
 }
 
@@ -342,137 +358,5 @@ func TestInvalidSlug(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
-	}
-}
-
-func TestHTTPSOnly(t *testing.T) {
-	// Test with HTTPS-only enabled
-	store := NewMockStore()
-	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		EnableWebUI:   true,
-		HTTPSOnly:     true, // Enable HTTPS-only
-		URL:           "",   // No explicit URL set
-	}
-
-	router := setupRouter(store, cfg)
-
-	content := "test HTTPS-only"
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
-	req.Header.Set("Content-Type", "text/plain")
-	req.Host = "example.com" // Set the host for URL generation
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
-
-	// Parse JSON response
-	var response map[string]interface{}
-	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-		t.Fatalf("Failed to parse JSON response: %v", err)
-	}
-
-	// Check that URL starts with https://
-	url, ok := response["url"].(string)
-	if !ok {
-		t.Fatalf("URL not found in response")
-	}
-
-	expectedPrefix := "https://example.com/"
-	if len(url) < len(expectedPrefix) || url[:len(expectedPrefix)] != expectedPrefix {
-		t.Errorf("Expected URL to start with %s, got %s", expectedPrefix, url)
-	}
-}
-
-func TestHTTPSOnlyWithExplicitURL(t *testing.T) {
-	// Test that explicit URL takes precedence over HTTPS-only
-	store := NewMockStore()
-	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		EnableWebUI:   true,
-		HTTPSOnly:     true,                            // Enable HTTPS-only
-		URL:           "http://custom-domain.com:8080", // Explicit URL with HTTP
-	}
-
-	router := setupRouter(store, cfg)
-
-	content := "test explicit URL override"
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
-	req.Header.Set("Content-Type", "text/plain")
-	req.Host = "example.com"
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
-
-	// Parse JSON response
-	var response map[string]interface{}
-	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-		t.Fatalf("Failed to parse JSON response: %v", err)
-	}
-
-	// Check that URL uses the explicit URL (even though it's HTTP)
-	url, ok := response["url"].(string)
-	if !ok {
-		t.Fatalf("URL not found in response")
-	}
-
-	expectedPrefix := "http://custom-domain.com:8080/"
-	if len(url) < len(expectedPrefix) || url[:len(expectedPrefix)] != expectedPrefix {
-		t.Errorf("Expected URL to start with %s, got %s", expectedPrefix, url)
-	}
-}
-
-func TestHTTPSOnlyDisabled(t *testing.T) {
-	// Test with HTTPS-only disabled (default behavior)
-	store := NewMockStore()
-	cfg := &config.Config{
-		SlugLength:    5,
-		BufferSize:    1048576,
-		DefaultTTL:    24 * time.Hour,
-		EnableMetrics: false,
-		EnableWebUI:   true,
-		HTTPSOnly:     false, // Disable HTTPS-only
-		URL:           "",    // No explicit URL set
-	}
-
-	router := setupRouter(store, cfg)
-
-	content := "test HTTP default"
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString(content))
-	req.Header.Set("Content-Type", "text/plain")
-	req.Host = "example.com"
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
-
-	// Parse JSON response
-	var response map[string]interface{}
-	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-		t.Fatalf("Failed to parse JSON response: %v", err)
-	}
-
-	// Check that URL starts with http:// (default behavior)
-	url, ok := response["url"].(string)
-	if !ok {
-		t.Fatalf("URL not found in response")
-	}
-
-	expectedPrefix := "http://example.com/"
-	if len(url) < len(expectedPrefix) || url[:len(expectedPrefix)] != expectedPrefix {
-		t.Errorf("Expected URL to start with %s, got %s", expectedPrefix, url)
 	}
 }

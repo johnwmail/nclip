@@ -38,7 +38,6 @@ services:
       NCLIP_PORT: 8080
       NCLIP_TTL: 24h
       NCLIP_ENABLE_METRICS: "true"
-      NCLIP_ENABLE_WEBUI: "true"
     ports:
       - "8080:8080"   # HTTP interface
     depends_on:

@@ -28,7 +28,7 @@ func NewPasteHandler(store storage.PasteStore, config *config.Config) *PasteHand
 	}
 }
 
-// generatePasteURL creates the full URL for a paste, respecting HTTPS-only setting and proxy headers
+// generatePasteURL creates the full URL for a paste, detecting HTTPS from proxy headers
 func (h *PasteHandler) generatePasteURL(c *gin.Context, slug string) string {
 	// If base URL is explicitly set, use it (takes precedence)
 	if h.config.URL != "" {
@@ -37,7 +37,7 @@ func (h *PasteHandler) generatePasteURL(c *gin.Context, slug string) string {
 
 	// Determine scheme - check for HTTPS indicators
 	scheme := "http"
-	if h.config.HTTPSOnly || h.isHTTPS(c) {
+	if h.isHTTPS(c) {
 		scheme = "https"
 	}
 
@@ -81,6 +81,17 @@ func (h *PasteHandler) isHTTPS(c *gin.Context) bool {
 		return true
 	}
 
+	return false
+}
+
+// clients detects if the request is from CLI (curl, wget, Invoke-WebRequest, Invoke-RestMethod, etc.)
+func (h *PasteHandler) isCli(c *gin.Context) bool {
+	userAgent := strings.ToLower(c.Request.Header.Get("User-Agent"))
+	if strings.Contains(userAgent, "curl") ||
+		strings.Contains(userAgent, "wget") ||
+		strings.Contains(userAgent, "powershell") {
+		return true
+	}
 	return false
 }
 
@@ -153,8 +164,8 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	// Generate URL
 	pasteURL := h.generatePasteURL(c, slug)
 
-	// Return URL as plain text for curl compatibility
-	if strings.Contains(c.Request.Header.Get("User-Agent"), "curl") ||
+	// Return URL as plain text for cli tools compatibility
+	if h.isCli(c) ||
 		c.Request.Header.Get("Accept") == "text/plain" {
 		c.String(http.StatusOK, pasteURL+"\n")
 		return
@@ -236,8 +247,8 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	// Generate URL
 	pasteURL := h.generatePasteURL(c, slug)
 
-	// Return URL as plain text for curl compatibility
-	if strings.Contains(c.Request.Header.Get("User-Agent"), "curl") ||
+	// Return URL as plain text for cli tools compatibility
+	if h.isCli(c) ||
 		c.Request.Header.Get("Accept") == "text/plain" {
 		c.String(http.StatusOK, pasteURL+"\n")
 		return
@@ -303,10 +314,8 @@ func (h *PasteHandler) View(c *gin.Context) {
 		}
 	}
 
-	// Check if this is a curl/wget request - serve raw content directly
-	userAgent := c.Request.Header.Get("User-Agent")
-	if strings.Contains(strings.ToLower(userAgent), "curl") ||
-		strings.Contains(strings.ToLower(userAgent), "wget") {
+	// Check if this is a cli tools request - serve raw content directly
+	if h.isCli(c) {
 		// Serve raw content directly instead of redirecting
 		c.Header("Content-Type", paste.ContentType)
 		c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
