@@ -133,6 +133,28 @@ Invoke-RestMethod -Uri http://localhost:8080 -Method POST -Body "Hello from Powe
 Invoke-RestMethod -Uri http://localhost:8080/raw/2F4D6
 ```
 
+## 🐚 Bash Aliases
+
+You may find these bash aliases useful for working with nclip:
+
+```bash
+alias curl="curl -s -L "
+
+alias nclip="_nclip"
+_nclip() {
+  local _URL="https://demo.nclip.app"
+  if [ -t 0 ]; then
+    if [ $# -eq 1 ] && [ -f "$1" ]; then
+      curl -sL --data-binary @"$1" "$_URL"
+    else
+      echo -en "$*" | curl -sL --data-binary @- "$_URL"
+    fi
+  else
+    cat | curl -sL --data-binary @- "$_URL"
+  fi
+}
+```
+
 ### Configuration
 ```bash
 # Custom port and URL
