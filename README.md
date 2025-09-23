@@ -138,8 +138,6 @@ Invoke-RestMethod -Uri http://localhost:8080/raw/2F4D6
 You may find these bash aliases useful for working with nclip:
 
 ```bash
-alias curl="curl -s -L "
-
 alias nclip="_nclip"
 _nclip() {
   local _URL="https://demo.nclip.app"
