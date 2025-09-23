@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // SystemHandler handles system endpoints
@@ -21,9 +20,4 @@ func (h *SystemHandler) Health(c *gin.Context) {
 		"status":  "ok",
 		"service": "nclip",
 	})
-}
-
-// Metrics handles Prometheus metrics via GET /metrics
-func (h *SystemHandler) Metrics(c *gin.Context) {
-	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
 }

@@ -213,25 +213,6 @@ test_not_found() {
     fi
 }
 
-# Test metrics endpoint (if enabled)
-test_metrics() {
-    log "Testing metrics endpoint..."
-    
-    local status
-    status=$(curl -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/metrics")
-    
-    if [[ "$status" == "200" ]]; then
-        success "Metrics endpoint accessible"
-        return 0
-    elif [[ "$status" == "404" ]]; then
-        warn "Metrics endpoint disabled (404) - this is expected if metrics are disabled"
-        return 0
-    else
-        error "Metrics endpoint failed with status: $status"
-        return 1
-    fi
-}
-
 # Main test function
 run_integration_tests() {
     log "Starting nclip integration tests..."
@@ -300,12 +281,6 @@ run_integration_tests() {
     
     # Test 404
     if ! test_not_found; then
-        ((failed_tests++))
-    fi
-    echo
-    
-    # Test metrics
-    if ! test_metrics; then
         ((failed_tests++))
     fi
     echo

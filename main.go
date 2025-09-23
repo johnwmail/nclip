@@ -201,10 +201,8 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	// Serve static files
 	router.Static("/static", "./static")
 
-	// Web UI routes
-	if cfg.EnableWebUI {
-		router.GET("/", webuiHandler.Index)
-	}
+	// Web UI routes (always enabled)
+	router.GET("/", webuiHandler.Index)
 
 	// Core API routes
 	router.POST("/", pasteHandler.Upload)
@@ -220,9 +218,6 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 
 	// System routes
 	router.GET("/health", systemHandler.Health)
-	if cfg.EnableMetrics {
-		router.GET("/metrics", systemHandler.Metrics)
-	}
 
 	return router
 }
@@ -246,8 +241,7 @@ func runHTTPServer(router *gin.Engine, cfg *config.Config, store storage.PasteSt
 	go func() {
 		log.Printf("Starting nclip server on port %d", cfg.Port)
 		log.Printf("Storage backend: MongoDB (container mode)")
-		log.Printf("Web UI enabled: %t", cfg.EnableWebUI)
-		log.Printf("Metrics enabled: %t", cfg.EnableMetrics)
+		log.Printf("Web UI: enabled")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)

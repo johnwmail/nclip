@@ -1,4 +1,4 @@
-# nclip Copilot Instructions
+# Nclip Copilot Instructions
 
 This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The service supports both MongoDB (container/on-prem) and DynamoDB (AWS Lambda) storage backends.
 
@@ -24,7 +24,6 @@ This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The 
 
 ### System Endpoints
 - `GET /health` — Health check (200 OK)
-- `GET /metrics` — Prometheus metrics (optional)
 
 ## Data Models
 
@@ -50,8 +49,6 @@ type Config struct {
     SlugLength     int    `default:"5"`
     BufferSize     int64  `default:"1048576"` // 1MB
     DefaultTTL     time.Duration `default:"24h"`
-    EnableMetrics  bool   `default:"true"`
-    EnableWebUI    bool   `default:"true"`
     MongoURL       string `default:"mongodb://localhost:27017"`
     DynamoTable    string `default:"nclip-pastes"`
 }
@@ -97,9 +94,8 @@ type PasteStore interface {
 - Validate slug format (alphanumeric only)
 - Limit upload size via `BufferSize` config
 
-### Logging & Metrics
+### Logging
 - Structured logging (JSON format recommended)
-- Prometheus metrics for requests, errors, paste counts
 - Optional tracing for debugging
 
 ### Web UI
@@ -130,7 +126,7 @@ type PasteStore interface {
 │   ├── paste.go         # Upload, view, raw endpoints
 │   ├── burn.go          # Burn-after-read functionality
 │   ├── meta.go          # Metadata endpoint
-│   └── system.go        # Health, metrics endpoints
+│   └── system.go        # Health endpoint
 ├── models/
 │   └── paste.go         # Paste struct and utilities
 ├── static/
@@ -158,11 +154,8 @@ All config via env vars with CLI flag alternatives:
 - `NCLIP_SLUG_LENGTH` / `--slug-length` (default: 5) — Length of generated paste IDs
 - `NCLIP_BUFFER_SIZE` / `--buffer-size` (default: 1048576) — Max upload size in bytes (1MB)
 - `NCLIP_TTL` / `--ttl` (default: "24h") — Default paste expiration time
-- `NCLIP_ENABLE_METRICS` / `--enable-metrics` (default: true) — Enable Prometheus metrics endpoint
-- `NCLIP_ENABLE_WEBUI` / `--enable-webui` (default: true) — Enable web UI interface
 - `NCLIP_MONGO_URL` / `--mongo-url` (default: "mongodb://localhost:27017") — MongoDB connection URL (container mode)
 - `NCLIP_DYNAMO_TABLE` / `--dynamo-table` (default: "nclip-pastes") — DynamoDB table name (Lambda mode)
-- `NCLIP_HTTPS_ONLY` / `--https-only` (default: false) — If true (and NCLIP_URL is not set), only generate HTTPS URLs for pastes. If false, use HTTP or HTTPS based on the request scheme. This is useful when behind a reverse proxy that handles TLS termination.
 
 **Note**: Storage backend is automatically selected based on deployment environment:
 - Container/K8s: Uses MongoDB (NCLIP_MONGO_URL)
