@@ -7,11 +7,11 @@
 
 # NCLIP
 
-A modern, high-performance HTTP clipboard apps written in Go with Gin framework.
+A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 
 ## Overview
 
-nclip is a versatile clipboard apps that accepts content via:
+nclip is a versatile clipboard app that accepts content via:
 - **Web UI** - Browser interface at `http://localhost:8080`
 - **Curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
 - **File upload** - Upload (small) files via web UI or curl: `curl --data-binary @/path/file http://localhost:8080`
