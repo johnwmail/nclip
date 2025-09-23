@@ -7,11 +7,11 @@
 
 # NCLIP
 
-A modern, high-performance HTTP clipboard service written in Go with Gin framework.
+A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 
 ## Overview
 
-nclip is a versatile clipboard service that accepts content via:
+nclip is a versatile clipboard app that accepts content via:
 - **Web UI** - Browser interface at `http://localhost:8080`
 - **Curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
 - **File upload** - Upload (small) files via web UI or curl: `curl --data-binary @/path/file http://localhost:8080`
@@ -136,13 +136,13 @@ Invoke-RestMethod -Uri http://localhost:8080/raw/2F4D6
 ### Configuration
 ```bash
 # Custom port and URL
-./nclip --port 8080 --url https://paste.example.com
+./nclip --port 8080 --url https://demo.nclip.app
 
 # Custom TTL and buffer size
 ./nclip --ttl 48h --buffer-size 5242880  # 5MB max
 
 # Environment variables
-export NCLIP_URL=https://paste.example.com
+export NCLIP_URL=https://demo.nclip.app
 export NCLIP_TTL=24h
 ./nclip
 ```
@@ -169,7 +169,7 @@ services:
       - "8080:8080"
     environment:
       - NCLIP_MONGO_URL=mongodb://mongo:27017
-      - NCLIP_URL=https://paste.example.com
+      - NCLIP_URL=https://demo.nclip.app
     depends_on:
       - mongo
   
@@ -198,6 +198,7 @@ kubectl apply -f k8s/nclip-mongodb.yaml
 docker build -t nclip .
 kubectl create deployment nclip --image=nclip
 kubectl expose deployment nclip --port=8080 --type=LoadBalancer
+See [docs/KUBERNETES.md](docs/KUBERNETES.md) for detailed Kubernetes deployment instructions.
 ```
 
 ## ☁️ AWS Lambda Deployment
@@ -247,7 +248,7 @@ nclip supports configuration via environment variables and CLI flags.
 
 # Server configuration
 NCLIP_PORT=8080                    # HTTP port
-NCLIP_URL=https://paste.example.com # Base URL for paste links
+NCLIP_URL=https://demo.nclip.app   # Base URL for paste links
 NCLIP_SLUG_LENGTH=5                # Slug length (must be 3–32, default 5 if out of range)
 NCLIP_BUFFER_SIZE=1048576          # Max upload size (1MB)
 NCLIP_TTL=24h                      # Default paste expiration
@@ -260,7 +261,7 @@ NCLIP_DYNAMO_TABLE=nclip-pastes             # DynamoDB table
 ### CLI Flags
 All environment variables have corresponding CLI flags:
 ```bash
-./nclip --port 8080 --url https://paste.example.com --ttl 48h
+./nclip --port 8080 --url https://demo.nclip.app --ttl 48h
 ```
 
 ## 📊 Monitoring

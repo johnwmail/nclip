@@ -120,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://prod.example.com
+      url: https://prod.nclip.app
     steps:
       - name: Deploy to production
         env:

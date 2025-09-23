@@ -150,7 +150,7 @@ type PasteStore interface {
 
 All config via env vars with CLI flag alternatives:
 - `NCLIP_PORT` / `--port` (default: 8080) — HTTP server port
-- `NCLIP_URL` / `--url` (default: auto-detect) — Base URL for paste links (e.g. "https://paste.example.com")
+- `NCLIP_URL` / `--url` (default: auto-detect) — Base URL for paste links (e.g. "https://demo.nclip.app")
 - `NCLIP_SLUG_LENGTH` / `--slug-length` (default: 5) — Length of generated paste IDs
 - `NCLIP_BUFFER_SIZE` / `--buffer-size` (default: 1048576) — Max upload size in bytes (1MB)
 - `NCLIP_TTL` / `--ttl` (default: "24h") — Default paste expiration time
