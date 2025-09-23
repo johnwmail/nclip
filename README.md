@@ -7,7 +7,7 @@
 
 # NCLIP
 
-A modern, high-performance HTTP clipboard service written in Go with Gin framework.
+A modern, high-performance HTTP clipboard apps written in Go with Gin framework.
 
 ## Overview
 
@@ -198,6 +198,7 @@ kubectl apply -f k8s/nclip-mongodb.yaml
 docker build -t nclip .
 kubectl create deployment nclip --image=nclip
 kubectl expose deployment nclip --port=8080 --type=LoadBalancer
+See [docs/KUBERNETES.md](docs/KUBERNETES.md) for detailed Kubernetes deployment instructions.
 ```
 
 ## ☁️ AWS Lambda Deployment

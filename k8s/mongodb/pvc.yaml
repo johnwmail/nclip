@@ -1,0 +1,17 @@
+---                        
+apiVersion: v1           
+kind: PersistentVolumeClaim
+metadata:                                
+  name: mongodb-pvc
+  namespace: nclip
+  labels:                  
+    app: mongodb
+spec:                                       
+  accessModes:                    
+    - ReadWriteOnce
+  resources:                              
+    requests:                 
+      storage: 2Gi
+  selector:
+    matchLabels:
+      app: mongodb
