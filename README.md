@@ -155,7 +155,6 @@ _nclip() {
 }
 ```
 
----
 ### Configuration
 ```bash
 # Custom port and URL
