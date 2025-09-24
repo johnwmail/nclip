@@ -47,3 +47,15 @@ func IsTextContent(contentType string) bool {
 
 	return false
 }
+
+// ExtensionByMime returns the most common file extension for a given MIME type
+func ExtensionByMime(mimeType string) string {
+	if mimeType == "" {
+		return ""
+	}
+	exts, _ := mime.ExtensionsByType(mimeType)
+	if len(exts) > 0 {
+		return exts[0]
+	}
+	return ""
+}

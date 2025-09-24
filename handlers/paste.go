@@ -387,6 +387,14 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 	c.Header("Content-Type", paste.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
 
+	// Suggest filename with extension based on MIME type
+	ext := utils.ExtensionByMime(paste.ContentType)
+	filename := slug
+	if ext != "" {
+		filename = slug + ext
+	}
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+
 	// Return raw content
 	c.Data(http.StatusOK, paste.ContentType, paste.Content)
 }
