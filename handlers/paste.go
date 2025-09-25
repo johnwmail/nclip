@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/config"
@@ -98,66 +99,71 @@ func (h *PasteHandler) isCli(c *gin.Context) bool {
 // Upload handles paste upload via POST /
 func (h *PasteHandler) Upload(c *gin.Context) {
 	// Log request headers for debugging
-	fmt.Printf("[DEBUG] Upload handler invoked at %v\n", time.Now())
-	fmt.Printf("[DEBUG] Request headers: %v\n", c.Request.Header)
-	fmt.Printf("[DEBUG] Content-Type: %s\n", c.Request.Header.Get("Content-Type"))
-	fmt.Printf("[DEBUG] Content-Length: %s\n", c.Request.Header.Get("Content-Length"))
+		fmt.Printf("[DEBUG] Upload handler invoked at %v\n", time.Now())
+		fmt.Printf("[DEBUG] Request headers: %v\n", c.Request.Header)
+		fmt.Printf("[DEBUG] Content-Type: %s\n", c.Request.Header.Get("Content-Type"))
+		fmt.Printf("[DEBUG] Content-Length: %s\n", c.Request.Header.Get("Content-Length"))
+		// Log remote address and method
+		fmt.Printf("[DEBUG] RemoteAddr: %s, Method: %s\n", c.Request.RemoteAddr, c.Request.Method)
 	var content []byte
 	var filename string
 	var err error
 
 	// Check if it's a multipart form (file upload)
-	if c.Request.Header.Get("Content-Type") != "" &&
-		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-		file, header, err := c.Request.FormFile("file")
-		if err != nil {
-			fmt.Printf("[ERROR] FormFile error: %v\n", err)
-			h.writeError(c, http.StatusBadRequest, "No file provided", err.Error())
-			return
-		}
-		defer func() { _ = file.Close() }() // Ignore close errors in defer
-		filename = header.Filename
-		fmt.Printf("[DEBUG] Uploaded filename: %s\n", filename)
-		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
-		if err != nil {
-			fmt.Printf("[ERROR] io.ReadAll error: %v\n", err)
-			h.writeError(c, http.StatusInternalServerError, "Failed to read file", err.Error())
-			return
-		}
-		fmt.Printf("[DEBUG] Uploaded file size: %d bytes\n", len(content))
-		if len(content) > 0 {
-			fmt.Printf("[DEBUG] First 16 bytes: % x\n", content[:min(16, len(content))])
-		}
-	} else {
-		// Raw content upload
-		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
-		if err != nil {
-			fmt.Printf("[ERROR] io.ReadAll (raw) error: %v\n", err)
-			h.writeError(c, http.StatusInternalServerError, "Failed to read content", err.Error())
-			return
-		}
-		fmt.Printf("[DEBUG] Raw upload size: %d bytes\n", len(content))
-		if len(content) > 0 {
-			fmt.Printf("[DEBUG] First 16 bytes: % x\n", content[:min(16, len(content))])
-		}
-	}
+	   if c.Request.Header.Get("Content-Type") != "" &&
+		   strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+		   file, header, err := c.Request.FormFile("file")
+		   if err != nil {
+			   fmt.Printf("[ERROR] FormFile error: %v\n", err)
+			   h.writeError(c, http.StatusBadRequest, "No file provided", err.Error())
+			   return
+		   }
+		   defer func() { _ = file.Close() }() // Ignore close errors in defer
+		   filename = header.Filename
+		   fmt.Printf("[DEBUG] Uploaded filename: %s\n", filename)
+		   content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
+		   if err != nil {
+			   fmt.Printf("[ERROR] io.ReadAll error: %v\n", err)
+			   h.writeError(c, http.StatusInternalServerError, "Failed to read file", err.Error())
+			   return
+		   }
+		   fmt.Printf("[DEBUG] Uploaded file size: %d bytes\n", len(content))
+		   if len(content) > 0 {
+			   fmt.Printf("[DEBUG] First 64 bytes: % x\n", content[:min(64, len(content))])
+		   }
+	   } else {
+		   // Raw content upload
+		   content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
+		   if err != nil {
+			   fmt.Printf("[ERROR] io.ReadAll (raw) error: %v\n", err)
+			   h.writeError(c, http.StatusInternalServerError, "Failed to read content", err.Error())
+			   return
+		   }
+		   fmt.Printf("[DEBUG] Raw upload size: %d bytes\n", len(content))
+		   if len(content) > 0 {
+			   fmt.Printf("[DEBUG] First 64 bytes: % x\n", content[:min(64, len(content))])
+		   }
+	   }
 
-	if len(content) == 0 {
-		fmt.Printf("[ERROR] Empty content in upload\n")
-		h.writeError(c, http.StatusBadRequest, "Empty content", "No data provided in upload")
-		return
-	}
+	   if len(content) == 0 {
+		   fmt.Printf("[ERROR] Empty content in upload\n")
+		   h.writeError(c, http.StatusBadRequest, "Empty content", "No data provided in upload")
+		   return
+	   }
+
+	   fmt.Printf("[DEBUG] Detected filename: %s, content-type: %s\n", filename, http.DetectContentType(content))
 
 	// Generate unique slug
-	slug, err := utils.GenerateSlug(h.config.SlugLength)
-	if err != nil {
-		fmt.Printf("[ERROR] Failed to generate slug: %v\n", err)
-		h.writeError(c, http.StatusInternalServerError, "Failed to generate slug", err.Error())
-		return
-	}
+	   slug, err := utils.GenerateSlug(h.config.SlugLength)
+	   if err != nil {
+		   fmt.Printf("[ERROR] Failed to generate slug: %v\n", err)
+		   h.writeError(c, http.StatusInternalServerError, "Failed to generate slug", err.Error())
+		   return
+	   }
 
 	// Detect content type
-	contentType := utils.DetectContentType(filename, content)
+		contentType := utils.DetectContentType(filename, content)
+		fmt.Printf("[DEBUG] utils.DetectContentType: %s\n", contentType)
 
 	// Create paste
 	expiresAt := time.Now().Add(h.config.DefaultTTL)
@@ -173,13 +179,16 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	}
 
 	// Store paste
-	errStore := h.store.Store(paste)
-	if errStore != nil {
-		// Log the error for Lambda debugging
-		fmt.Printf("[ERROR] Failed to store paste: %v\n", errStore)
-		h.writeError(c, http.StatusInternalServerError, "Failed to store paste", errStore.Error())
-		return
-	}
+	   errStore := h.store.Store(paste)
+	   if errStore != nil {
+		   // Log the error for Lambda debugging
+		   fmt.Printf("[ERROR] Failed to store paste: %v\n", errStore)
+		   // Print stack trace for debugging
+		   fmt.Printf("[DEBUG] Stack trace: %s\n", debugStack())
+		   // Return error details to client for debugging (temporarily)
+		   h.writeError(c, http.StatusInternalServerError, "Failed to store paste", errStore.Error()+" | stack: "+debugStack())
+		   return
+	   }
 
 	// Generate URL
 	pasteURL := h.generatePasteURL(c, slug)
@@ -212,9 +221,14 @@ func (h *PasteHandler) writeError(c *gin.Context, status int, errorMsg, details 
 // min returns the smaller of a and b
 func min(a, b int) int {
 	if a < b {
-		return a
+		 return a
 	}
 	return b
+}
+
+// debugStack returns a string stack trace for debugging
+func debugStack() string {
+	return string(debug.Stack())
 }
 
 // UploadBurn handles burn-after-read paste upload via POST /burn/
