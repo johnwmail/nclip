@@ -276,6 +276,8 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 func (h *PasteHandler) writeError(c *gin.Context, status int, errorMsg, details string) {
 	userAgent := strings.ToLower(c.Request.Header.Get("User-Agent"))
 	isCli := strings.Contains(userAgent, "curl") || strings.Contains(userAgent, "wget") || strings.Contains(userAgent, "powershell")
+	// Add debug info to a header so it can be surfaced even if body is masked
+	c.Header("X-Nclip-Debug", details)
 	if isCli || c.Request.Header.Get("Accept") == "text/plain" {
 		c.String(status, "%s: %s\n", errorMsg, details)
 	} else {
