@@ -47,7 +47,7 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 
 	content := paste.Content
 	if len(content) <= ChunkSize {
-		// Store as single item (not chunked)
+		// Store as single item (not chunked, but still use chunk_index = -1 for metadata)
 		item := map[string]types.AttributeValue{
 			"id":              &types.AttributeValueMemberS{Value: paste.ID},
 			"created_at":      &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.CreatedAt.Unix(), 10)},
@@ -58,6 +58,7 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 			"content":         &types.AttributeValueMemberB{Value: content},
 			"is_chunked":      &types.AttributeValueMemberBOOL{Value: false},
 			"chunk_count":     &types.AttributeValueMemberN{Value: "1"},
+			"chunk_index":     &types.AttributeValueMemberN{Value: "-1"},
 		}
 		if paste.ExpiresAt != nil {
 			item["expires_at"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
@@ -85,6 +86,7 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 		"read_count":      &types.AttributeValueMemberN{Value: strconv.Itoa(paste.ReadCount)},
 		"is_chunked":      &types.AttributeValueMemberBOOL{Value: true},
 		"chunk_count":     &types.AttributeValueMemberN{Value: strconv.Itoa(chunkCount)},
+		"chunk_index":     &types.AttributeValueMemberN{Value: "-1"},
 	}
 	if paste.ExpiresAt != nil {
 		meta["expires_at"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
@@ -111,7 +113,6 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 			"chunk_index": &types.AttributeValueMemberN{Value: strconv.Itoa(i)},
 			"content":     &types.AttributeValueMemberB{Value: chunk},
 		}
-		// Optionally add TTL to chunk items
 		if paste.ExpiresAt != nil {
 			chunkItem["ttl"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
 		}
@@ -131,12 +132,14 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Get metadata item
+	// Get metadata item (chunk_index = -1)
+	metaKey := map[string]types.AttributeValue{
+		"id":          &types.AttributeValueMemberS{Value: id},
+		"chunk_index": &types.AttributeValueMemberN{Value: "-1"},
+	}
 	result, err := d.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(d.tableName),
-		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: id},
-		},
+		Key:       metaKey,
 	})
 	if err != nil {
 		return nil, err
@@ -163,7 +166,6 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 	chunkCount := paste.ChunkCount
 	var content []byte
 	for i := 0; i < chunkCount; i++ {
-		// Query chunk by id and chunk_index
 		chunkKey := map[string]types.AttributeValue{
 			"id":          &types.AttributeValueMemberS{Value: id},
 			"chunk_index": &types.AttributeValueMemberN{Value: strconv.Itoa(i)},
