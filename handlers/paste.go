@@ -120,45 +120,52 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		)
 	}
 
-	if c.Request.Header.Get("Content-Type") != "" && strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-		// Multipart form upload
-		file, header, err := c.Request.FormFile("file")
-		if err != nil {
-			fmt.Printf("[ERROR] FormFile error: %v\n", err)
-			h.writeError(c, http.StatusBadRequest, "No file provided", debugInfo(err.Error()))
-			return
-		}
-		defer func() { _ = file.Close() }() // Ignore close errors in defer
-		filename = header.Filename
-		fmt.Printf("[DEBUG] Uploaded filename: %s\n", filename)
-		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
-		if err != nil {
-			fmt.Printf("[ERROR] io.ReadAll error: %v\n", err)
-			h.writeError(c, http.StatusInternalServerError, "Failed to read file", debugInfo(err.Error()))
-			return
-		}
-		fmt.Printf("[DEBUG] Uploaded file size: %d bytes\n", len(content))
-		if len(content) > 0 {
-			fmt.Printf("[DEBUG] First 64 bytes: % x\n", content[:min(64, len(content))])
-		}
-	} else {
-		// Raw upload (treat body as file)
-		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
-		if err != nil {
-			fmt.Printf("[ERROR] io.ReadAll (raw) error: %v\n", err)
-			h.writeError(c, http.StatusInternalServerError, "Failed to read content", debugInfo(err.Error()))
-			return
-		}
-		fmt.Printf("[DEBUG] Raw upload size: %d bytes\n", len(content))
-		if len(content) > 0 {
-			fmt.Printf("[DEBUG] First 64 bytes: % x\n", content[:min(64, len(content))])
-		}
-		// Try to get filename from header, else use default
-		filename = c.Request.Header.Get("X-Filename")
-		if filename == "" {
-			filename = "upload"
-		}
-	}
+
+       fmt.Printf("[DEBUG] --- Begin Upload Handler ---\n")
+       fmt.Printf("[DEBUG] Request headers: %v\n", c.Request.Header)
+       fmt.Printf("[DEBUG] Content-Type: %s\n", c.Request.Header.Get("Content-Type"))
+       fmt.Printf("[DEBUG] Content-Length: %s\n", c.Request.Header.Get("Content-Length"))
+       fmt.Printf("[DEBUG] RemoteAddr: %s, Method: %s\n", c.Request.RemoteAddr, c.Request.Method)
+
+       if c.Request.Header.Get("Content-Type") != "" && strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+	       fmt.Printf("[DEBUG] Detected multipart/form-data upload\n")
+	       file, header, err := c.Request.FormFile("file")
+	       if err != nil {
+		       fmt.Printf("[ERROR] FormFile error: %v\n", err)
+		       h.writeError(c, http.StatusBadRequest, "No file provided (multipart)", debugInfo(err.Error()))
+		       return
+	       }
+	       defer func() { _ = file.Close() }()
+	       filename = header.Filename
+	       fmt.Printf("[DEBUG] Uploaded filename: %s\n", filename)
+	       content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
+	       if err != nil {
+		       fmt.Printf("[ERROR] io.ReadAll error: %v\n", err)
+		       h.writeError(c, http.StatusInternalServerError, "Failed to read file (multipart)", debugInfo(err.Error()))
+		       return
+	       }
+	       fmt.Printf("[DEBUG] Uploaded file size: %d bytes\n", len(content))
+	       if len(content) > 0 {
+		       fmt.Printf("[DEBUG] First 64 bytes: % x\n", content[:min(64, len(content))])
+	       }
+       } else {
+	       fmt.Printf("[DEBUG] Detected raw upload (not multipart)\n")
+	       content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
+	       if err != nil {
+		       fmt.Printf("[ERROR] io.ReadAll (raw) error: %v\n", err)
+		       h.writeError(c, http.StatusInternalServerError, "Failed to read content (raw)", debugInfo(err.Error()))
+		       return
+	       }
+	       fmt.Printf("[DEBUG] Raw upload size: %d bytes\n", len(content))
+	       if len(content) > 0 {
+		       fmt.Printf("[DEBUG] First 64 bytes: % x\n", content[:min(64, len(content))])
+	       }
+	       filename = c.Request.Header.Get("X-Filename")
+	       if filename == "" {
+		       filename = "upload"
+	       }
+       }
+       fmt.Printf("[DEBUG] --- End Upload Handler (read phase) ---\n")
 
 	// Check if it's a multipart form (file upload)
 	if c.Request.Header.Get("Content-Type") != "" &&
@@ -202,8 +209,12 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	// Log content size for debugging (chunking handled in storage layer)
-	fmt.Printf("[DEBUG] Content size: %d bytes\n", len(content))
+
+       // Log content size for debugging (chunking handled in storage layer)
+       fmt.Printf("[DEBUG] Content size: %d bytes\n", len(content))
+       if len(content) > 400*1024 {
+	       fmt.Printf("[DEBUG] Large upload, chunked storage will be used.\n")
+       }
 
 	fmt.Printf("[DEBUG] Detected filename: %s, content-type: %s\n", filename, http.DetectContentType(content))
 
