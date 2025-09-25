@@ -98,23 +98,17 @@ func (h *PasteHandler) isCli(c *gin.Context) bool {
 
 // Upload handles paste upload via POST /
 func (h *PasteHandler) Upload(c *gin.Context) {
+	// Add panic recovery to always return debug info
+	defer func() {
+		if r := recover(); r != nil {
+			stack := debug.Stack()
+			h.writeError(c, http.StatusInternalServerError, "Panic in upload handler", fmt.Sprintf("panic: %v\nstack: %s", r, stack))
+		}
+	}()
+
 	fmt.Printf("[DEBUG] Handler: method=%s, content-type=%s, content-length=%s, UA=%s\n", c.Request.Method, c.Request.Header.Get("Content-Type"), c.Request.Header.Get("Content-Length"), c.Request.Header.Get("User-Agent"))
 	fmt.Printf("[DEBUG] All headers: %v\n", c.Request.Header)
-
-	fmt.Printf("[DEBUG] Handler: method=%s, content-type=%s, content-length=%s, UA=%s\n", c.Request.Method, c.Request.Header.Get("Content-Type"), c.Request.Header.Get("Content-Length"), c.Request.Header.Get("User-Agent"))
-
-	// Print first 256 bytes of raw body for debugging (non-multipart)
-	if c.Request.Header.Get("Content-Type") != "" && !strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-		bodyPeek, _ := io.ReadAll(io.LimitReader(c.Request.Body, 256))
-		fmt.Printf("[DEBUG] Raw body first 256 bytes: % x\n", bodyPeek)
-		// Reset body for actual read (not possible in Lambda, but helps local debug)
-	}
-	// Log request headers for debugging
 	fmt.Printf("[DEBUG] Upload handler invoked at %v\n", time.Now())
-	fmt.Printf("[DEBUG] Request headers: %v\n", c.Request.Header)
-	fmt.Printf("[DEBUG] Content-Type: %s\n", c.Request.Header.Get("Content-Type"))
-	fmt.Printf("[DEBUG] Content-Length: %s\n", c.Request.Header.Get("Content-Length"))
-	// Log remote address and method
 	fmt.Printf("[DEBUG] RemoteAddr: %s, Method: %s\n", c.Request.RemoteAddr, c.Request.Method)
 
 	var content []byte
@@ -131,84 +125,52 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		)
 	}
 
-       if c.Request.Header.Get("Content-Type") != "" && strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-	       fmt.Printf("[DEBUG] Upload path: multipart/form-data\n")
-	       file, header, err := c.Request.FormFile("file")
-	       if err != nil {
-		       fmt.Printf("[ERROR] FormFile error: %v\n", err)
-		       h.writeError(c, http.StatusBadRequest, "No file provided", debugInfo(err.Error()))
-		       return
-	       }
-	       defer func() { _ = file.Close() }()
-	       filename = header.Filename
-	       content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
-	       fmt.Printf("[DEBUG] Multipart: filename=%s, bytes_read=%d\n", filename, len(content))
-	       if err != nil {
-		       fmt.Printf("[ERROR] io.ReadAll error: %v\n", err)
-		       h.writeError(c, http.StatusInternalServerError, "Failed to read file", debugInfo(err.Error()))
-		       return
-	       }
-	       if len(content) > 0 {
-		       fmt.Printf("[DEBUG] Multipart: first 64 bytes: % x\n", content[:min(64, len(content))])
-	       }
-       } else {
-	       fmt.Printf("[DEBUG] Upload path: raw body\n")
-	       content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
-	       fmt.Printf("[DEBUG] Raw: bytes_read=%d\n", len(content))
-	       if err != nil {
-		       fmt.Printf("[ERROR] io.ReadAll (raw) error: %v\n", err)
-		       h.writeError(c, http.StatusInternalServerError, "Failed to read content", debugInfo(err.Error()))
-		       return
-	       }
-	       if len(content) > 0 {
-		       fmt.Printf("[DEBUG] Raw: first 64 bytes: % x\n", content[:min(64, len(content))])
-	       }
-	       filename = c.Request.Header.Get("X-Filename")
-	       if filename == "" {
-		       filename = "upload"
-	       }
-       }
-
-       // Warn if content is empty but Content-Length > 0
-       clen := c.Request.Header.Get("Content-Length")
-       if len(content) == 0 && clen != "" && clen != "0" {
-	       fmt.Printf("[WARN] Content is empty but Content-Length header is %s\n", clen)
-       }
-
-	// Check if it's a multipart form (file upload)
-	if c.Request.Header.Get("Content-Type") != "" &&
-		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+	if c.Request.Header.Get("Content-Type") != "" && strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+		fmt.Printf("[DEBUG] Upload path: multipart/form-data\n")
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
 			fmt.Printf("[ERROR] FormFile error: %v\n", err)
-			h.writeError(c, http.StatusBadRequest, "No file provided", debugInfo(err.Error()))
+			h.writeError(c, http.StatusBadRequest, "No file provided (multipart)", debugInfo(err.Error()))
 			return
 		}
-		defer func() { _ = file.Close() }() // Ignore close errors in defer
+		defer func() { _ = file.Close() }()
 		filename = header.Filename
-		fmt.Printf("[DEBUG] Uploaded filename: %s\n", filename)
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
+		fmt.Printf("[DEBUG] Multipart: filename=%s, bytes_read=%d\n", filename, len(content))
 		if err != nil {
 			fmt.Printf("[ERROR] io.ReadAll error: %v\n", err)
-			h.writeError(c, http.StatusInternalServerError, "Failed to read file", debugInfo(err.Error()))
+			h.writeError(c, http.StatusInternalServerError, "Failed to read file (multipart)", debugInfo(err.Error()))
 			return
 		}
-		fmt.Printf("[DEBUG] Uploaded file size: %d bytes\n", len(content))
 		if len(content) > 0 {
-			fmt.Printf("[DEBUG] First 64 bytes: % x\n", content[:min(64, len(content))])
+			fmt.Printf("[DEBUG] Multipart: first 64 bytes: % x\n", content[:min(64, len(content))])
 		}
 	} else {
-		// Raw content upload
+		fmt.Printf("[DEBUG] Upload path: raw body\n")
+		if c.Request.Body == nil {
+			fmt.Printf("[ERROR] Request.Body is nil\n")
+		}
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
+		fmt.Printf("[DEBUG] Raw: bytes_read=%d\n", len(content))
 		if err != nil {
 			fmt.Printf("[ERROR] io.ReadAll (raw) error: %v\n", err)
-			h.writeError(c, http.StatusInternalServerError, "Failed to read content", debugInfo(err.Error()))
+			h.writeError(c, http.StatusInternalServerError, "Failed to read content (raw)", debugInfo(err.Error()))
 			return
 		}
-		fmt.Printf("[DEBUG] Raw upload size: %d bytes\n", len(content))
 		if len(content) > 0 {
-			fmt.Printf("[DEBUG] First 64 bytes: % x\n", content[:min(64, len(content))])
+			fmt.Printf("[DEBUG] Raw: first 64 bytes: % x\n", content[:min(64, len(content))])
 		}
+		filename = c.Request.Header.Get("X-Filename")
+		if filename == "" {
+			filename = "upload"
+		}
+	}
+
+	clen := c.Request.Header.Get("Content-Length")
+	if len(content) == 0 && clen != "" && clen != "0" {
+		fmt.Printf("[WARN] Content is empty but Content-Length header is %s\n", clen)
+		h.writeError(c, http.StatusBadRequest, "Empty content (body empty but Content-Length > 0)", debugInfo("No data provided in upload; Content-Length="+clen))
+		return
 	}
 
 	if len(content) == 0 {
