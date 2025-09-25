@@ -194,6 +194,7 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 
 	// Add logging middleware
 	router.Use(gin.Logger())
+
 	// Custom recovery middleware for stack trace and request context logging
 	router.Use(func(c *gin.Context) {
 		defer func() {
@@ -220,6 +221,24 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 			}
 		}()
 		c.Next()
+	})
+
+	// Middleware to inject debug info into all 500 responses
+	router.Use(func(c *gin.Context) {
+		c.Next()
+		if c.Writer.Status() == http.StatusInternalServerError && c.Writer.Size() == 35 { // 35 is the minimal error JSON size
+			userAgent := strings.ToLower(c.Request.Header.Get("User-Agent"))
+			isCli := strings.Contains(userAgent, "curl") || strings.Contains(userAgent, "wget") || strings.Contains(userAgent, "powershell")
+			msg := "Internal server error (middleware catch)"
+			details := fmt.Sprintf("Request: %s %s\nHeaders: %v\nTime: %v", c.Request.Method, c.Request.URL.String(), c.Request.Header, time.Now())
+			if isCli || c.Request.Header.Get("Accept") == "text/plain" {
+				c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				c.Writer.Write([]byte(msg + "\n" + details))
+			} else {
+				c.Writer.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(c.Writer).Encode(gin.H{"error": msg, "details": details})
+			}
+		}
 	})
 
 	// Load favicon
