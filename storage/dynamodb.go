@@ -2,9 +2,9 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
-	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -43,7 +43,7 @@ func NewDynamoStore(tableName string) (*DynamoStore, error) {
 
 // Store saves a paste to DynamoDB
 func (d *DynamoStore) Store(paste *models.Paste) error {
-       fmt.Printf("[DEBUG] DynamoStore.Store: id=%s, size=%d, is_chunked=%v\n", paste.ID, len(paste.Content), len(paste.Content) > ChunkSize)
+	fmt.Printf("[DEBUG] DynamoStore.Store: id=%s, size=%d, is_chunked=%v\n", paste.ID, len(paste.Content), len(paste.Content) > ChunkSize)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -105,7 +105,7 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 
 	// Store each chunk as a separate item
 	for i := 0; i < chunkCount; i++ {
-			   fmt.Printf("[DEBUG] Storing chunk %d/%d: bytes %d-%d\n", i+1, chunkCount, i*ChunkSize, min((i+1)*ChunkSize, len(content)))
+		fmt.Printf("[DEBUG] Storing chunk %d/%d: bytes %d-%d\n", i+1, chunkCount, i*ChunkSize, min((i+1)*ChunkSize, len(content)))
 		start := i * ChunkSize
 		end := start + ChunkSize
 		if end > len(content) {
