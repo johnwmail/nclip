@@ -1,0 +1,45 @@
+NCLIP Upload Debug Steps for /tmp/test.zip
+===========================================
+
+1. **Upload Initiation**
+   - User runs: `curl -s -L -F 'file=@/tmp/test.zip' 'https://nclip.hycm.com'`
+   - The backend handler logs:
+     - Upload handler invoked timestamp
+     - Request headers, Content-Type, Content-Length, RemoteAddr, Method
+
+2. **File Read**
+   - Handler reads the file using `io.ReadAll(io.LimitReader(file, h.config.BufferSize))`
+   - Logs:
+     - Uploaded filename
+     - Uploaded file size (in bytes)
+     - First 64 bytes (hex)
+
+3. **Content Size Check**
+   - Handler logs:
+     - `[DEBUG] Content size: NNN bytes, Estimated DynamoDB item size: MMM bytes`
+   - If `itemSize > 409600` (400KB):
+     - Logs: `[ERROR] Upload too large: MMM bytes (DynamoDB max item size is 400KB)`
+     - Returns HTTP 413 (Request Entity Too Large) with a clear error message to the client.
+   - If `itemSize <= 409600`:
+     - Proceeds to generate slug and store in DynamoDB.
+
+4. **DynamoDB Storage**
+   - If storing succeeds:
+     - Returns paste URL to client.
+   - If DynamoDB rejects (should not happen now):
+     - Logs error and stack trace.
+     - Returns HTTP 500 with error details.
+
+5. **Expected Outcome for /tmp/test.zip**
+   - If `/tmp/test.zip` is over 400KB (including overhead):
+     - Client receives: `File too large: ... Upload too large: NNN bytes (DynamoDB max item size is 400KB)`
+     - Lambda logs show debug and error lines as above.
+   - If under 400KB:
+     - Client receives paste URL.
+
+6. **How to Check**
+   - Check Lambda/CloudWatch logs for `[DEBUG] Content size:` and `[ERROR] Upload too large:` lines.
+   - Confirm client receives clear error message if file is too large.
+
+7. **Summary**
+   - The handler now prevents DynamoDB errors by pre-checking file size and returning actionable errors for uploads over 400KB.

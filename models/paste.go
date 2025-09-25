@@ -14,6 +14,8 @@ type Paste struct {
 	BurnAfterRead bool       `json:"burn_after_read" bson:"burn_after_read"`
 	ReadCount     int        `json:"read_count" bson:"read_count"`
 	Content       []byte     `json:"-" bson:"content"` // Not exposed in JSON
+	ChunkCount    int        `json:"chunk_count" bson:"chunk_count"`
+	IsChunked     bool       `json:"is_chunked" bson:"is_chunked"`
 }
 
 // IsExpired checks if the paste has expired
