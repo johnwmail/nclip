@@ -55,9 +55,9 @@ func main() {
 	cfg.BuildTime = BuildTime
 	cfg.CommitHash = CommitHash
 
-	// Set Gin mode based on environment
-	if os.Getenv("GIN_MODE") == "" {
-		gin.SetMode(gin.ReleaseMode)
+	// Set Gin mode to release if environment set; default is debug
+	if os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode("release") // debug (default), release, test
 	}
 
 	// Initialize storage backend based on deployment mode
