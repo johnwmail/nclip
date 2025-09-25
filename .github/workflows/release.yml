@@ -16,7 +16,7 @@ on:
         default: ''
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.25'  # Use latest for builds
 
 permissions:
   contents: write
