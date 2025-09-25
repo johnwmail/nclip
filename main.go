@@ -59,6 +59,8 @@ func main() {
 	if os.Getenv("GIN_MODE") == "release" {
 		gin.SetMode("release") // debug (default), release, test
 	}
+	log.Println("Gin mode:", gin.Mode())
+	log.Println("buffer size:", cfg.BufferSize)
 
 	// Initialize storage backend based on deployment mode
 	var store storage.PasteStore
