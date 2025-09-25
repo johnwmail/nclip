@@ -1,5 +1,16 @@
 // Upload functionality
 document.addEventListener('DOMContentLoaded', function () {
+    // Utility to safely stringify error messages
+    function safeErrorMessage(err) {
+        if (!err) return 'Unknown error';
+        if (typeof err === 'string') return err;
+        if (err.message && typeof err.message === 'string') return err.message;
+        try {
+            return JSON.stringify(err);
+        } catch (e) {
+            return String(err);
+        }
+    }
     const textContent = document.getElementById('text-content');
     const uploadTextBtn = document.getElementById('upload-text');
     const burnTextCheckbox = document.getElementById('burn-text');
@@ -65,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(error => {
                 console.error('Upload failed (catch):', error);
-                alert('Upload failed: ' + (error && error.message ? error.message : String(error)));
+                alert('Upload failed: ' + safeErrorMessage(error));
             })
             .finally(() => {
                 uploadTextBtn.disabled = false;
@@ -115,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(error => {
                 console.error('Upload failed (catch):', error);
-                alert('Upload failed: ' + (error && error.message ? error.message : String(error)));
+                alert('Upload failed: ' + safeErrorMessage(error));
             })
             .finally(() => {
                 uploadFileBtn.disabled = false;
