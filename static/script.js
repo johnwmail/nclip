@@ -235,7 +235,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Update usage examples to show how to read the created paste
     function updateUsageExamples(url, slug) {
-        const baseUrl = url.replace('/' + slug, '');
+        let baseUrl = '';
+        if (typeof url === 'string' && typeof slug === 'string' && url.includes('/' + slug)) {
+            baseUrl = url.replace('/' + slug, '');
+        } else {
+            baseUrl = url || '';
+        }
         const examples = document.querySelectorAll('.example');
 
         if (examples.length >= 2) {

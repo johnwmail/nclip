@@ -97,6 +97,11 @@ func (h *PasteHandler) isCli(c *gin.Context) bool {
 
 // Upload handles paste upload via POST /
 func (h *PasteHandler) Upload(c *gin.Context) {
+	// Log request headers for debugging
+	fmt.Printf("[DEBUG] Upload handler invoked at %v\n", time.Now())
+	fmt.Printf("[DEBUG] Request headers: %v\n", c.Request.Header)
+	fmt.Printf("[DEBUG] Content-Type: %s\n", c.Request.Header.Get("Content-Type"))
+	fmt.Printf("[DEBUG] Content-Length: %s\n", c.Request.Header.Get("Content-Length"))
 	var content []byte
 	var filename string
 	var err error
@@ -106,26 +111,39 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
+			fmt.Printf("[ERROR] FormFile error: %v\n", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided", "details": err.Error()})
 			return
 		}
 		defer func() { _ = file.Close() }() // Ignore close errors in defer
 		filename = header.Filename
+		fmt.Printf("[DEBUG] Uploaded filename: %s\n", filename)
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
+			fmt.Printf("[ERROR] io.ReadAll error: %v\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file", "details": err.Error()})
 			return
+		}
+		fmt.Printf("[DEBUG] Uploaded file size: %d bytes\n", len(content))
+		if len(content) > 0 {
+			fmt.Printf("[DEBUG] First 16 bytes: % x\n", content[:min(16, len(content))])
 		}
 	} else {
 		// Raw content upload
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
 		if err != nil {
+			fmt.Printf("[ERROR] io.ReadAll (raw) error: %v\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content", "details": err.Error()})
 			return
+		}
+		fmt.Printf("[DEBUG] Raw upload size: %d bytes\n", len(content))
+		if len(content) > 0 {
+			fmt.Printf("[DEBUG] First 16 bytes: % x\n", content[:min(16, len(content))])
 		}
 	}
 
 	if len(content) == 0 {
+		fmt.Printf("[ERROR] Empty content in upload\n")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Empty content", "details": "No data provided in upload"})
 		return
 	}
@@ -133,6 +151,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	// Generate unique slug
 	slug, err := utils.GenerateSlug(h.config.SlugLength)
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to generate slug: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug", "details": err.Error()})
 		return
 	}
@@ -181,6 +200,14 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		"url":  pasteURL,
 		"slug": slug,
 	})
+}
+
+// min returns the smaller of a and b
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // UploadBurn handles burn-after-read paste upload via POST /burn/
