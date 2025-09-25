@@ -112,7 +112,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
 			fmt.Printf("[ERROR] FormFile error: %v\n", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided", "details": err.Error()})
+			h.writeError(c, http.StatusBadRequest, "No file provided", err.Error())
 			return
 		}
 		defer func() { _ = file.Close() }() // Ignore close errors in defer
@@ -121,7 +121,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
 			fmt.Printf("[ERROR] io.ReadAll error: %v\n", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file", "details": err.Error()})
+			h.writeError(c, http.StatusInternalServerError, "Failed to read file", err.Error())
 			return
 		}
 		fmt.Printf("[DEBUG] Uploaded file size: %d bytes\n", len(content))
@@ -133,7 +133,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
 		if err != nil {
 			fmt.Printf("[ERROR] io.ReadAll (raw) error: %v\n", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content", "details": err.Error()})
+			h.writeError(c, http.StatusInternalServerError, "Failed to read content", err.Error())
 			return
 		}
 		fmt.Printf("[DEBUG] Raw upload size: %d bytes\n", len(content))
@@ -144,7 +144,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 
 	if len(content) == 0 {
 		fmt.Printf("[ERROR] Empty content in upload\n")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Empty content", "details": "No data provided in upload"})
+		h.writeError(c, http.StatusBadRequest, "Empty content", "No data provided in upload")
 		return
 	}
 
@@ -152,7 +152,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	slug, err := utils.GenerateSlug(h.config.SlugLength)
 	if err != nil {
 		fmt.Printf("[ERROR] Failed to generate slug: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug", "details": err.Error()})
+		h.writeError(c, http.StatusInternalServerError, "Failed to generate slug", err.Error())
 		return
 	}
 
@@ -177,11 +177,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	if errStore != nil {
 		// Log the error for Lambda debugging
 		fmt.Printf("[ERROR] Failed to store paste: %v\n", errStore)
-		// Return detailed error in response (for debugging, remove in production)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to store paste",
-			"details": errStore.Error(),
-		})
+		h.writeError(c, http.StatusInternalServerError, "Failed to store paste", errStore.Error())
 		return
 	}
 
@@ -200,6 +196,17 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		"url":  pasteURL,
 		"slug": slug,
 	})
+}
+
+// writeError returns a plain text error for CLI clients, JSON for others
+func (h *PasteHandler) writeError(c *gin.Context, status int, errorMsg, details string) {
+	userAgent := strings.ToLower(c.Request.Header.Get("User-Agent"))
+	isCli := strings.Contains(userAgent, "curl") || strings.Contains(userAgent, "wget") || strings.Contains(userAgent, "powershell")
+	if isCli || c.Request.Header.Get("Accept") == "text/plain" {
+		c.String(status, "%s: %s\n", errorMsg, details)
+	} else {
+		c.JSON(status, gin.H{"error": errorMsg, "details": details})
+	}
 }
 
 // min returns the smaller of a and b

@@ -111,6 +111,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 } catch (e) {
                     // Not JSON, try to get text
                     const text = await response.text();
+                    console.error('Upload failed (non-JSON):', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: Array.from(response.headers.entries()),
+                        body: text
+                    });
                     throw new Error(text || 'Unknown server error');
                 }
                 if (data && data.error) {
@@ -120,6 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error(msg);
                 }
                 if (!data || !data.url || !data.slug) {
+                    console.error('Upload failed (unexpected server response):', data);
                     throw new Error('Unexpected server response');
                 }
                 showResult(data.url, data.slug);

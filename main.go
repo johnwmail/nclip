@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -201,10 +202,21 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 				buf := make([]byte, 4096)
 				n := runtime.Stack(buf, false)
 				log.Printf("[STACK TRACE]\n%s", string(buf[:n]))
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-					"error":   "Internal server error (panic)",
-					"details": fmt.Sprintf("%v", r),
-				})
+				// Return plain text for CLI clients, JSON for others
+				userAgent := strings.ToLower(c.Request.Header.Get("User-Agent"))
+				isCli := strings.Contains(userAgent, "curl") || strings.Contains(userAgent, "wget") || strings.Contains(userAgent, "powershell")
+				msg := fmt.Sprintf("Internal server error (panic): %v", r)
+				details := string(buf[:n])
+				if isCli || c.Request.Header.Get("Accept") == "text/plain" {
+					c.AbortWithStatus(http.StatusInternalServerError)
+					c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+					c.Writer.Write([]byte(msg + "\n" + details))
+				} else {
+					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+						"error":   msg,
+						"details": details,
+					})
+				}
 			}
 		}()
 		c.Next()
