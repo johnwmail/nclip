@@ -1,10 +1,10 @@
 package storage
 
 import (
-	"fmt"
 	"context"
 	"strconv"
 	"time"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -43,13 +43,12 @@ func NewDynamoStore(tableName string) (*DynamoStore, error) {
 
 // Store saves a paste to DynamoDB
 func (d *DynamoStore) Store(paste *models.Paste) error {
+       fmt.Printf("[DEBUG] DynamoStore.Store: id=%s, size=%d, is_chunked=%v\n", paste.ID, len(paste.Content), len(paste.Content) > ChunkSize)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-       fmt.Printf("[DEBUG] DynamoStore.Store called. Content size: %d\n", len(paste.Content))
 	content := paste.Content
 	if len(content) <= ChunkSize {
-	       fmt.Printf("[DEBUG] DynamoStore.Store: storing as single item (not chunked)\n")
 		// Store as single item (not chunked, but still use chunk_index = -1 for metadata)
 		item := map[string]types.AttributeValue{
 			"id":              &types.AttributeValueMemberS{Value: paste.ID},
@@ -78,20 +77,20 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 	chunkCount := (len(content) + ChunkSize - 1) / ChunkSize
 	paste.ChunkCount = chunkCount
 	paste.IsChunked = true
+	fmt.Printf("[DEBUG] Chunking: total size=%d, chunk size=%d, chunk count=%d\n", len(content), ChunkSize, chunkCount)
 
-       // Store metadata item (no content)
-       fmt.Printf("[DEBUG] DynamoStore.Store: chunked storage, chunkCount=%d\n", chunkCount)
-       meta := map[string]types.AttributeValue{
-	       "id":              &types.AttributeValueMemberS{Value: paste.ID},
-	       "created_at":      &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.CreatedAt.Unix(), 10)},
-	       "size":            &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.Size, 10)},
-	       "content_type":    &types.AttributeValueMemberS{Value: paste.ContentType},
-	       "burn_after_read": &types.AttributeValueMemberBOOL{Value: paste.BurnAfterRead},
-	       "read_count":      &types.AttributeValueMemberN{Value: strconv.Itoa(paste.ReadCount)},
-	       "is_chunked":      &types.AttributeValueMemberBOOL{Value: true},
-	       "chunk_count":     &types.AttributeValueMemberN{Value: strconv.Itoa(chunkCount)},
-	       "chunk_index":     &types.AttributeValueMemberN{Value: "-1"},
-       }
+	// Store metadata item (no content)
+	meta := map[string]types.AttributeValue{
+		"id":              &types.AttributeValueMemberS{Value: paste.ID},
+		"created_at":      &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.CreatedAt.Unix(), 10)},
+		"size":            &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.Size, 10)},
+		"content_type":    &types.AttributeValueMemberS{Value: paste.ContentType},
+		"burn_after_read": &types.AttributeValueMemberBOOL{Value: paste.BurnAfterRead},
+		"read_count":      &types.AttributeValueMemberN{Value: strconv.Itoa(paste.ReadCount)},
+		"is_chunked":      &types.AttributeValueMemberBOOL{Value: true},
+		"chunk_count":     &types.AttributeValueMemberN{Value: strconv.Itoa(chunkCount)},
+		"chunk_index":     &types.AttributeValueMemberN{Value: "-1"},
+	}
 	if paste.ExpiresAt != nil {
 		meta["expires_at"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
 		meta["ttl"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
@@ -106,6 +105,7 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 
 	// Store each chunk as a separate item
 	for i := 0; i < chunkCount; i++ {
+			   fmt.Printf("[DEBUG] Storing chunk %d/%d: bytes %d-%d\n", i+1, chunkCount, i*ChunkSize, min((i+1)*ChunkSize, len(content)))
 		start := i * ChunkSize
 		end := start + ChunkSize
 		if end > len(content) {
