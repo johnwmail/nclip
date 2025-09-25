@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -192,7 +193,22 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 
 	// Add logging middleware
 	router.Use(gin.Logger())
-	router.Use(gin.Recovery())
+	// Custom recovery middleware for stack trace and request context logging
+	router.Use(func(c *gin.Context) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[PANIC] %v\nRequest: %s %s\nHeaders: %v\n", r, c.Request.Method, c.Request.URL.String(), c.Request.Header)
+				buf := make([]byte, 4096)
+				n := runtime.Stack(buf, false)
+				log.Printf("[STACK TRACE]\n%s", string(buf[:n]))
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+					"error":   "Internal server error (panic)",
+					"details": fmt.Sprintf("%v", r),
+				})
+			}
+		}()
+		c.Next()
+	})
 
 	// Load favicon
 	router.StaticFile("/favicon.ico", "./static/favicon.ico")

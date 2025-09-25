@@ -104,38 +104,36 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	// Check if it's a multipart form (file upload)
 	if c.Request.Header.Get("Content-Type") != "" &&
 		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided", "details": err.Error()})
 			return
 		}
 		defer func() { _ = file.Close() }() // Ignore close errors in defer
-
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file", "details": err.Error()})
 			return
 		}
 	} else {
 		// Raw content upload
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content", "details": err.Error()})
 			return
 		}
 	}
 
 	if len(content) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Empty content"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Empty content", "details": "No data provided in upload"})
 		return
 	}
 
 	// Generate unique slug
 	slug, err := utils.GenerateSlug(h.config.SlugLength)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug", "details": err.Error()})
 		return
 	}
 
@@ -194,38 +192,36 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	// Check if it's a multipart form (file upload)
 	if c.Request.Header.Get("Content-Type") != "" &&
 		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided", "details": err.Error()})
 			return
 		}
 		defer func() { _ = file.Close() }() // Ignore close errors in defer
-
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file", "details": err.Error()})
 			return
 		}
 	} else {
 		// Raw content upload
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content", "details": err.Error()})
 			return
 		}
 	}
 
 	if len(content) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Empty content"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Empty content", "details": "No data provided in upload"})
 		return
 	}
 
 	// Generate unique slug
 	slug, err := utils.GenerateSlug(h.config.SlugLength)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug", "details": err.Error()})
 		return
 	}
 
@@ -247,7 +243,8 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 
 	// Store paste
 	if err := h.store.Store(paste); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store paste"})
+		fmt.Printf("[ERROR] Failed to store paste: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store paste", "details": err.Error()})
 		return
 	}
 

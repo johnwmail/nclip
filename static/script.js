@@ -41,15 +41,31 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             body: content
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    throw new Error(data.error);
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // Not JSON, try to get text
+                    const text = await response.text();
+                    console.error('Upload failed (non-JSON):', text);
+                    throw new Error(text || 'Unknown server error');
+                }
+                if (data && data.error) {
+                    let msg = data.error;
+                    if (data.details) msg += ': ' + data.details;
+                    console.error('Upload failed (backend error):', data);
+                    throw new Error(msg);
+                }
+                if (!data || !data.url || !data.slug) {
+                    console.error('Upload failed (unexpected response):', data);
+                    throw new Error('Unexpected server response');
                 }
                 showResult(data.url, data.slug);
             })
             .catch(error => {
-                alert('Upload failed: ' + error.message);
+                console.error('Upload failed (catch):', error);
+                alert('Upload failed: ' + (error && error.message ? error.message : String(error)));
             })
             .finally(() => {
                 uploadTextBtn.disabled = false;
@@ -98,6 +114,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 showResult(data.url, data.slug);
             })
             .catch(error => {
+                console.error('Upload failed (catch):', error);
                 alert('Upload failed: ' + (error && error.message ? error.message : String(error)));
             })
             .finally(() => {
