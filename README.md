@@ -3,7 +3,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/johnwmail/nclip)](https://goreportcard.com/report/github.com/johnwmail/nclip)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub release](https://img.shields.io/github/release/johnwmail/nclip.svg)](https://github.com/johnwmail/nclip/releases)
-[![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org/)
 
 # NCLIP
 
@@ -32,12 +32,17 @@ nclip is a versatile clipboard app that accepts content via:
 
 ### Installation
 ```bash
-# Download binary (replace with actual release)
-wget https://github.com/johnwmail/nclip/releases/latest/download/nclip-linux-amd64
-chmod +x nclip-linux-amd64
-sudo mv nclip-linux-amd64 /usr/local/bin/nclip
+# Install with go install (requires Go 1.23+)
+go install github.com/johnwmail/nclip@latest
 
-# Or build from source
+# Download pre-built binary
+wget https://github.com/johnwmail/nclip/releases/latest/download/nclip_linux_amd64.tar.gz
+tar -xzf nclip_linux_amd64.tar.gz
+cd nclip_linux_amd64
+# Run nclip from this directory to ensure static/ assets are found
+./nclip
+
+# Build from source
 git clone https://github.com/johnwmail/nclip.git
 cd nclip
 go build -o nclip .
@@ -347,7 +352,45 @@ The repository includes automated cleanup of old container images to manage stor
 
 📋 **[Container Cleanup Guide](docs/CONTAINER_CLEANUP.md)** - Complete documentation for managing container images
 
-## 🔗 Links
+## �️ Development
+
+### Requirements
+
+- **Go**: 1.23 or higher (minimum supported version)
+- **Docker**: For container builds
+- **MongoDB**: For local development (container mode)
+
+### Build Strategy
+
+nclip follows a compatibility-first approach:
+
+- **Minimum Go Version**: 1.23 (in `go.mod`) - Required by AWS SDK v2
+- **Build/Release Go Version**: 1.25 (latest) - Uses newest optimizations and security features
+- **CI Testing**: Tests against Go 1.23, 1.24, and 1.25
+
+This means your code runs on Go 1.23+ systems while benefiting from the latest compiler optimizations in production builds.
+
+### Local Development
+
+```bash
+# Clone and build
+git clone https://github.com/johnwmail/nclip.git
+cd nclip
+go mod download
+go build -o nclip .
+
+# Run tests
+go test ./...
+
+# Run with MongoDB (requires Docker)
+docker-compose up -d mongodb
+./nclip
+
+# Run integration tests
+make integration-tests
+```
+
+## �🔗 Links
 
 - **Documentation**: [docs/](docs/)
 - **GitHub Registry**: `docker pull ghcr.io/johnwmail/nclip`
