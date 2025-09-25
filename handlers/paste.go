@@ -156,8 +156,15 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	}
 
 	// Store paste
-	if err := h.store.Store(paste); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store paste"})
+	errStore := h.store.Store(paste)
+	if errStore != nil {
+		// Log the error for Lambda debugging
+		fmt.Printf("[ERROR] Failed to store paste: %v\n", errStore)
+		// Return detailed error in response (for debugging, remove in production)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to store paste",
+			"details": errStore.Error(),
+		})
 		return
 	}
 
