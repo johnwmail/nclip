@@ -443,11 +443,19 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 
 	paste, err := h.store.Get(slug)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve paste"})
+		// Log the actual error for debugging
+		fmt.Printf("[ERROR] Failed to retrieve paste %s: %v\n", slug, err)
+		// Return more specific error in debug mode, generic otherwise
+		if gin.IsDebugging() {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve paste", "details": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve paste"})
+		}
 		return
 	}
 
 	if paste == nil {
+		fmt.Printf("[ERROR] Paste not found or missing chunk for slug %s\n", slug)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found"})
 		return
 	}
