@@ -95,6 +95,7 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 		meta["expires_at"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
 		meta["ttl"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
 	}
+	fmt.Printf("[DEBUG] DynamoStore.Store: writing metadata for chunked paste: id=%s, meta=%+v\n", paste.ID, meta)
 	_, err := d.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(d.tableName),
 		Item:      meta,
