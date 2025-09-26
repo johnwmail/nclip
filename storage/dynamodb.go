@@ -43,13 +43,13 @@ func NewDynamoStore(tableName string) (*DynamoStore, error) {
 
 // Store saves a paste to DynamoDB
 func (d *DynamoStore) Store(paste *models.Paste) error {
-   // Panic recovery for debugging
-   defer func() {
-	   if r := recover(); r != nil {
-		   fmt.Printf("[PANIC] DynamoStore.Store: id=%s, panic: %v\n", paste.ID, r)
-	   }
-   }()
-   fmt.Printf("[DEBUG] DynamoStore.Store: entered for id=%s\n", paste.ID)
+	// Panic recovery for debugging
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("[PANIC] DynamoStore.Store: id=%s, panic: %v\n", paste.ID, r)
+		}
+	}()
+	fmt.Printf("[DEBUG] DynamoStore.Store: entered for id=%s\n", paste.ID)
 	fmt.Printf("[DEBUG] DynamoStore.Store: id=%s, size=%d, is_chunked=%v\n", paste.ID, len(paste.Content), len(paste.Content) > ChunkSize)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -141,32 +141,6 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 			return err
 		}
 		fmt.Printf("[DEBUG] DynamoStore.Store: successfully wrote chunk %d/%d for paste: id=%s\n", i+1, chunkCount, paste.ID)
-	}
-
-	// Store each chunk as a separate item
-	for i := 0; i < chunkCount; i++ {
-		fmt.Printf("[DEBUG] Storing chunk %d/%d: bytes %d-%d\n", i+1, chunkCount, i*ChunkSize, min((i+1)*ChunkSize, len(content)))
-		start := i * ChunkSize
-		end := start + ChunkSize
-		if end > len(content) {
-			end = len(content)
-		}
-		chunk := content[start:end]
-		chunkItem := map[string]types.AttributeValue{
-			"id":          &types.AttributeValueMemberS{Value: paste.ID},
-			"chunk_index": &types.AttributeValueMemberN{Value: strconv.Itoa(i)},
-			"content":     &types.AttributeValueMemberB{Value: chunk},
-		}
-		if paste.ExpiresAt != nil {
-			chunkItem["ttl"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
-		}
-		_, err := d.client.PutItem(ctx, &dynamodb.PutItemInput{
-			TableName: aws.String(d.tableName),
-			Item:      chunkItem,
-		})
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }
