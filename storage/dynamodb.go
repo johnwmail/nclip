@@ -168,6 +168,7 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 
 	// Chunked: fetch all chunk items and reassemble
 	chunkCount := paste.ChunkCount
+	fmt.Printf("[DEBUG] DynamoStore.Get: id=%s, chunkCount=%d\n", id, chunkCount)
 	var content []byte
 	for i := 0; i < chunkCount; i++ {
 		chunkKey := map[string]types.AttributeValue{
@@ -187,12 +188,14 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 			return nil, nil // Missing chunk
 		}
 		if chunkVal, ok := chunkRes.Item["content"].(*types.AttributeValueMemberB); ok {
+			fmt.Printf("[DEBUG] Got chunk %d for paste %s: size=%d bytes\n", i, id, len(chunkVal.Value))
 			content = append(content, chunkVal.Value...)
 		} else {
 			fmt.Printf("[ERROR] Malformed chunk %d for paste %s\n", i, id)
 			return nil, nil // Malformed chunk
 		}
 	}
+	fmt.Printf("[DEBUG] DynamoStore.Get: id=%s, total assembled content size=%d bytes\n", id, len(content))
 	paste.Content = content
 	return paste, nil
 }
