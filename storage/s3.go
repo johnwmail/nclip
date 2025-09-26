@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"time"
@@ -20,6 +21,9 @@ type S3Store struct {
 }
 
 func NewS3Store(bucket string) (*S3Store, error) {
+	if bucket == "" {
+		return nil, fmt.Errorf("s3 bucket name must not be empty")
+	}
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err

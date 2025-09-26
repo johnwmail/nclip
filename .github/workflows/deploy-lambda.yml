@@ -66,6 +66,13 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
 
+      - name: Validate required Lambda variables
+        run: |
+          if [ -z "${{ vars.BUCKET }}" ]; then
+            echo "❌ Error: Repository variable BUCKET must be set for Lambda deployments" >&2
+            exit 1
+          fi
+
       - name: Build Lambda bootstrap
         run: |
           go build \
@@ -126,7 +133,7 @@ jobs:
           publish: true
           role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
           s3-bucket: "${{ vars.BUCKET }}"
-          environment: '{"NCLIP_DYNAMO_TABLE":"${{ vars.NCLIP_DYNAMODB_TABLE }}","NCLIP_BUFFER_SIZE":"${{ vars.NCLIP_BUFFER_SIZE }}","GIN_MODE":"release"}'
+          environment: '{"NCLIP_DYNAMO_TABLE":"${{ vars.NCLIP_DYNAMODB_TABLE }}","NCLIP_BUFFER_SIZE":"${{ vars.NCLIP_BUFFER_SIZE }}","NCLIP_S3_BUCKET":"${{ vars.BUCKET }}","GIN_MODE":"release"}'
 
       - name: Post-deploy info
         run: |
