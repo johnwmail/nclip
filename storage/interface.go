@@ -18,4 +18,10 @@ type PasteStore interface {
 
 	// Close closes the storage connection
 	Close() error
+
+	// StoreContent saves the raw content for a paste
+	StoreContent(id string, content []byte) error
+
+	// GetContent retrieves the raw content for a paste
+	GetContent(id string) ([]byte, error)
 }

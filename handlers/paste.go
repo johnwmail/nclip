@@ -142,7 +142,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	// Detect content type
 	contentType := utils.DetectContentType(filename, content)
 
-	// Create paste
+	// Create paste metadata
 	expiresAt := time.Now().Add(h.config.DefaultTTL)
 	paste := &models.Paste{
 		ID:            slug,
@@ -152,12 +152,15 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		ContentType:   contentType,
 		BurnAfterRead: false,
 		ReadCount:     0,
-		Content:       content,
 	}
 
-	// Store paste
+	// Store content and metadata
+	if err := h.store.StoreContent(slug, content); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store content"})
+		return
+	}
 	if err := h.store.Store(paste); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store paste"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store metadata"})
 		return
 	}
 
@@ -225,7 +228,7 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	// Detect content type
 	contentType := utils.DetectContentType(filename, content)
 
-	// Create burn-after-read paste
+	// Create burn-after-read paste metadata
 	expiresAt := time.Now().Add(h.config.DefaultTTL)
 	paste := &models.Paste{
 		ID:            slug,
@@ -235,12 +238,15 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 		ContentType:   contentType,
 		BurnAfterRead: true,
 		ReadCount:     0,
-		Content:       content,
 	}
 
-	// Store paste
+	// Store content and metadata
+	if err := h.store.StoreContent(slug, content); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store content"})
+		return
+	}
 	if err := h.store.Store(paste); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store paste"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store metadata"})
 		return
 	}
 
@@ -302,42 +308,42 @@ func (h *PasteHandler) View(c *gin.Context) {
 
 	// Increment read count
 	if err := h.store.IncrementReadCount(slug); err != nil {
-		// Log error but don't fail the request
 		fmt.Printf("Failed to increment read count for %s: %v\n", slug, err)
 	}
-
-	// If this is a burn-after-read paste, delete it after reading
 	if paste.BurnAfterRead {
 		if err := h.store.Delete(slug); err != nil {
-			// Log error but don't fail the request
 			fmt.Printf("Failed to delete burn-after-read paste %s: %v\n", slug, err)
 		}
 	}
-
-	// Check if this is a cli tools request - serve raw content directly
-	if h.isCli(c) {
-		// Serve raw content directly instead of redirecting
-		c.Header("Content-Type", paste.ContentType)
-		c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
-		c.Data(http.StatusOK, paste.ContentType, paste.Content)
-		return
-	}
-
-	// Return HTML view for browsers
-	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
-		c.HTML(http.StatusOK, "view.html", gin.H{
-			"Title":      fmt.Sprintf("NCLIP - Paste %s", paste.ID),
-			"Paste":      paste,
-			"IsText":     utils.IsTextContent(paste.ContentType),
-			"Content":    string(paste.Content),
+	content, err := h.store.GetContent(slug)
+	if err != nil {
+		c.HTML(http.StatusInternalServerError, "view.html", gin.H{
+			"Title":      "NCLIP - Error",
+			"Error":      "Failed to retrieve content",
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
 		})
 		return
 	}
-
-	// Return JSON for API clients
+	if h.isCli(c) {
+		c.Header("Content-Type", paste.ContentType)
+		c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
+		c.Data(http.StatusOK, paste.ContentType, content)
+		return
+	}
+	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
+		c.HTML(http.StatusOK, "view.html", gin.H{
+			"Title":      fmt.Sprintf("NCLIP - Paste %s", paste.ID),
+			"Paste":      paste,
+			"IsText":     utils.IsTextContent(paste.ContentType),
+			"Content":    string(content),
+			"Version":    h.config.Version,
+			"BuildTime":  h.config.BuildTime,
+			"CommitHash": h.config.CommitHash,
+		})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"id":              paste.ID,
 		"created_at":      paste.CreatedAt,
@@ -345,7 +351,7 @@ func (h *PasteHandler) View(c *gin.Context) {
 		"size":            paste.Size,
 		"content_type":    paste.ContentType,
 		"burn_after_read": paste.BurnAfterRead,
-		"content":         string(paste.Content),
+		"content":         string(content),
 	})
 }
 
@@ -383,18 +389,18 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 		}
 	}
 
-	// Set appropriate headers
+	content, err := h.store.GetContent(slug)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve content"})
+		return
+	}
 	c.Header("Content-Type", paste.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
-
-	// Suggest filename with extension based on MIME type
 	ext := utils.ExtensionByMime(paste.ContentType)
 	filename := slug
 	if ext != "" {
 		filename = slug + ext
 	}
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
-
-	// Return raw content
-	c.Data(http.StatusOK, paste.ContentType, paste.Content)
+	c.Data(http.StatusOK, paste.ContentType, content)
 }

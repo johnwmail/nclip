@@ -1,13 +1,15 @@
 # Nclip Copilot Instructions
 
-This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The service supports both MongoDB (container/on-prem) and DynamoDB (AWS Lambda) storage backends.
+This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The service supports two modes:
+- **Lambda mode:** Content is stored in S3 as objects (`$slug`), with metadata in a JSON file (`$slug.json`).
+- **Server mode:** Content is stored in the local filesystem as files (`$slug`), with metadata in a JSON file (`$slug.json`).
 
 ## Core Architecture
 
 - **Framework**: Gin HTTP router
-- **Storage**: Abstracted behind `PasteStore` interface
-  - MongoDB implementation for container/K8s deployment
-  - DynamoDB implementation for AWS Lambda
+**Storage**: Abstracted behind `PasteStore` interface
+    - Filesystem implementation for server mode
+    - S3 implementation for AWS Lambda
 - **Data Format**: JSON metadata + raw binary content
 - **Configuration**: Environment variables + CLI flags
 
@@ -30,32 +32,30 @@ This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The 
 ### Paste Metadata
 ```go
 type Paste struct {
-    ID           string    `json:"id" bson:"_id"`
-    CreatedAt    time.Time `json:"created_at" bson:"created_at"`
-    ExpiresAt    *time.Time `json:"expires_at" bson:"expires_at,omitempty"`
-    Size         int64     `json:"size" bson:"size"`
-    ContentType  string    `json:"content_type" bson:"content_type"`
-    BurnAfterRead bool     `json:"burn_after_read" bson:"burn_after_read"`
-    ReadCount    int       `json:"read_count" bson:"read_count"`
-    Content      []byte    `json:"-" bson:"content"` // Not exposed in JSON
+    ID            string     `json:"id"`
+    CreatedAt     time.Time  `json:"created_at"`
+    ExpiresAt     *time.Time `json:"expires_at,omitempty"`
+    Size          int64      `json:"size"`
+    ContentType   string     `json:"content_type"`
+    BurnAfterRead bool       `json:"burn_after_read"`
+    ReadCount     int        `json:"read_count"`
 }
 ```
 
 ### Configuration
 ```go
 type Config struct {
-    Port           int    `default:"8080"`
-    URL            string `default:""`
-    SlugLength     int    `default:"5"`
-    BufferSize     int64  `default:"1048576"` // 1MB
+    Port           int           `default:"8080"`
+    URL            string        `default:""`
+    SlugLength     int           `default:"5"`
+    BufferSize     int64         `default:"1048576"` // 1MB
     DefaultTTL     time.Duration `default:"24h"`
-    MongoURL       string `default:"mongodb://localhost:27017"`
-    DynamoTable    string `default:"nclip-pastes"`
+    S3Bucket       string        `default:""` // S3 bucket for Lambda mode
 }
 ```
 
 ## Storage Interface
-- For Storage backends, Container/K8s must uses MongoDB, and AWS Lambda must uses DynamoDB. Both implementations should adhere to the same interface. So, no Storage Environment variable in neededs.
+- For storage backends, server mode uses the filesystem, and AWS Lambda uses S3. Both implementations should adhere to the same interface. No storage environment variable is needed.
 
 ```go
 type PasteStore interface {
@@ -75,8 +75,7 @@ type PasteStore interface {
 
 ### TTL/Expiration
 - Default 24-hour expiration (configurable)
-- MongoDB: Use TTL indexes on `expires_at`
-- DynamoDB: Use TTL attribute
+- Expiry is handled by application logic (no DB TTL indexes)
 
 ### Burn After Read
 - Mark pastes as `burn_after_read: true`
@@ -120,8 +119,8 @@ type PasteStore interface {
 │   └── config.go        # Configuration struct and parsing
 ├── storage/
 │   ├── interface.go     # PasteStore interface
-│   ├── mongodb.go       # MongoDB implementation
-│   └── dynamodb.go      # DynamoDB implementation
+│   ├── filesystem.go    # Filesystem implementation (server mode)
+│   └── s3.go            # S3 implementation (Lambda mode)
 ├── handlers/
 │   ├── paste.go         # Upload, view, raw endpoints
 │   ├── burn.go          # Burn-after-read functionality
@@ -143,8 +142,8 @@ type PasteStore interface {
 - Unit tests for all storage implementations
 - HTTP endpoint tests using httptest
 - Mock PasteStore for handler testing
-- Integration tests with real databases
-- Test both Lambda and container deployment modes
+- Integration tests with real storage backends
+- Test both Lambda and server deployment modes
 
 ## Environment Variables
 
@@ -154,28 +153,25 @@ All config via env vars with CLI flag alternatives:
 - `NCLIP_SLUG_LENGTH` / `--slug-length` (default: 5) — Length of generated paste IDs
 - `NCLIP_BUFFER_SIZE` / `--buffer-size` (default: 1048576) — Max upload size in bytes (1MB)
 - `NCLIP_TTL` / `--ttl` (default: "24h") — Default paste expiration time
-- `NCLIP_MONGO_URL` / `--mongo-url` (default: "mongodb://localhost:27017") — MongoDB connection URL (container mode)
-- `NCLIP_DYNAMO_TABLE` / `--dynamo-table` (default: "nclip-pastes") — DynamoDB table name (Lambda mode)
+
 
 **Note**: Storage backend is automatically selected based on deployment environment:
-- Container/K8s: Uses MongoDB (NCLIP_MONGO_URL)
-- AWS Lambda: Uses DynamoDB (NCLIP_DYNAMO_TABLE)
+- Server mode: Uses filesystem
+- AWS Lambda: Uses S3 (NCLIP_S3_BUCKET)
 - Detection via AWS_LAMBDA_FUNCTION_NAME environment variable
+
 
 ## Deployment Modes
 
-1. **Container/K8s**: Uses MongoDB, full HTTP server
-2. **AWS Lambda**: Uses DynamoDB, same codebase with Lambda adapter
-3. **Both Lambda and Container, should be use the same main.go, and use the AWS_LAMBDA_FUNCTION_NAME variable to determine the mode. (Don't separate 2 main.go for 2 modes )**
+1. **Server mode**: Uses filesystem, full HTTP server
+2. **AWS Lambda**: Uses S3, same codebase with Lambda adapter
+3. **Both Lambda and server mode should use the same main.go, and use the AWS_LAMBDA_FUNCTION_NAME variable to determine the mode. (Don't separate 2 main.go for 2 modes )**
 
 Both modes share identical API and behavior.
 
-## Lambda Deployment with DynamoDB
-- The Lambda code should supprt http v2.0 payload format. (This is the default for new Lambda functions behind an API Gateway HTTP API.)
-- Both Lambda 
+## Lambda Deployment with S3
+- The Lambda code should support http v2.0 payload format. (This is the default for new Lambda functions behind an API Gateway HTTP API.)
 - Use AWS Lambda Go SDK
 - Wrap Gin router with Lambda adapter
-- The DynamoDB table must have a primary key `id` (string) and a TTL attribute `expires_at` (number, epoch time).
-- The DynamoDB region should match the Lambda region.
-- The DynamoDB table name is configurable via `NCLIP_DYNAMO_TABLE` env var (default `nclip-pastes`).
-- Ensure the Lambda execution role has permissions for DynamoDB actions: `dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:DeleteItem`, `dynamodb:UpdateItem`, and `dynamodb:DescribeTable`.
+- S3 bucket is specified via `NCLIP_S3_BUCKET` env var
+- Ensure the Lambda execution role has permissions for S3 actions: `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`

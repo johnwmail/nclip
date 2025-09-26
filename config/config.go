@@ -9,28 +9,26 @@ import (
 
 // Config holds all configuration for the nclip service
 type Config struct {
-	Port        int           `json:"port"`
-	URL         string        `json:"url"`
-	SlugLength  int           `json:"slug_length"`
-	BufferSize  int64         `json:"buffer_size"`
-	DefaultTTL  time.Duration `json:"default_ttl"`
-	MongoURL    string        `json:"mongo_url"`
-	DynamoTable string        `json:"dynamo_table"`
-	Version     string        `json:"version"`
-	BuildTime   string        `json:"build_time"`
-	CommitHash  string        `json:"commit_hash"`
+	Port       int           `json:"port"`
+	URL        string        `json:"url"`
+	SlugLength int           `json:"slug_length"`
+	BufferSize int64         `json:"buffer_size"`
+	DefaultTTL time.Duration `json:"default_ttl"`
+	S3Bucket   string        `json:"s3_bucket"`
+	Version    string        `json:"version"`
+	BuildTime  string        `json:"build_time"`
+	CommitHash string        `json:"commit_hash"`
 }
 
 // LoadConfig loads configuration from environment variables and CLI flags
 func LoadConfig() *Config {
 	config := &Config{
-		Port:        8080,
-		URL:         "",
-		SlugLength:  5,
-		BufferSize:  1048576, // 1MB
-		DefaultTTL:  24 * time.Hour,
-		MongoURL:    "mongodb://localhost:27017",
-		DynamoTable: "nclip-pastes",
+		Port:       8080,
+		URL:        "",
+		SlugLength: 5,
+		BufferSize: 1048576, // 1MB
+		DefaultTTL: 24 * time.Hour,
+		S3Bucket:   "",
 	}
 
 	// Parse CLI flags
@@ -39,8 +37,7 @@ func LoadConfig() *Config {
 	flag.IntVar(&config.SlugLength, "slug-length", config.SlugLength, "Length of generated slugs")
 	flag.Int64Var(&config.BufferSize, "buffer-size", config.BufferSize, "Maximum upload size in bytes")
 	flag.DurationVar(&config.DefaultTTL, "ttl", config.DefaultTTL, "Default paste expiration time")
-	flag.StringVar(&config.MongoURL, "mongo-url", config.MongoURL, "MongoDB connection URL")
-	flag.StringVar(&config.DynamoTable, "dynamo-table", config.DynamoTable, "DynamoDB table name")
+	flag.StringVar(&config.S3Bucket, "s3-bucket", config.S3Bucket, "S3 bucket for Lambda mode")
 	flag.Parse()
 
 	// Override with environment variables if present
@@ -67,11 +64,11 @@ func LoadConfig() *Config {
 			config.DefaultTTL = ttl
 		}
 	}
-	if val := os.Getenv("NCLIP_MONGO_URL"); val != "" {
-		config.MongoURL = val
-	}
-	if val := os.Getenv("NCLIP_DYNAMO_TABLE"); val != "" {
-		config.DynamoTable = val
+	// Support both NCLIP_S3_BUCKET and BUCKET for S3 bucket name
+	if val := os.Getenv("NCLIP_S3_BUCKET"); val != "" {
+		config.S3Bucket = val
+	} else if val := os.Getenv("BUCKET"); val != "" {
+		config.S3Bucket = val
 	}
 
 	return config

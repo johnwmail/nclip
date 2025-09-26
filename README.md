@@ -1,4 +1,3 @@
-
 [![Test](https://github.com/johnwmail/nclip/workflows/Test/badge.svg)](https://github.com/johnwmail/nclip/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/johnwmail/nclip)](https://goreportcard.com/report/github.com/johnwmail/nclip)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -8,6 +7,13 @@
 # NCLIP
 
 A modern, high-performance HTTP clipboard app written in Go with Gin framework.
+
+## Storage Architecture
+
+- **Lambda mode:** Content is stored in S3 as objects (`$slug`), with metadata in a JSON file (`$slug.json`).
+- **Server mode:** Content is stored in the local filesystem as files (`$slug`), with metadata in a JSON file (`$slug.json`).
+- **Metadata** includes expiry, burn-after-read, content type, and other small fields.
+- This design keeps logic and code nearly identical between Lambda and server modes.
 
 ## Overview
 
@@ -20,10 +26,10 @@ nclip is a versatile clipboard app that accepts content via:
 
 ## ✨ Features
 
-- 🚀 **Dual Deployment**: Container/Kubernetes (MongoDB) + AWS Lambda (DynamoDB)
-- 🎯 **Unified Codebase**: Same code, logic, and UI for both environments
-- 🗄️ **Multi-Storage Backend**: MongoDB for containers, DynamoDB for serverless
-- 🐳 **Container Ready**: Docker & Kubernetes deployment
+🚀 **Dual Deployment**: Server mode (local or container) + AWS Lambda
+🎯 **Unified Codebase**: Same code, logic, and UI for both environments
+🗄️ **Multi-Storage Backend**: Filesystem for server mode, S3 for Lambda
+🐳 **Server Ready**: Docker & Kubernetes deployment
 - ⏰ **Auto-Expiration**: TTL support with configurable defaults
 - 🛡️ **Production Ready**: Health checks, structured logging
 - 🔧 **Configurable**: Environment variables & CLI flags
@@ -50,7 +56,7 @@ go build -o nclip .
 
 ### Basic Usage
 ```bash
-# Start the service (automatically uses MongoDB in container mode)
+# Start the service (automatically uses local filesystem in server mode)
 ./nclip
 
 # Upload content via curl
@@ -185,7 +191,7 @@ docker-compose up -d
 # Or use the example below
 ```
 
-### Docker Compose (with MongoDB)
+### Docker Compose (with local filesystem)
 ```yaml
 services:
   nclip:
@@ -193,31 +199,24 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - NCLIP_MONGO_URL=mongodb://mongo:27017
       - NCLIP_URL=https://demo.nclip.app
-    depends_on:
-      - mongo
-  
-  mongo:
-    image: mongo:7
     volumes:
-      - mongo_data:/data/db
-
-volumes:
-  mongo_data:
+      - ./data:/data  # Persist data to local ./data directory
 ```
 
 ### Production Docker Compose
 ```bash
 # The repository includes a production-ready docker-compose.yml
-# with MongoDB initialization, TTL indexes, and health checks
+# with health checks and volume mappings
 docker-compose up -d
 ```
 
+kubectl create deployment nclip --image=nclip
+kubectl expose deployment nclip --port=8080 --type=LoadBalancer
 ### Kubernetes
 ```bash
-# Deploy to Kubernetes with MongoDB
-kubectl apply -f k8s/nclip-mongodb.yaml
+# Deploy to Kubernetes with local filesystem (server mode)
+kubectl apply -f k8s/nclip-filesystem.yaml
 
 # Or build and deploy
 docker build -t nclip .
@@ -228,17 +227,16 @@ See [docs/KUBERNETES.md](docs/KUBERNETES.md) for detailed Kubernetes deployment 
 
 ## ☁️ AWS Lambda Deployment
 
-nclip automatically switches to DynamoDB when deployed as AWS Lambda (detected via `AWS_LAMBDA_FUNCTION_NAME`).
+nclip automatically switches to S3 for storage when deployed as AWS Lambda (detected via `AWS_LAMBDA_FUNCTION_NAME`).
 
 ### Prerequisites
 ```bash
-# Create DynamoDB table
-aws dynamodb create-table \
-    --table-name nclip-pastes \
-    --attribute-definitions AttributeName=id,AttributeType=S \
-    --key-schema AttributeName=id,KeyType=HASH \
-    --billing-mode PAY_PER_REQUEST \
-    --stream-specification StreamEnabled=true,StreamViewType=NEW_AND_OLD_IMAGES
+# Create S3 bucket
+aws s3api create-bucket --bucket my-nclip-bucket --region us-east-1
+
+# Enable versioning and lifecycle rules (optional)
+aws s3api put-bucket-versioning --bucket my-nclip-bucket --versioning-configuration Status=Enabled
+aws s3api put-bucket-lifecycle-configuration --bucket my-nclip-bucket --lifecycle-configuration file://lifecycle.json
 ```
 
 ### Deploy via GitHub Actions
@@ -248,21 +246,18 @@ When you push to the `deploy/lambda` branch, a GitHub Actions workflow automatic
 # Push to lambda deployment branch
 git push origin deploy/lambda
 ```
-- `NCLIP_DYNAMO_TABLE=nclip-pastes`
 - `GIN_MODE=release`
 
-> **Note:** Ensure your Lambda function has appropriate AWS credentials and an IAM role with permissions for DynamoDB access (e.g., `dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:UpdateItem`, `dynamodb:DeleteItem` on the target table).
-- `NCLIP_DYNAMO_TABLE=nclip-pastes`
-- `GIN_MODE=release`
+> **Note:** Ensure your Lambda function has appropriate AWS credentials and an IAM role with permissions for S3 access (e.g., `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject` on the target bucket).
 
 ## 🗄️ Storage Backends
 
-| Deployment | Storage | Auto-Selected | TTL Support |
-|------------|---------|---------------|-------------|
-| **Container/K8s** | MongoDB | ✅ Automatic | Native TTL indexes |
-| **AWS Lambda** | DynamoDB | ✅ Automatic | Native TTL attribute |
+| Deployment         | Content Storage      | Metadata Storage      | TTL Support         |
+|--------------------|---------------------|----------------------|---------------------|
+| **Server mode**    | Filesystem (`$slug`)| Filesystem (`$slug.json`)| Handled by app logic |
+| **AWS Lambda**     | S3 (`$slug`)        | S3 (`$slug.json`)| Handled by app logic |
 
-Storage selection is automatic based on deployment environment - no configuration needed!
+Storage selection is automatic based on deployment environment - no configuration needed.
 
 ## ⚙️ Configuration
 
@@ -279,8 +274,7 @@ NCLIP_BUFFER_SIZE=1048576          # Max upload size (1MB)
 NCLIP_TTL=24h                      # Default paste expiration
 
 # Storage configuration
-NCLIP_MONGO_URL=mongodb://localhost:27017  # MongoDB connection
-NCLIP_DYNAMO_TABLE=nclip-pastes             # DynamoDB table
+NCLIP_S3_BUCKET=my-nclip-bucket         # S3 bucket for Lambda
 ```
 
 ### CLI Flags
@@ -312,12 +306,12 @@ GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o bootstrap .  # Lambda
 ### Project Structure
 ```
 /
-├── main.go              # Unified entry point (container + Lambda)
+├── main.go              # Unified entry point (server mode + Lambda)
 ├── config/              # Configuration management
 ├── storage/             # Storage interface & implementations
 │   ├── interface.go     # PasteStore interface
-│   ├── mongodb.go       # MongoDB implementation
-│   └── dynamodb.go      # DynamoDB implementation
+│   ├── filesystem.go    # Filesystem (server mode) implementation
+│   └── s3.go            # S3 (Lambda) implementation
 ├── handlers/            # HTTP request handlers
 ├── models/              # Data models
 ├── static/              # Web UI assets
@@ -358,7 +352,7 @@ The repository includes automated cleanup of old container images to manage stor
 
 - **Go**: 1.23 or higher (minimum supported version)
 - **Docker**: For container builds
-- **MongoDB**: For local development (container mode)
+  # ...existing code...
 
 ### Build Strategy
 
@@ -382,8 +376,7 @@ go build -o nclip .
 # Run tests
 go test ./...
 
-# Run with MongoDB (requires Docker)
-docker-compose up -d mongodb
+# Run with local filesystem
 ./nclip
 
 # Run integration tests

@@ -1,11 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# Integration test script for nclip with MongoDB backend
-# This script tests all major API endpoints to ensure they work correctly
+
+# Integration test script for nclip (S3/filesystem or any backend)
+# This script tests all major API endpoints to ensure they work correctly, regardless of storage backend.
+
 
 # Configuration
 NCLIP_URL="${NCLIP_URL:-http://localhost:8080}"
+SLUG_LENGTH="${SLUG_LENGTH:-5}"
 TEST_TIMEOUT=30
 RETRY_DELAY=2
 MAX_RETRIES=15
@@ -201,8 +204,9 @@ test_not_found() {
     log "Testing 404 for non-existent paste..."
     
     local status
-    # Slug must be 3-32 chars, so use a valid but non-existent slug (e.g., 5 chars)
-    status=$(curl -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/ZZZZZ")
+    # Slug must be 3-32 chars, so use a valid but non-existent slug
+    slug=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c "$SLUG_LENGTH")
+    status=$(curl -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/$slug")
     
     if [[ "$status" == "404" ]]; then
         success "404 test passed"

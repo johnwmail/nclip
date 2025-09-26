@@ -65,27 +65,24 @@ func main() {
 	var err error
 
 	if isLambdaEnvironment() {
-		// Lambda mode: Always use DynamoDB
-		store, err = storage.NewDynamoStore(cfg.DynamoTable)
+		// Lambda mode: Use S3
+		store, err = storage.NewS3Store(cfg.S3Bucket)
 		if err != nil {
-			log.Fatalf("Failed to initialize DynamoDB storage for Lambda: %v", err)
+			log.Fatalf("Failed to initialize S3 storage for Lambda: %v", err)
 		}
-		// Print DynamoDB table name if GIN_MODE is debug (avoid printing sensitive info)
 		if os.Getenv("GIN_MODE") == "debug" {
-			log.Printf("DynamoDB Table: %s", cfg.DynamoTable)
+			log.Printf("S3 Bucket: %s", cfg.S3Bucket)
 		}
-		log.Println("Lambda mode: Using DynamoDB storage")
+		log.Println("Lambda mode: Using S3 storage")
 	} else {
-		// Container mode: Always use MongoDB
-		store, err = storage.NewMongoStore(cfg.MongoURL, "nclip")
+		// Server mode: Use filesystem
+		store, err = storage.NewFilesystemStore()
 		if err != nil {
-			log.Fatalf("Failed to initialize MongoDB storage: %v", err)
+			log.Fatalf("Failed to initialize filesystem storage: %v", err)
 		}
-		// Running in non-Lambda (server) mode; may be a container or a standalone binary
-		log.Println("Server mode: Using MongoDB storage")
+		log.Println("Server mode: Using filesystem storage")
 		if os.Getenv("GIN_MODE") == "debug" {
 			log.Printf("Listening on port: %d", cfg.Port)
-			log.Printf("MongoDB URL: %s", cfg.MongoURL)
 		}
 	}
 

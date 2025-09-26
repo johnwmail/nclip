@@ -14,14 +14,31 @@ import (
 
 // MockPasteStore implements storage.PasteStore for testing
 type MockPasteStore struct {
-	pastes map[string]*models.Paste
-	getErr error
+	pastes  map[string]*models.Paste
+	getErr  error
+	content map[string][]byte
 }
 
 func NewMockPasteStore() *MockPasteStore {
 	return &MockPasteStore{
-		pastes: make(map[string]*models.Paste),
+		pastes:  make(map[string]*models.Paste),
+		content: make(map[string][]byte),
 	}
+}
+
+// StoreContent saves the raw content for a paste
+func (m *MockPasteStore) StoreContent(id string, content []byte) error {
+	m.content[id] = content
+	return nil
+}
+
+// GetContent retrieves the raw content for a paste
+func (m *MockPasteStore) GetContent(id string) ([]byte, error) {
+	c, ok := m.content[id]
+	if !ok {
+		return nil, nil
+	}
+	return c, nil
 }
 
 func (m *MockPasteStore) Store(paste *models.Paste) error {

@@ -18,17 +18,38 @@ import (
 type MockStore struct {
 	pastes    map[string]*models.Paste
 	readCount map[string]int
+	// For content storage
+	content map[string][]byte
 }
 
 func NewMockStore() *MockStore {
 	return &MockStore{
 		pastes:    make(map[string]*models.Paste),
 		readCount: make(map[string]int),
+		content:   make(map[string][]byte),
 	}
+}
+
+// StoreContent saves the raw content for a paste
+func (m *MockStore) StoreContent(id string, content []byte) error {
+	m.content[id] = content
+	return nil
+}
+
+// GetContent retrieves the raw content for a paste
+func (m *MockStore) GetContent(id string) ([]byte, error) {
+	c, ok := m.content[id]
+	if !ok {
+		return nil, nil
+	}
+	return c, nil
 }
 
 func (m *MockStore) Store(paste *models.Paste) error {
 	m.pastes[paste.ID] = paste
+	if paste.Content != nil {
+		m.StoreContent(paste.ID, paste.Content)
+	}
 	return nil
 }
 

@@ -9,16 +9,39 @@ import (
 
 // MockPasteStore is a mock implementation of PasteStore for testing
 type MockPasteStore struct {
-	pastes map[string]*models.Paste
-	closed bool
+	pastes  map[string]*models.Paste
+	closed  bool
+	content map[string][]byte
 }
 
 // NewMockPasteStore creates a new mock paste store
 func NewMockPasteStore() *MockPasteStore {
 	return &MockPasteStore{
-		pastes: make(map[string]*models.Paste),
-		closed: false,
+		pastes:  make(map[string]*models.Paste),
+		closed:  false,
+		content: make(map[string][]byte),
 	}
+}
+
+// StoreContent saves the raw content for a paste
+func (m *MockPasteStore) StoreContent(id string, content []byte) error {
+	if m.closed {
+		return errors.New("store is closed")
+	}
+	m.content[id] = content
+	return nil
+}
+
+// GetContent retrieves the raw content for a paste
+func (m *MockPasteStore) GetContent(id string) ([]byte, error) {
+	if m.closed {
+		return nil, errors.New("store is closed")
+	}
+	c, ok := m.content[id]
+	if !ok {
+		return nil, nil
+	}
+	return c, nil
 }
 
 func (m *MockPasteStore) Store(paste *models.Paste) error {
