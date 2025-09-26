@@ -183,7 +183,7 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 	}
 	paste, err := d.itemToPaste(result.Item)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("itemToPaste error: %w", err)
 	}
 	fmt.Printf("[DEBUG] DynamoStore.Get: id=%s, metadata: %+v, IsChunked=%v, ChunkCount=%d\n", id, paste, paste.IsChunked, paste.ChunkCount)
 	// Check if expired
@@ -201,32 +201,40 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 	chunkCount := paste.ChunkCount
 	fmt.Printf("[DEBUG] DynamoStore.Get: id=%s, chunkCount=%d\n", id, chunkCount)
 	var content []byte
+	missingChunks := 0
 	for i := 0; i < chunkCount; i++ {
 		chunkKey := map[string]types.AttributeValue{
 			"id":          &types.AttributeValueMemberS{Value: id},
 			"chunk_index": &types.AttributeValueMemberN{Value: strconv.Itoa(i)},
 		}
+		fmt.Printf("[DEBUG] DynamoStore.Get: fetching chunk %d/%d, key=%v\n", i, chunkCount, chunkKey)
 		chunkRes, err := d.client.GetItem(ctx, &dynamodb.GetItemInput{
 			TableName: aws.String(d.tableName),
 			Key:       chunkKey,
 		})
 		if err != nil {
 			fmt.Printf("[ERROR] Failed to get chunk %d for paste %s: %v\n", i, id, err)
-			return nil, err
+			return nil, fmt.Errorf("failed to get chunk %d for paste %s: %w", i, id, err)
 		}
 		if chunkRes.Item == nil {
 			fmt.Printf("[ERROR] Missing chunk %d for paste %s\n", i, id)
-			return nil, nil // Missing chunk
+			missingChunks++
+			continue
 		}
-		if chunkVal, ok := chunkRes.Item["content"].(*types.AttributeValueMemberB); ok {
-			fmt.Printf("[DEBUG] Got chunk %d for paste %s: size=%d bytes\n", i, id, len(chunkVal.Value))
-			content = append(content, chunkVal.Value...)
-		} else {
+		chunkVal, ok := chunkRes.Item["content"].(*types.AttributeValueMemberB)
+		if !ok {
 			fmt.Printf("[ERROR] Malformed chunk %d for paste %s\n", i, id)
-			return nil, nil // Malformed chunk
+			return nil, fmt.Errorf("malformed chunk %d for paste %s", i, id)
 		}
+		fmt.Printf("[DEBUG] Got chunk %d for paste %s: size=%d bytes\n", i, id, len(chunkVal.Value))
+		content = append(content, chunkVal.Value...)
 	}
-	fmt.Printf("[DEBUG] DynamoStore.Get: id=%s, total assembled content size=%d bytes\n", id, len(content))
+	if missingChunks > 0 {
+		errMsg := fmt.Sprintf("[ERROR] DynamoStore.Get: id=%s, missing %d/%d chunks", id, missingChunks, chunkCount)
+		fmt.Println(errMsg)
+		return nil, fmt.Errorf(errMsg)
+	}
+	fmt.Printf("[DEBUG] DynamoStore.Get: id=%s, total assembled content size=%d bytes, expected chunks=%d\n", id, len(content), chunkCount)
 	paste.Content = content
 	return paste, nil
 }
