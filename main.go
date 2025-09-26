@@ -234,6 +234,11 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	// System routes
 	router.GET("/health", systemHandler.Health)
 
+	// Global 404 handler
+	router.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Resource not found"})
+	})
+
 	return router
 }
 

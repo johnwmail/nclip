@@ -1,38 +1,71 @@
 package storage
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
 
-	"log"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/johnwmail/nclip/models"
 )
 
 type FilesystemStore struct {
-	dataDir string
-	mu      sync.Mutex
+	dataDir    string
+	s3Bucket   string
+	useS3      bool
+	bufferSize int
+	mu         sync.Mutex
+	s3Client   *s3.Client
 }
 
 func NewFilesystemStore() (*FilesystemStore, error) {
-	dataDir := "data"
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		return nil, err
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "/tmp"
 	}
-	return &FilesystemStore{dataDir: dataDir}, nil
+	s3Bucket := os.Getenv("S3_BUCKET")
+	useS3 := s3Bucket != ""
+	bufferSize := 50 * 1024 * 1024 // 50MB default
+	if v := os.Getenv("BUFFER_SIZE"); v != "" {
+		if n, err := fmt.Sscanf(v, "%d", &bufferSize); n == 1 && err == nil {
+			// parsed
+		}
+	}
+	var s3Client *s3.Client
+	if useS3 {
+		cfg, err := config.LoadDefaultConfig(context.Background())
+		if err != nil {
+			log.Printf("[ERROR] S3 config: %v", err)
+			return nil, err
+		}
+		s3Client = s3.NewFromConfig(cfg)
+	}
+	if !useS3 {
+		if err := os.MkdirAll(dataDir, 0o755); err != nil {
+			return nil, err
+		}
+	}
+	return &FilesystemStore{
+		dataDir:    dataDir,
+		s3Bucket:   s3Bucket,
+		useS3:      useS3,
+		bufferSize: bufferSize,
+		s3Client:   s3Client,
+	}, nil
 }
 
 func (fs *FilesystemStore) Store(paste *models.Paste) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	// Write content
-	contentPath := filepath.Join(fs.dataDir, paste.ID)
-	if err := os.WriteFile(contentPath, []byte{}, 0o644); err != nil {
-		log.Printf("[ERROR] FS Store: failed to write empty content for %s: %v", paste.ID, err)
-		return err
-	}
 	// Write metadata
 	metaPath := filepath.Join(fs.dataDir, paste.ID+".json")
 	metaData, err := json.MarshalIndent(paste, "", "  ")
@@ -102,6 +135,25 @@ func (fs *FilesystemStore) IncrementReadCount(id string) error {
 func (fs *FilesystemStore) StoreContent(id string, content []byte) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+	log.Printf("[DEBUG] StoreContent: id=%s, content_len=%d, first_bytes=%q", id, len(content), string(content[:min(32, len(content))]))
+	if fs.useS3 {
+		// S3 upload
+		key := id
+		input := &s3.PutObjectInput{
+			Bucket:        aws.String(fs.s3Bucket),
+			Key:           aws.String(key),
+			Body:          bytes.NewReader(content),
+			ContentLength: aws.Int64(int64(len(content))),
+			ContentType:   aws.String("application/octet-stream"),
+		}
+		_, err := fs.s3Client.PutObject(context.Background(), input)
+		if err != nil {
+			log.Printf("[ERROR] S3 StoreContent: failed to write content for %s: %v", id, err)
+			return err
+		}
+		return nil
+	}
+	// Local FS
 	contentPath := filepath.Join(fs.dataDir, id)
 	if err := os.WriteFile(contentPath, content, 0o644); err != nil {
 		log.Printf("[ERROR] FS StoreContent: failed to write content for %s: %v", id, err)
@@ -110,9 +162,35 @@ func (fs *FilesystemStore) StoreContent(id string, content []byte) error {
 	return nil
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+	if fs.useS3 {
+		key := id
+		input := &s3.GetObjectInput{
+			Bucket: aws.String(fs.s3Bucket),
+			Key:    aws.String(key),
+		}
+		out, err := fs.s3Client.GetObject(context.Background(), input)
+		if err != nil {
+			log.Printf("[ERROR] S3 GetContent: failed to read content for %s: %v", id, err)
+			return nil, err
+		}
+		defer out.Body.Close()
+		buf := new(bytes.Buffer)
+		if _, err := io.Copy(buf, out.Body); err != nil {
+			log.Printf("[ERROR] S3 GetContent: failed to copy content for %s: %v", id, err)
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	}
 	contentPath := filepath.Join(fs.dataDir, id)
 	data, err := os.ReadFile(contentPath)
 	if err != nil {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -105,8 +106,8 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	}
 	bodyBytes, _ := io.ReadAll(c.Request.Body)
 	log.Printf("[DEBUG] POST / body: %s", string(bodyBytes))
-	// Rewind body for further reading
-	c.Request.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
+	// Rewind body for further reading (preserve raw bytes)
+	c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	var content []byte
 	var filename string
 	var err error
@@ -302,9 +303,10 @@ func (h *PasteHandler) View(c *gin.Context) {
 
 	paste, err := h.store.Get(slug)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "view.html", gin.H{
-			"Title":      "NCLIP - Error",
-			"Error":      "Failed to retrieve paste",
+		log.Printf("[ERROR] View: failed to read metadata for slug %s: %v", slug, err)
+		c.HTML(http.StatusNotFound, "view.html", gin.H{
+			"Title":      "NCLIP - Not Found",
+			"Error":      "Paste not found or deleted",
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
@@ -313,9 +315,10 @@ func (h *PasteHandler) View(c *gin.Context) {
 	}
 
 	if paste == nil {
+		log.Printf("[ERROR] View: paste not found or deleted for slug %s", slug)
 		c.HTML(http.StatusNotFound, "view.html", gin.H{
-			"Title":      "NCLIP - Error",
-			"Error":      "Paste not found",
+			"Title":      "NCLIP - Not Found",
+			"Error":      "Paste not found or deleted",
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
@@ -327,21 +330,23 @@ func (h *PasteHandler) View(c *gin.Context) {
 	if err := h.store.IncrementReadCount(slug); err != nil {
 		fmt.Printf("Failed to increment read count for %s: %v\n", slug, err)
 	}
-	if paste.BurnAfterRead {
-		if err := h.store.Delete(slug); err != nil {
-			fmt.Printf("Failed to delete burn-after-read paste %s: %v\n", slug, err)
-		}
-	}
-	content, err := h.store.GetContent(slug)
+	var content []byte
+	content, err = h.store.GetContent(slug)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "view.html", gin.H{
-			"Title":      "NCLIP - Error",
-			"Error":      "Failed to retrieve content",
+		log.Printf("[ERROR] View: content not found or deleted for slug %s: %v", slug, err)
+		c.HTML(http.StatusNotFound, "view.html", gin.H{
+			"Title":      "NCLIP - Not Found",
+			"Error":      "Paste content not found or deleted",
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
 		})
 		return
+	}
+	if paste.BurnAfterRead {
+		if err := h.store.Delete(slug); err != nil {
+			fmt.Printf("Failed to delete burn-after-read paste %s: %v\n", slug, err)
+		}
 	}
 	if h.isCli(c) {
 		c.Header("Content-Type", paste.ContentType)
@@ -383,12 +388,14 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 
 	paste, err := h.store.Get(slug)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve paste"})
+		log.Printf("[ERROR] Raw: failed to read metadata for slug %s: %v", slug, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted"})
 		return
 	}
 
 	if paste == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found"})
+		log.Printf("[ERROR] Raw: paste not found or deleted for slug %s", slug)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted"})
 		return
 	}
 
@@ -398,18 +405,18 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 		fmt.Printf("Failed to increment read count for %s: %v\n", slug, err)
 	}
 
-	// If this is a burn-after-read paste, delete it after reading
+	var content []byte
+	content, err = h.store.GetContent(slug)
+	if err != nil {
+		log.Printf("[ERROR] Raw: content not found or deleted for slug %s: %v", slug, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Paste content not found or deleted"})
+		return
+	}
 	if paste.BurnAfterRead {
 		if err := h.store.Delete(slug); err != nil {
 			// Log error but don't fail the request
 			fmt.Printf("Failed to delete burn-after-read paste %s: %v\n", slug, err)
 		}
-	}
-
-	content, err := h.store.GetContent(slug)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve content"})
-		return
 	}
 	c.Header("Content-Type", paste.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))

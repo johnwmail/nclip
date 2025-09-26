@@ -26,7 +26,7 @@ func LoadConfig() *Config {
 		Port:       8080,
 		URL:        "",
 		SlugLength: 5,
-		BufferSize: 1048576, // 1MB
+		BufferSize: 52428800, // 50MB
 		DefaultTTL: 24 * time.Hour,
 		S3Bucket:   "",
 	}

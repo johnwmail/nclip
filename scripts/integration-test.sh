@@ -202,12 +202,28 @@ test_burn_after_read() {
 # Test 404 for non-existent paste
 test_not_found() {
     log "Testing 404 for non-existent paste..."
-    
     local status
-    # Slug must be 3-32 chars, so use a valid but non-existent slug
-    slug=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c "$SLUG_LENGTH")
+    local slug
+    local data_dir="data"
+    local charset="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    local max_attempts=10
+    local attempt=0
+    while true; do
+        slug=""
+        for ((i=0; i<$SLUG_LENGTH; i++)); do
+            idx=$(od -An -N2 -tu2 < /dev/urandom | awk '{print $1 % 32}')
+            slug+="${charset:$idx:1}"
+        done
+        if [[ ! -f "$data_dir/$slug.json" && ! -f "$data_dir/$slug" ]]; then
+            break
+        fi
+        ((attempt++))
+        if [[ $attempt -ge $max_attempts ]]; then
+            error "Could not find a non-existent slug after $max_attempts attempts"
+            return 1
+        fi
+    done
     status=$(curl -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/$slug")
-    
     if [[ "$status" == "404" ]]; then
         success "404 test passed"
         return 0
