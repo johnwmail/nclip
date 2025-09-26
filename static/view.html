@@ -62,7 +62,8 @@
                 </div>
                 <div class="content-section">
                     <div class="action-buttons">
-                        <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download="{{.Paste.ID}}{{call .ExtensionByMime .Paste.ContentType}}">Download</a>
+                        <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary"
+                            download="{{.Paste.ID}}{{call .ExtensionByMime .Paste.ContentType}}">Download</a>
                         {{if .IsText}}
                         <button id="copy-content" class="btn btn-secondary">Copy</button>
                         {{end}}
@@ -81,7 +82,9 @@
                     </div>
                     {{else}}
                     <div class="binary-notice">
-                        <p>This is a binary file. <a href="/raw/{{.Paste.ID}}" download="{{.Paste.ID}}{{call .ExtensionByMime .Paste.ContentType}}">Download</a> to view.</p>
+                        <p>This is a binary file. <a href="/raw/{{.Paste.ID}}"
+                                download="{{.Paste.ID}}{{call .ExtensionByMime .Paste.ContentType}}">Download</a> to
+                            view.</p>
                     </div>
                     {{end}}
                 </div>

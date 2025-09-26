@@ -411,13 +411,13 @@ func (h *PasteHandler) View(c *gin.Context) {
 	// Return HTML view for browsers
 	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
 		c.HTML(http.StatusOK, "view.html", gin.H{
-			"Title":      fmt.Sprintf("NCLIP - Paste %s", paste.ID),
-			"Paste":      paste,
-			"IsText":     utils.IsTextContent(paste.ContentType),
-			"Content":    string(paste.Content),
-			"Version":    h.config.Version,
-			"BuildTime":  h.config.BuildTime,
-			"CommitHash": h.config.CommitHash,
+			"Title":           fmt.Sprintf("NCLIP - Paste %s", paste.ID),
+			"Paste":           paste,
+			"IsText":          utils.IsTextContent(paste.ContentType),
+			"Content":         string(paste.Content),
+			"Version":         h.config.Version,
+			"BuildTime":       h.config.BuildTime,
+			"CommitHash":      h.config.CommitHash,
 			"ExtensionByMime": utils.ExtensionByMime, // <-- add this function to template context
 		})
 		return
