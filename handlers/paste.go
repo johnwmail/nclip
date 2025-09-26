@@ -418,6 +418,7 @@ func (h *PasteHandler) View(c *gin.Context) {
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
+			"ExtensionByMime": utils.ExtensionByMime, // <-- add this function to template context
 		})
 		return
 	}
