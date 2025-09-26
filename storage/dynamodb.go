@@ -50,12 +50,18 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 		}
 	}()
 	fmt.Printf("[DEBUG] DynamoStore.Store: entered for id=%s\n", paste.ID)
-	fmt.Printf("[DEBUG] DynamoStore.Store: id=%s, size=%d, is_chunked=%v\n", paste.ID, len(paste.Content), len(paste.Content) > ChunkSize)
+	fmt.Printf("[DEBUG] DynamoStore.Store: id=%s, size=%d, chunk threshold=%d, is_chunked=%v\n", paste.ID, len(paste.Content), ChunkSize, len(paste.Content) > ChunkSize)
+	if len(paste.Content) > ChunkSize {
+		fmt.Printf("[DEBUG] DynamoStore.Store: chunking will be used for id=%s (size=%d > threshold=%d)\n", paste.ID, len(paste.Content), ChunkSize)
+	} else {
+		fmt.Printf("[DEBUG] DynamoStore.Store: single-item storage will be used for id=%s (size=%d <= threshold=%d)\n", paste.ID, len(paste.Content), ChunkSize)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	content := paste.Content
 	if len(content) <= ChunkSize {
+		fmt.Printf("[DEBUG] DynamoStore.Store: entering single-item storage branch for id=%s\n", paste.ID)
 		// Store as single item (not chunked, but still use chunk_index = -1 for metadata)
 		item := map[string]types.AttributeValue{
 			"id":              &types.AttributeValueMemberS{Value: paste.ID},
@@ -77,6 +83,11 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 			TableName: aws.String(d.tableName),
 			Item:      item,
 		})
+		if err != nil {
+			fmt.Printf("[ERROR] DynamoStore.Store: failed to write single item for id=%s, err=%v\n", paste.ID, err)
+		} else {
+			fmt.Printf("[DEBUG] DynamoStore.Store: successfully wrote single item for id=%s\n", paste.ID)
+		}
 		return err
 	}
 
@@ -85,6 +96,9 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 	paste.ChunkCount = chunkCount
 	paste.IsChunked = true
 	fmt.Printf("[DEBUG] Chunking: total size=%d, chunk size=%d, chunk count=%d\n", len(content), ChunkSize, chunkCount)
+	if chunkCount <= 0 {
+		fmt.Printf("[ERROR] DynamoStore.Store: chunkCount calculated as %d for id=%s, this should not happen!\n", chunkCount, paste.ID)
+	}
 
 	// Store metadata item (no content)
 	meta := map[string]types.AttributeValue{
@@ -122,7 +136,7 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 			end = len(content)
 		}
 		chunk := content[start:end]
-		fmt.Printf("[DEBUG] DynamoStore.Store: chunk %d/%d: bytes %d-%d, chunk size=%d\n", i+1, chunkCount, start, end, len(chunk))
+		fmt.Printf("[DEBUG] DynamoStore.Store: chunk loop: i=%d, start=%d, end=%d, chunk size=%d, id=%s\n", i, start, end, len(chunk), paste.ID)
 		chunkItem := map[string]types.AttributeValue{
 			"id":          &types.AttributeValueMemberS{Value: paste.ID},
 			"chunk_index": &types.AttributeValueMemberN{Value: strconv.Itoa(i)},
