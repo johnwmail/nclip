@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -138,27 +138,27 @@ func lambdaHandler(ctx context.Context, event interface{}) (interface{}, error) 
 		}, err
 	}
 
-       // Try to parse as APIGatewayV2HTTPRequest first (for Lambda Function URLs and HTTP API)
-       var reqV2 events.APIGatewayV2HTTPRequest
-       if err := json.Unmarshal(eventBytes, &reqV2); err == nil && reqV2.RequestContext.HTTP.Method != "" {
-	       log.Printf("Handling as APIGatewayV2HTTPRequest (Lambda Function URL/HTTP API)")
-	       log.Printf("Method: %s, Path: %s", reqV2.RequestContext.HTTP.Method, reqV2.RawPath)
-	       // If isBase64Encoded, decode the body
-	       if reqV2.IsBase64Encoded && reqV2.Body != "" {
-		       decoded, err := decodeBase64(reqV2.Body)
-		       if err != nil {
-			       log.Printf("Failed to decode base64 body: %v", err)
-			       return events.APIGatewayV2HTTPResponse{
-				       StatusCode: 400,
-				       Body:       "Failed to decode base64 body",
-				       Headers: map[string]string{"Content-Type": "text/plain"},
-			       }, err
-		       }
-		       reqV2.Body = string(decoded)
-		       reqV2.IsBase64Encoded = false
-	       }
-	       return ginLambdaV2.ProxyWithContext(ctx, reqV2)
-       }
+	// Try to parse as APIGatewayV2HTTPRequest first (for Lambda Function URLs and HTTP API)
+	var reqV2 events.APIGatewayV2HTTPRequest
+	if err := json.Unmarshal(eventBytes, &reqV2); err == nil && reqV2.RequestContext.HTTP.Method != "" {
+		log.Printf("Handling as APIGatewayV2HTTPRequest (Lambda Function URL/HTTP API)")
+		log.Printf("Method: %s, Path: %s", reqV2.RequestContext.HTTP.Method, reqV2.RawPath)
+		// If isBase64Encoded, decode the body
+		if reqV2.IsBase64Encoded && reqV2.Body != "" {
+			decoded, err := decodeBase64(reqV2.Body)
+			if err != nil {
+				log.Printf("Failed to decode base64 body: %v", err)
+				return events.APIGatewayV2HTTPResponse{
+					StatusCode: 400,
+					Body:       "Failed to decode base64 body",
+					Headers:    map[string]string{"Content-Type": "text/plain"},
+				}, err
+			}
+			reqV2.Body = string(decoded)
+			reqV2.IsBase64Encoded = false
+		}
+		return ginLambdaV2.ProxyWithContext(ctx, reqV2)
+	}
 
 	// Try to parse as APIGatewayProxyRequest (for REST API and ALB)
 	var reqV1 events.APIGatewayProxyRequest
@@ -330,14 +330,13 @@ func runHTTPServer(router *gin.Engine, cfg *config.Config, store storage.PasteSt
 	}
 }
 
-
 // decodeBase64 decodes a base64-encoded string, handling URL and standard encodings
 func decodeBase64(s string) ([]byte, error) {
-       // Try standard encoding first
-       data, err := base64.StdEncoding.DecodeString(s)
-       if err == nil {
-	       return data, nil
-       }
-       // Try URL encoding
-       return base64.URLEncoding.DecodeString(s)
+	// Try standard encoding first
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err == nil {
+		return data, nil
+	}
+	// Try URL encoding
+	return base64.URLEncoding.DecodeString(s)
 }
