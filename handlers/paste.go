@@ -99,14 +99,14 @@ func (h *PasteHandler) isCli(c *gin.Context) bool {
 // Upload handles paste upload via POST /
 func (h *PasteHandler) Upload(c *gin.Context) {
 	// Add panic recovery to always return debug info
-	   defer func() {
-		   if r := recover(); r != nil {
-			   stack := debug.Stack()
-			   fmt.Printf("[PANIC] Upload handler: panic: %v\nstack: %s\n", r, stack)
-			   h.writeError(c, http.StatusInternalServerError, "Panic in upload handler", fmt.Sprintf("panic: %v\nstack: %s", r, stack))
-		   }
-	   }()
-	   fmt.Printf("[DEBUG] Upload handler: entered\n")
+	defer func() {
+		if r := recover(); r != nil {
+			stack := debug.Stack()
+			fmt.Printf("[PANIC] Upload handler: panic: %v\nstack: %s\n", r, stack)
+			h.writeError(c, http.StatusInternalServerError, "Panic in upload handler", fmt.Sprintf("panic: %v\nstack: %s", r, stack))
+		}
+	}()
+	fmt.Printf("[DEBUG] Upload handler: entered\n")
 
 	fmt.Printf("[DEBUG] Handler: method=%s, content-type=%s, content-length=%s, UA=%s\n", c.Request.Method, c.Request.Header.Get("Content-Type"), c.Request.Header.Get("Content-Length"), c.Request.Header.Get("User-Agent"))
 	fmt.Printf("[DEBUG] All headers: %v\n", c.Request.Header)
