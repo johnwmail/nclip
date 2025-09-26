@@ -96,12 +96,44 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 		meta["ttl"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
 	}
 	fmt.Printf("[DEBUG] DynamoStore.Store: writing metadata for chunked paste: id=%s, meta=%+v\n", paste.ID, meta)
+	fmt.Printf("[DEBUG] DynamoStore.Store: about to write metadata for chunked paste: id=%s\n", paste.ID)
 	_, err := d.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(d.tableName),
 		Item:      meta,
 	})
 	if err != nil {
+		fmt.Printf("[ERROR] DynamoStore.Store: failed to write metadata for chunked paste: id=%s, err=%v\n", paste.ID, err)
 		return err
+	}
+	fmt.Printf("[DEBUG] DynamoStore.Store: successfully wrote metadata for chunked paste: id=%s\n", paste.ID)
+
+	// Store each chunk as a separate item
+	for i := 0; i < chunkCount; i++ {
+		fmt.Printf("[DEBUG] DynamoStore.Store: about to write chunk %d/%d for paste: id=%s\n", i+1, chunkCount, paste.ID)
+		start := i * ChunkSize
+		end := start + ChunkSize
+		if end > len(content) {
+			end = len(content)
+		}
+		chunk := content[start:end]
+		chunkItem := map[string]types.AttributeValue{
+			"id":          &types.AttributeValueMemberS{Value: paste.ID},
+			"chunk_index": &types.AttributeValueMemberN{Value: strconv.Itoa(i)},
+			"content":     &types.AttributeValueMemberB{Value: chunk},
+		}
+		if paste.ExpiresAt != nil {
+			chunkItem["expires_at"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
+			chunkItem["ttl"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
+		}
+		_, err := d.client.PutItem(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(d.tableName),
+			Item:      chunkItem,
+		})
+		if err != nil {
+			fmt.Printf("[ERROR] DynamoStore.Store: failed to write chunk %d/%d for paste: id=%s, err=%v\n", i+1, chunkCount, paste.ID, err)
+			return err
+		}
+		fmt.Printf("[DEBUG] DynamoStore.Store: successfully wrote chunk %d/%d for paste: id=%s\n", i+1, chunkCount, paste.ID)
 	}
 
 	// Store each chunk as a separate item
