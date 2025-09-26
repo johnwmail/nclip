@@ -179,14 +179,17 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 			Key:       chunkKey,
 		})
 		if err != nil {
+			fmt.Printf("[ERROR] Failed to get chunk %d for paste %s: %v\n", i, id, err)
 			return nil, err
 		}
 		if chunkRes.Item == nil {
+			fmt.Printf("[ERROR] Missing chunk %d for paste %s\n", i, id)
 			return nil, nil // Missing chunk
 		}
 		if chunkVal, ok := chunkRes.Item["content"].(*types.AttributeValueMemberB); ok {
 			content = append(content, chunkVal.Value...)
 		} else {
+			fmt.Printf("[ERROR] Malformed chunk %d for paste %s\n", i, id)
 			return nil, nil // Malformed chunk
 		}
 	}
