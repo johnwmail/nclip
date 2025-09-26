@@ -155,6 +155,7 @@ func (d *DynamoStore) Get(id string) (*models.Paste, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("[DEBUG] DynamoStore.Get: id=%s, metadata: %+v, IsChunked=%v, ChunkCount=%d\n", id, paste, paste.IsChunked, paste.ChunkCount)
 	// Check if expired
 	if paste.IsExpired() {
 		_ = d.Delete(id)
