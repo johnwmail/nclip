@@ -4,16 +4,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	smithy "github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"github.com/johnwmail/nclip/models"
 )
@@ -81,7 +85,7 @@ func (fs *FilesystemStore) Store(paste *models.Paste) error {
 		}
 		_, err := fs.s3Client.PutObject(context.Background(), input)
 		if err != nil {
-			log.Printf("[ERROR] S3 Store: failed to write metadata for %s: %v", paste.ID, err)
+			logAwsError(fmt.Sprintf("S3 Store metadata for %s", paste.ID), err)
 			return err
 		}
 		return nil
@@ -107,7 +111,7 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 		}
 		out, err := fs.s3Client.GetObject(context.Background(), input)
 		if err != nil {
-			log.Printf("[ERROR] S3 Get: failed to read metadata for %s: %v", id, err)
+			logAwsError(fmt.Sprintf("S3 Get metadata for %s", id), err)
 			return nil, err
 		}
 		errClose := out.Body.Close()
@@ -150,7 +154,7 @@ func (fs *FilesystemStore) Delete(id string) error {
 			}
 			_, err := fs.s3Client.DeleteObject(context.Background(), input)
 			if err != nil {
-				log.Printf("[ERROR] S3 Delete: failed to delete %s: %v", key, err)
+				logAwsError(fmt.Sprintf("S3 Delete object %s", key), err)
 			}
 		}
 		return nil
@@ -175,7 +179,7 @@ func (fs *FilesystemStore) IncrementReadCount(id string) error {
 		}
 		out, err := fs.s3Client.GetObject(context.Background(), input)
 		if err != nil {
-			log.Printf("[ERROR] S3 IncrementReadCount: failed to read metadata for %s: %v", id, err)
+			logAwsError(fmt.Sprintf("S3 IncrementReadCount read metadata for %s", id), err)
 			return err
 		}
 		errClose := out.Body.Close()
@@ -207,7 +211,7 @@ func (fs *FilesystemStore) IncrementReadCount(id string) error {
 		}
 		_, err = fs.s3Client.PutObject(context.Background(), putInput)
 		if err != nil {
-			log.Printf("[ERROR] S3 IncrementReadCount: failed to write metadata for %s: %v", id, err)
+			logAwsError(fmt.Sprintf("S3 IncrementReadCount write metadata for %s", id), err)
 			return err
 		}
 		return nil
@@ -252,7 +256,7 @@ func (fs *FilesystemStore) StoreContent(id string, content []byte) error {
 		}
 		_, err := fs.s3Client.PutObject(context.Background(), input)
 		if err != nil {
-			log.Printf("[ERROR] S3 StoreContent: failed to write content for %s: %v", id, err)
+			logAwsError(fmt.Sprintf("S3 StoreContent write content for %s", id), err)
 			return err
 		}
 		return nil
@@ -284,7 +288,7 @@ func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 		}
 		out, err := fs.s3Client.GetObject(context.Background(), input)
 		if err != nil {
-			log.Printf("[ERROR] S3 GetContent: failed to read content for %s: %v", id, err)
+			logAwsError(fmt.Sprintf("S3 GetContent read content for %s", id), err)
 			return nil, err
 		}
 		errClose := out.Body.Close()
@@ -309,4 +313,41 @@ func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 
 func (fs *FilesystemStore) Close() error {
 	return nil
+}
+
+func logAwsError(ctx string, err error) {
+	if err == nil {
+		return
+	}
+	log.Printf("[ERROR] %s: %v", ctx, err)
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		log.Printf("[ERROR] %s: code=%s message=%s fault=%s", ctx, apiErr.ErrorCode(), apiErr.ErrorMessage(), apiErr.ErrorFault())
+	}
+
+	var respErr *smithyhttp.ResponseError
+	if errors.As(err, &respErr) {
+		if resp := respErr.HTTPResponse(); resp != nil {
+			log.Printf("[ERROR] %s: status=%s request-id=%s extended-request-id=%s", ctx, resp.Status, resp.Header.Get("x-amz-request-id"), resp.Header.Get("x-amz-id-2"))
+			if resp.Body != nil {
+				body, readErr := io.ReadAll(resp.Body)
+				if readErr == nil {
+					trimmed := strings.TrimSpace(string(body))
+					if trimmed != "" {
+						const maxErrorBodyLog = 4096
+						if len(trimmed) > maxErrorBodyLog {
+							trimmed = trimmed[:maxErrorBodyLog] + "... (truncated)"
+						}
+						log.Printf("[ERROR] %s: body=%s", ctx, trimmed)
+					}
+				} else {
+					log.Printf("[WARN] %s: failed to read error body: %v", ctx, readErr)
+				}
+				if closeErr := resp.Body.Close(); closeErr != nil {
+					log.Printf("[WARN] %s: failed to close error body: %v", ctx, closeErr)
+				}
+			}
+		}
+	}
 }
