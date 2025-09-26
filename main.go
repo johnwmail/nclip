@@ -49,16 +49,34 @@ func main() {
 	log.Printf("Build Time:    %s", BuildTime)
 	log.Printf("Commit Hash:   %s", CommitHash)
 
+	// Aggressive logging: print all environment variables
+	log.Printf("[DEBUG] ENVIRONMENT VARIABLES:")
+	for _, e := range os.Environ() {
+		log.Printf("[ENV] %s", e)
+	}
+
 	// Load configuration
 	cfg := config.LoadConfig()
 	cfg.Version = Version
 	cfg.BuildTime = BuildTime
 	cfg.CommitHash = CommitHash
 
+	// Aggressive logging: print config
+	log.Printf("[DEBUG] Loaded config: %+v", cfg)
+
 	// Set Gin mode based on environment
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	// Aggressive logging: print which storage backend is being used
+	var backend string
+	if os.Getenv("NCLIP_BACKEND") != "" {
+		backend = os.Getenv("NCLIP_BACKEND")
+	} else {
+		backend = "auto (default)"
+	}
+	log.Printf("[DEBUG] Storage backend selection: %s", backend)
 
 	// Initialize storage backend based on deployment mode
 	var store storage.PasteStore

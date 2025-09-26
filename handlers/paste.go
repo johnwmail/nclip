@@ -98,6 +98,15 @@ func (h *PasteHandler) isCli(c *gin.Context) bool {
 
 // Upload handles paste upload via POST /
 func (h *PasteHandler) Upload(c *gin.Context) {
+	// Aggressive logging: log all POST / requests, headers, and body
+	log.Printf("[DEBUG] POST / called. Headers:")
+	for k, v := range c.Request.Header {
+		log.Printf("[HEADER] %s: %v", k, v)
+	}
+	bodyBytes, _ := io.ReadAll(c.Request.Body)
+	log.Printf("[DEBUG] POST / body: %s", string(bodyBytes))
+	// Rewind body for further reading
+	c.Request.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
 	var content []byte
 	var filename string
 	var err error
