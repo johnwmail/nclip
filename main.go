@@ -46,6 +46,7 @@ func isLambdaEnvironment() bool {
 }
 
 func main() {
+	fmt.Printf("[DEBUG] main.go: entered main() at %s\n", time.Now().Format(time.RFC3339Nano))
 
 	// Print version/build info at startup
 	log.Printf("NCLIP Version: %s", Version)
