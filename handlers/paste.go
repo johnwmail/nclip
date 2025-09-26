@@ -3,10 +3,10 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
-	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/config"
@@ -108,8 +108,8 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
-			   log.Printf("[ERROR] No file provided in multipart upload: %v", err)
-			   c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
+			log.Printf("[ERROR] No file provided in multipart upload: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
 			return
 		}
 		defer func() { _ = file.Close() }() // Ignore close errors in defer
@@ -117,16 +117,16 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
-			   log.Printf("[ERROR] Failed to read uploaded file: %v", err)
-			   c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
+			log.Printf("[ERROR] Failed to read uploaded file: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
 			return
 		}
 	} else {
 		// Raw content upload
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
 		if err != nil {
-			   log.Printf("[ERROR] Failed to read raw upload content: %v", err)
-			   c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content"})
+			log.Printf("[ERROR] Failed to read raw upload content: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content"})
 			return
 		}
 	}
@@ -161,16 +161,16 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	}
 
 	// Store content and metadata
-       if err := h.store.StoreContent(slug, content); err != nil {
-	       log.Printf("[ERROR] Failed to store content for slug %s: %v", slug, err)
-	       c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store content"})
-	       return
-       }
-       if err := h.store.Store(paste); err != nil {
-	       log.Printf("[ERROR] Failed to store metadata for slug %s: %v", slug, err)
-	       c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store metadata"})
-	       return
-       }
+	if err := h.store.StoreContent(slug, content); err != nil {
+		log.Printf("[ERROR] Failed to store content for slug %s: %v", slug, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store content"})
+		return
+	}
+	if err := h.store.Store(paste); err != nil {
+		log.Printf("[ERROR] Failed to store metadata for slug %s: %v", slug, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store metadata"})
+		return
+	}
 
 	// Generate URL
 	pasteURL := h.generatePasteURL(c, slug)

@@ -1,4 +1,5 @@
 package storage
+
 import (
 	"bytes"
 	"context"
@@ -37,26 +38,26 @@ func (s *S3Store) Store(paste *models.Paste) error {
 		Key:    aws.String(contentKey),
 		Body:   bytes.NewReader([]byte{}),
 	})
-       if err != nil {
-	       log.Printf("[ERROR] S3 Store: failed to put empty content for %s: %v", paste.ID, err)
-	       return err
-       }
+	if err != nil {
+		log.Printf("[ERROR] S3 Store: failed to put empty content for %s: %v", paste.ID, err)
+		return err
+	}
 	// Store metadata
 	metaKey := paste.ID + ".json"
 	metaData, err := json.MarshalIndent(paste, "", "  ")
-       if err != nil {
-	       log.Printf("[ERROR] S3 Store: failed to marshal metadata for %s: %v", paste.ID, err)
-	       return err
-       }
+	if err != nil {
+		log.Printf("[ERROR] S3 Store: failed to marshal metadata for %s: %v", paste.ID, err)
+		return err
+	}
 	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(metaKey),
 		Body:   bytes.NewReader(metaData),
 	})
-       if err != nil {
-	       log.Printf("[ERROR] S3 Store: failed to put metadata for %s: %v", paste.ID, err)
-       }
-       return err
+	if err != nil {
+		log.Printf("[ERROR] S3 Store: failed to put metadata for %s: %v", paste.ID, err)
+	}
+	return err
 }
 
 func (s *S3Store) Get(id string) (*models.Paste, error) {
@@ -67,23 +68,23 @@ func (s *S3Store) Get(id string) (*models.Paste, error) {
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(metaKey),
 	})
-       if err != nil {
-	       log.Printf("[ERROR] S3 Get: failed to get metadata for %s: %v", id, err)
-	       return nil, err
-       }
+	if err != nil {
+		log.Printf("[ERROR] S3 Get: failed to get metadata for %s: %v", id, err)
+		return nil, err
+	}
 	defer func() {
 		_ = obj.Body.Close()
 	}()
-       metaData, err := io.ReadAll(obj.Body)
-       if err != nil {
-	       log.Printf("[ERROR] S3 Get: failed to read metadata body for %s: %v", id, err)
-	       return nil, err
-       }
+	metaData, err := io.ReadAll(obj.Body)
+	if err != nil {
+		log.Printf("[ERROR] S3 Get: failed to read metadata body for %s: %v", id, err)
+		return nil, err
+	}
 	var paste models.Paste
-       if err := json.Unmarshal(metaData, &paste); err != nil {
-	       log.Printf("[ERROR] S3 Get: failed to unmarshal metadata for %s: %v", id, err)
-	       return nil, err
-       }
+	if err := json.Unmarshal(metaData, &paste); err != nil {
+		log.Printf("[ERROR] S3 Get: failed to unmarshal metadata for %s: %v", id, err)
+		return nil, err
+	}
 	return &paste, nil
 }
 
@@ -118,10 +119,10 @@ func (s *S3Store) StoreContent(id string, content []byte) error {
 		Key:    aws.String(id),
 		Body:   bytes.NewReader(content),
 	})
-       if err != nil {
-	       log.Printf("[ERROR] S3 StoreContent: failed to put content for %s: %v", id, err)
-       }
-       return err
+	if err != nil {
+		log.Printf("[ERROR] S3 StoreContent: failed to put content for %s: %v", id, err)
+	}
+	return err
 }
 
 func (s *S3Store) GetContent(id string) ([]byte, error) {
@@ -131,19 +132,19 @@ func (s *S3Store) GetContent(id string) ([]byte, error) {
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(id),
 	})
-       if err != nil {
-	       log.Printf("[ERROR] S3 GetContent: failed to get content for %s: %v", id, err)
-	       return nil, err
-       }
+	if err != nil {
+		log.Printf("[ERROR] S3 GetContent: failed to get content for %s: %v", id, err)
+		return nil, err
+	}
 	defer func() {
 		_ = obj.Body.Close()
 	}()
-       data, err := io.ReadAll(obj.Body)
-       if err != nil {
-	       log.Printf("[ERROR] S3 GetContent: failed to read content body for %s: %v", id, err)
-	       return nil, err
-       }
-       return data, nil
+	data, err := io.ReadAll(obj.Body)
+	if err != nil {
+		log.Printf("[ERROR] S3 GetContent: failed to read content body for %s: %v", id, err)
+		return nil, err
+	}
+	return data, nil
 }
 
 func (s *S3Store) Close() error {
