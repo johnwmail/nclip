@@ -159,16 +159,6 @@ func lambdaHandler(ctx context.Context, event interface{}) (interface{}, error) 
 	       }
 	       return ginLambdaV2.ProxyWithContext(ctx, reqV2)
        }
-// decodeBase64 decodes a base64-encoded string, handling URL and standard encodings
-func decodeBase64(s string) ([]byte, error) {
-       // Try standard encoding first
-       data, err := base64.StdEncoding.DecodeString(s)
-       if err == nil {
-	       return data, nil
-       }
-       // Try URL encoding
-       return base64.URLEncoding.DecodeString(s)
-}
 
 	// Try to parse as APIGatewayProxyRequest (for REST API and ALB)
 	var reqV1 events.APIGatewayProxyRequest
@@ -338,4 +328,16 @@ func runHTTPServer(router *gin.Engine, cfg *config.Config, store storage.PasteSt
 	} else {
 		log.Println("Server shutdown complete")
 	}
+}
+
+
+// decodeBase64 decodes a base64-encoded string, handling URL and standard encodings
+func decodeBase64(s string) ([]byte, error) {
+       // Try standard encoding first
+       data, err := base64.StdEncoding.DecodeString(s)
+       if err == nil {
+	       return data, nil
+       }
+       // Try URL encoding
+       return base64.URLEncoding.DecodeString(s)
 }
