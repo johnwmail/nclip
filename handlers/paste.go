@@ -209,20 +209,17 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		Content:       content,
 	}
 
-       // Store paste with extra debug output
-       fmt.Printf("[DEBUG] About to store paste: slug=%s, content_size=%d, backend=%T, config.BufferSize=%d\n", slug, len(content), h.store, h.config.BufferSize)
-       errStore := h.store.Store(paste)
-       if errStore != nil {
-	       // Log the error for Lambda debugging
-	       fmt.Printf("[ERROR] Failed to store paste: %v\n", errStore)
-	       fmt.Printf("[ERROR] Paste details: slug=%s, content_size=%d, backend=%T, config=%+v\n", slug, len(content), h.store, h.config)
-	       // Print stack trace for debugging
-	       fmt.Printf("[DEBUG] Stack trace: %s\n", debugStack())
-	       // Return error details to client for debugging (temporarily)
-	       h.writeError(c, http.StatusInternalServerError, "Failed to store paste", debugInfo(errStore.Error()+" | stack: "+debugStack()))
-	       return
-       }
-       fmt.Printf("[DEBUG] Successfully stored paste: slug=%s, content_size=%d\n", slug, len(content))
+	// Store paste
+	errStore := h.store.Store(paste)
+	if errStore != nil {
+		// Log the error for Lambda debugging
+		fmt.Printf("[ERROR] Failed to store paste: %v\n", errStore)
+		// Print stack trace for debugging
+		fmt.Printf("[DEBUG] Stack trace: %s\n", debugStack())
+		// Return error details to client for debugging (temporarily)
+		h.writeError(c, http.StatusInternalServerError, "Failed to store paste", debugInfo(errStore.Error()+" | stack: "+debugStack()))
+		return
+	}
 
 	// Generate URL
 	pasteURL := h.generatePasteURL(c, slug)
