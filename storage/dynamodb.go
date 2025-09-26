@@ -116,13 +116,13 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 
 	// Store each chunk as a separate item
 	for i := 0; i < chunkCount; i++ {
-		fmt.Printf("[DEBUG] DynamoStore.Store: about to write chunk %d/%d for paste: id=%s\n", i+1, chunkCount, paste.ID)
 		start := i * ChunkSize
 		end := start + ChunkSize
 		if end > len(content) {
 			end = len(content)
 		}
 		chunk := content[start:end]
+		fmt.Printf("[DEBUG] DynamoStore.Store: chunk %d/%d: bytes %d-%d, chunk size=%d\n", i+1, chunkCount, start, end, len(chunk))
 		chunkItem := map[string]types.AttributeValue{
 			"id":          &types.AttributeValueMemberS{Value: paste.ID},
 			"chunk_index": &types.AttributeValueMemberN{Value: strconv.Itoa(i)},
@@ -132,16 +132,18 @@ func (d *DynamoStore) Store(paste *models.Paste) error {
 			chunkItem["expires_at"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
 			chunkItem["ttl"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(paste.ExpiresAt.Unix(), 10)}
 		}
+		fmt.Printf("[DEBUG] DynamoStore.Store: about to write chunk %d/%d for paste: id=%s, chunk size=%d\n", i+1, chunkCount, paste.ID, len(chunk))
 		_, err := d.client.PutItem(ctx, &dynamodb.PutItemInput{
 			TableName: aws.String(d.tableName),
 			Item:      chunkItem,
 		})
 		if err != nil {
 			fmt.Printf("[ERROR] DynamoStore.Store: failed to write chunk %d/%d for paste: id=%s, err=%v\n", i+1, chunkCount, paste.ID, err)
-			return err
+			return fmt.Errorf("failed to write chunk %d/%d for paste: id=%s, err=%w", i+1, chunkCount, paste.ID, err)
 		}
 		fmt.Printf("[DEBUG] DynamoStore.Store: successfully wrote chunk %d/%d for paste: id=%s\n", i+1, chunkCount, paste.ID)
 	}
+	fmt.Printf("[DEBUG] DynamoStore.Store: all chunks written for id=%s\n", paste.ID)
 	return nil
 }
 
