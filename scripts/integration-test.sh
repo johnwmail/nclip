@@ -204,7 +204,7 @@ test_not_found() {
     log "Testing 404 for non-existent paste..."
     local status
     local slug
-    local data_dir="data"
+    local data_dir="./data"
     local charset="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     local max_attempts=10
     local attempt=0

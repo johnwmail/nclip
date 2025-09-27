@@ -89,7 +89,7 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	cfg := &config.Config{
 		Port:       8080,
 		SlugLength: 5,
-		BufferSize: 1048576,
+		BufferSize: 5 * 1024 * 1024,
 		DefaultTTL: 24 * time.Hour,
 	}
 

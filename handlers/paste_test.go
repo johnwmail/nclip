@@ -16,7 +16,7 @@ func setupTestHandler() *PasteHandler {
 		URL:        "https://example.com",
 		SlugLength: 5,
 		DefaultTTL: 3600,
-		BufferSize: 1048576,
+		BufferSize: 5 * 1024 * 1024,
 		Version:    "test",
 		BuildTime:  "test-time",
 		CommitHash: "test-hash",

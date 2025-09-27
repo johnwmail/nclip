@@ -29,7 +29,7 @@ nclip is a versatile clipboard app that accepts content via:
 🚀 **Dual Deployment**: Server mode (local or container) + AWS Lambda
 🎯 **Unified Codebase**: Same code, logic, and UI for both environments
 🗄️ **Multi-Storage Backend**: Filesystem for server mode, S3 for Lambda
-🐳 **Server Ready**: Docker & Kubernetes deployment
+🐳 **Container Ready**: Docker & Kubernetes deployment
 - ⏰ **Auto-Expiration**: TTL support with configurable defaults
 - 🛡️ **Production Ready**: Health checks, structured logging
 - 🔧 **Configurable**: Environment variables & CLI flags
@@ -270,7 +270,7 @@ nclip supports configuration via environment variables and CLI flags.
 NCLIP_PORT=8080                    # HTTP port
 NCLIP_URL=https://demo.nclip.app   # Base URL for paste links
 NCLIP_SLUG_LENGTH=5                # Slug length (must be 3–32, default 5 if out of range)
-NCLIP_BUFFER_SIZE=1048576          # Max upload size (1MB)
+NCLIP_BUFFER_SIZE=5242880          # Max upload size (5MB)
 NCLIP_TTL=24h                      # Default paste expiration
 
 # Storage configuration

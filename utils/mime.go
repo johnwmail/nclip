@@ -90,7 +90,7 @@ func ExtensionByMime(mimeType string) string {
 	case "image/svg+xml":
 		return ".svg"
 	case "application/octet-stream":
-		return ""
+		return ".bin"
 	}
 
 	return ""

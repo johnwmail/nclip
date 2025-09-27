@@ -35,23 +35,15 @@ type FilesystemStore struct {
 func NewFilesystemStore() (*FilesystemStore, error) {
 	dataDir := os.Getenv("DATA_DIR")
 	if dataDir == "" {
-		dataDir = "/tmp"
+		dataDir = "./data"
 	}
 	s3Bucket := os.Getenv("NCLIP_S3_BUCKET")
-	if s3Bucket == "" {
-		s3Bucket = os.Getenv("S3_BUCKET")
-	}
-	if s3Bucket == "" {
-		s3Bucket = os.Getenv("BUCKET")
-	}
 	var s3Prefix string
 	if v := os.Getenv("NCLIP_S3_PREFIX"); v != "" {
 		s3Prefix = v
-	} else {
-		s3Prefix = os.Getenv("S3_PREFIX")
 	}
 	useS3 := s3Bucket != ""
-	bufferSize := 50 * 1024 * 1024 // 50MB default
+	bufferSize := 5 * 1024 * 1024 // 5MB default
 	if v := os.Getenv("BUFFER_SIZE"); v != "" {
 		if n, err := fmt.Sscanf(v, "%d", &bufferSize); n != 1 || err != nil {
 			log.Printf("[WARN] BUFFER_SIZE env var could not be parsed: %q", v)

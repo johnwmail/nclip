@@ -48,7 +48,7 @@ type Config struct {
     Port           int           `default:"8080"`
     URL            string        `default:""`
     SlugLength     int           `default:"5"`
-    BufferSize     int64         `default:"1048576"` // 1MB
+    BufferSize     int64         `default:"5242880"` // 5MB
     DefaultTTL     time.Duration `default:"24h"`
     S3Bucket       string        `default:""` // S3 bucket for Lambda mode
 }
@@ -151,7 +151,7 @@ All config via env vars with CLI flag alternatives:
 - `NCLIP_PORT` / `--port` (default: 8080) — HTTP server port
 - `NCLIP_URL` / `--url` (default: auto-detect) — Base URL for paste links (e.g. "https://demo.nclip.app")
 - `NCLIP_SLUG_LENGTH` / `--slug-length` (default: 5) — Length of generated paste IDs
-- `NCLIP_BUFFER_SIZE` / `--buffer-size` (default: 1048576) — Max upload size in bytes (1MB)
+- `NCLIP_BUFFER_SIZE` / `--buffer-size` (default: 5242880) — Max upload size in bytes (5MB)
 - `NCLIP_TTL` / `--ttl` (default: "24h") — Default paste expiration time
 
 
