@@ -15,6 +15,7 @@ type Config struct {
 	BufferSize int64         `json:"buffer_size"`
 	DefaultTTL time.Duration `json:"default_ttl"`
 	S3Bucket   string        `json:"s3_bucket"`
+	S3Prefix   string        `json:"s3_prefix"`
 	Version    string        `json:"version"`
 	BuildTime  string        `json:"build_time"`
 	CommitHash string        `json:"commit_hash"`
@@ -29,6 +30,7 @@ func LoadConfig() *Config {
 		BufferSize: 52428800, // 50MB
 		DefaultTTL: 24 * time.Hour,
 		S3Bucket:   "",
+		S3Prefix:   "",
 	}
 
 	// Parse CLI flags
@@ -38,6 +40,7 @@ func LoadConfig() *Config {
 	flag.Int64Var(&config.BufferSize, "buffer-size", config.BufferSize, "Maximum upload size in bytes")
 	flag.DurationVar(&config.DefaultTTL, "ttl", config.DefaultTTL, "Default paste expiration time")
 	flag.StringVar(&config.S3Bucket, "s3-bucket", config.S3Bucket, "S3 bucket for Lambda mode")
+	flag.StringVar(&config.S3Prefix, "s3-prefix", config.S3Prefix, "S3 key prefix for Lambda mode")
 	flag.Parse()
 
 	// Override with environment variables if present
@@ -69,6 +72,12 @@ func LoadConfig() *Config {
 		config.S3Bucket = val
 	} else if val := os.Getenv("BUCKET"); val != "" {
 		config.S3Bucket = val
+	}
+
+	if val := os.Getenv("NCLIP_S3_PREFIX"); val != "" {
+		config.S3Prefix = val
+	} else if val := os.Getenv("S3_PREFIX"); val != "" {
+		config.S3Prefix = val
 	}
 
 	return config

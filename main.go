@@ -84,12 +84,13 @@ func main() {
 
 	if isLambdaEnvironment() {
 		// Lambda mode: Use S3
-		store, err = storage.NewS3Store(cfg.S3Bucket)
+		store, err = storage.NewS3Store(cfg.S3Bucket, cfg.S3Prefix)
 		if err != nil {
 			log.Fatalf("Failed to initialize S3 storage for Lambda: %v", err)
 		}
 		if os.Getenv("GIN_MODE") == "debug" {
 			log.Printf("S3 Bucket: %s", cfg.S3Bucket)
+			log.Printf("S3 Prefix: %s", cfg.S3Prefix)
 		}
 		log.Println("Lambda mode: Using S3 storage")
 	} else {

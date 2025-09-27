@@ -17,10 +17,11 @@ import (
 
 type S3Store struct {
 	bucket string
+	prefix string
 	client *s3.Client
 }
 
-func NewS3Store(bucket string) (*S3Store, error) {
+func NewS3Store(bucket, prefix string) (*S3Store, error) {
 	if bucket == "" {
 		return nil, fmt.Errorf("s3 bucket name must not be empty")
 	}
@@ -29,25 +30,14 @@ func NewS3Store(bucket string) (*S3Store, error) {
 		return nil, err
 	}
 	client := s3.NewFromConfig(cfg)
-	return &S3Store{bucket: bucket, client: client}, nil
+	return &S3Store{bucket: bucket, prefix: normalizeS3Prefix(prefix), client: client}, nil
 }
 
 func (s *S3Store) Store(paste *models.Paste) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// Store content (empty, as content is not in struct)
-	contentKey := paste.ID
-	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(contentKey),
-		Body:   bytes.NewReader([]byte{}),
-	})
-	if err != nil {
-		log.Printf("[ERROR] S3 Store: failed to put empty content for %s: %v", paste.ID, err)
-		return err
-	}
 	// Store metadata
-	metaKey := paste.ID + ".json"
+	metaKey := applyS3Prefix(s.prefix, paste.ID+".json")
 	metaData, err := json.MarshalIndent(paste, "", "  ")
 	if err != nil {
 		log.Printf("[ERROR] S3 Store: failed to marshal metadata for %s: %v", paste.ID, err)
@@ -67,7 +57,7 @@ func (s *S3Store) Store(paste *models.Paste) error {
 func (s *S3Store) Get(id string) (*models.Paste, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	metaKey := id + ".json"
+	metaKey := applyS3Prefix(s.prefix, id+".json")
 	obj, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(metaKey),
@@ -97,11 +87,11 @@ func (s *S3Store) Delete(id string) error {
 	defer cancel()
 	_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
-		Key:    aws.String(id),
+		Key:    aws.String(applyS3Prefix(s.prefix, id)),
 	})
 	_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
-		Key:    aws.String(id + ".json"),
+		Key:    aws.String(applyS3Prefix(s.prefix, id+".json")),
 	})
 	return nil
 }
@@ -120,7 +110,7 @@ func (s *S3Store) StoreContent(id string, content []byte) error {
 	defer cancel()
 	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
-		Key:    aws.String(id),
+		Key:    aws.String(applyS3Prefix(s.prefix, id)),
 		Body:   bytes.NewReader(content),
 	})
 	if err != nil {
@@ -134,7 +124,7 @@ func (s *S3Store) GetContent(id string) ([]byte, error) {
 	defer cancel()
 	obj, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
-		Key:    aws.String(id),
+		Key:    aws.String(applyS3Prefix(s.prefix, id)),
 	})
 	if err != nil {
 		log.Printf("[ERROR] S3 GetContent: failed to get content for %s: %v", id, err)

@@ -25,6 +25,7 @@ import (
 type FilesystemStore struct {
 	dataDir    string
 	s3Bucket   string
+	s3Prefix   string
 	useS3      bool
 	bufferSize int
 	mu         sync.Mutex
@@ -36,7 +37,19 @@ func NewFilesystemStore() (*FilesystemStore, error) {
 	if dataDir == "" {
 		dataDir = "/tmp"
 	}
-	s3Bucket := os.Getenv("S3_BUCKET")
+	s3Bucket := os.Getenv("NCLIP_S3_BUCKET")
+	if s3Bucket == "" {
+		s3Bucket = os.Getenv("S3_BUCKET")
+	}
+	if s3Bucket == "" {
+		s3Bucket = os.Getenv("BUCKET")
+	}
+	var s3Prefix string
+	if v := os.Getenv("NCLIP_S3_PREFIX"); v != "" {
+		s3Prefix = v
+	} else {
+		s3Prefix = os.Getenv("S3_PREFIX")
+	}
 	useS3 := s3Bucket != ""
 	bufferSize := 50 * 1024 * 1024 // 50MB default
 	if v := os.Getenv("BUFFER_SIZE"); v != "" {
@@ -61,6 +74,7 @@ func NewFilesystemStore() (*FilesystemStore, error) {
 	return &FilesystemStore{
 		dataDir:    dataDir,
 		s3Bucket:   s3Bucket,
+		s3Prefix:   normalizeS3Prefix(s3Prefix),
 		useS3:      useS3,
 		bufferSize: bufferSize,
 		s3Client:   s3Client,
@@ -75,7 +89,7 @@ func (fs *FilesystemStore) Store(paste *models.Paste) error {
 		return err
 	}
 	if fs.useS3 {
-		key := paste.ID + ".json"
+		key := fs.s3Key(paste.ID + ".json")
 		input := &s3.PutObjectInput{
 			Bucket:        aws.String(fs.s3Bucket),
 			Key:           aws.String(key),
@@ -104,7 +118,7 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 	defer fs.mu.Unlock()
 	var metaData []byte
 	if fs.useS3 {
-		key := id + ".json"
+		key := fs.s3Key(id + ".json")
 		input := &s3.GetObjectInput{
 			Bucket: aws.String(fs.s3Bucket),
 			Key:    aws.String(key),
@@ -147,7 +161,7 @@ func (fs *FilesystemStore) Delete(id string) error {
 	defer fs.mu.Unlock()
 	if fs.useS3 {
 		// Remove content and metadata from S3
-		keys := []string{id, id + ".json"}
+		keys := []string{fs.s3Key(id), fs.s3Key(id + ".json")}
 		for _, key := range keys {
 			input := &s3.DeleteObjectInput{
 				Bucket: aws.String(fs.s3Bucket),
@@ -173,7 +187,7 @@ func (fs *FilesystemStore) IncrementReadCount(id string) error {
 	defer fs.mu.Unlock()
 	var metaData []byte
 	if fs.useS3 {
-		key := id + ".json"
+		key := fs.s3Key(id + ".json")
 		input := &s3.GetObjectInput{
 			Bucket: aws.String(fs.s3Bucket),
 			Key:    aws.String(key),
@@ -248,7 +262,7 @@ func (fs *FilesystemStore) StoreContent(id string, content []byte) error {
 	log.Printf("[DEBUG] StoreContent: id=%s, content_len=%d, first_bytes=%q", id, len(content), string(content[:min(32, len(content))]))
 	if fs.useS3 {
 		// S3 upload
-		key := id
+		key := fs.s3Key(id)
 		input := &s3.PutObjectInput{
 			Bucket:        aws.String(fs.s3Bucket),
 			Key:           aws.String(key),
@@ -283,7 +297,7 @@ func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	if fs.useS3 {
-		key := id
+		key := fs.s3Key(id)
 		input := &s3.GetObjectInput{
 			Bucket: aws.String(fs.s3Bucket),
 			Key:    aws.String(key),
@@ -316,6 +330,10 @@ func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 
 func (fs *FilesystemStore) Close() error {
 	return nil
+}
+
+func (fs *FilesystemStore) s3Key(name string) string {
+	return applyS3Prefix(fs.s3Prefix, name)
 }
 
 func logAwsError(ctx string, err error) {
