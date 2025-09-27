@@ -58,24 +58,24 @@ func ExtensionByMime(mimeType string) string {
 		mimeType = base
 	}
 
-	if exts, _ := mime.ExtensionsByType(mimeType); len(exts) > 0 {
+	if exts, _ := mime.ExtensionsByType(mimeType); len(exts) > 0 && exts[0] != "" {
 		return exts[0]
 	}
 
 	switch strings.ToLower(mimeType) {
-	case "application/x-zip-compressed", "application/x-zip":
+	case "application/zip", "application/x-zip-compressed", "application/x-zip":
 		return ".zip"
-	case "application/x-tar":
+	case "application/x-tar", "application/tar":
 		return ".tar"
 	case "application/x-gzip", "application/gzip":
 		return ".gz"
-	case "application/x-7z-compressed":
+	case "application/x-7z-compressed", "application/7z":
 		return ".7z"
-	case "application/x-bzip2":
+	case "application/x-bzip2", "application/bzip2":
 		return ".bz2"
-	case "application/x-xz":
+	case "application/x-xz", "application/xz":
 		return ".xz"
-	case "application/x-rar-compressed", "application/vnd.rar":
+	case "application/x-rar-compressed", "application/vnd.rar", "application/rar":
 		return ".rar"
 	case "application/pdf":
 		return ".pdf"
@@ -89,9 +89,14 @@ func ExtensionByMime(mimeType string) string {
 		return ".webp"
 	case "image/svg+xml":
 		return ".svg"
-	case "application/octet-stream":
+	case "application/octet-stream", "application/x-binary", "application/bin":
 		return ".bin"
 	}
 
+	// fallback: only treat as binary for true binary types
+	lower := strings.ToLower(mimeType)
+	if lower == "application/octet-stream" || lower == "application/x-binary" || lower == "application/bin" {
+		return ".bin"
+	}
 	return ""
 }

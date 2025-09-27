@@ -233,6 +233,32 @@ test_not_found() {
     fi
 }
 
+ # Test that binary downloads append the correct extension in Content-Disposition
+test_binary_extension_append() {
+    log "Testing binary extension append in Content-Disposition..."
+    local zip_file="/tmp/nclip_test.zip"
+    local zip_content="PK\x03\x04testzip"
+    echo -n -e "$zip_content" > "$zip_file"
+    local response
+    response=$(curl -f -s -X POST --data-binary @"$zip_file" "$NCLIP_URL/")
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload binary file. Response: $response"
+        return 1
+    fi
+    local slug
+    slug=$(basename "$response")
+    local raw_url="$NCLIP_URL/raw/$slug"
+    local header
+    header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+    if [[ "$header" == *"$slug.zip"* ]]; then
+        success "Binary extension correctly appended: $header"
+        return 0
+    else
+        error "Binary extension NOT appended. Header: $header"
+        return 1
+    fi
+}
+
 # Main test function
 run_integration_tests() {
     log "Starting nclip integration tests..."
@@ -298,13 +324,19 @@ run_integration_tests() {
         ((failed_tests++))
     fi
     echo
-    
+
+    # Test binary extension append
+    if ! test_binary_extension_append; then
+        ((failed_tests++))
+    fi
+    echo
+
     # Test 404
     if ! test_not_found; then
         ((failed_tests++))
     fi
     echo
-    
+
     # Summary
     if [[ $failed_tests -eq 0 ]]; then
         success "All integration tests passed! ✨"
@@ -313,6 +345,31 @@ run_integration_tests() {
         error "$failed_tests test(s) failed!"
         return 1
     fi
+# Test that binary downloads append the correct extension in Content-Disposition
+test_binary_extension_append() {
+    log "Testing binary extension append in Content-Disposition..."
+    local zip_file="/tmp/nclip_test.zip"
+    local zip_content="PK\x03\x04testzip"
+    echo -n -e "$zip_content" > "$zip_file"
+    local response
+    response=$(curl -f -s -X POST --data-binary @"$zip_file" "$NCLIP_URL/")
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload binary file. Response: $response"
+        return 1
+    fi
+    local slug
+    slug=$(basename "$response")
+    local raw_url="$NCLIP_URL/raw/$slug"
+    local header
+    header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+    if [[ "$header" == *"$slug.zip"* ]]; then
+        success "Binary extension correctly appended: $header"
+        return 0
+    else
+        error "Binary extension NOT appended. Header: $header"
+        return 1
+    fi
+}
 }
 
 # Run tests if script is executed directly
