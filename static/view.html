@@ -1,18 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}}</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
     <div class="container">
         <header>
             <h1>
-                <a href="/" style="text-decoration: none; color: inherit; display: inline-flex; align-items: center; gap: 0.5rem;">
-                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 2rem; height: 2rem; flex-shrink: 0;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                <a href="/"
+                    style="text-decoration: none; color: inherit; display: inline-flex; align-items: center; gap: 0.5rem;">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        style="width: 2rem; height: 2rem; flex-shrink: 0;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     NCLIP
                 </a>
@@ -63,7 +68,8 @@
                         {{end}}
                         <a href="/" class="btn btn-primary">
                             <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4" />
                             </svg>
                             New Paste
                         </a>
@@ -76,6 +82,16 @@
                     {{else}}
                     <div class="binary-notice">
                         <p>This is a binary file. <a href="/raw/{{.Paste.ID}}">Download</a> to view.</p>
+                        <div class="code-examples" style="margin-top:1rem;">
+                            <div class="example">
+                                <p>View this paste:</p>
+                                <code>curl -sL {{.BaseURL}}/{{.Paste.ID}}</code>
+                            </div>
+                            <div class="example">
+                                <p>Download raw content:</p>
+                                <code>curl -sL {{.BaseURL}}/raw/{{.Paste.ID}}</code>
+                            </div>
+                        </div>
                     </div>
                     {{end}}
                 </div>
@@ -85,7 +101,8 @@
             <div class="card upload-section" id="upload-section" style="display:none; margin-top:2rem;">
                 <h2>
                     <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     Paste Content
                 </h2>
@@ -99,7 +116,8 @@
                         </div>
                         <button id="upload-text" class="btn btn-primary">
                             <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4" />
                             </svg>
                             Paste Text
                         </button>
@@ -115,7 +133,8 @@
                         </div>
                         <button id="upload-file" class="btn btn-primary">
                             <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             Upload File
                         </button>
@@ -127,7 +146,8 @@
         <footer>
             <p>
                 NCLIP -
-                <a href="https://github.com/johnwmail/nclip" target="_blank" rel="noopener" style="text-decoration: none; color: inherit; font-weight: bold;">
+                <a href="https://github.com/johnwmail/nclip" target="_blank" rel="noopener"
+                    style="text-decoration: none; color: inherit; font-weight: bold;">
                     Open Source Clipboard Project
                 </a><br>
                 <small>Version: {{.Version}}</small>
@@ -139,20 +159,20 @@
 
     <script>
         // Copy content functionality - text only
-        document.getElementById('copy-content')?.addEventListener('click', function() {
+        document.getElementById('copy-content')?.addEventListener('click', function () {
             const contentText = document.getElementById('content-text');
             if (contentText) {
                 const textToCopy = contentText.textContent || contentText.innerText;
                 copyTextContent(textToCopy);
             }
         });
-        
+
         function copyTextContent(text) {
             // Try modern clipboard API first
             if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text).then(function() {
+                navigator.clipboard.writeText(text).then(function () {
                     showCopySuccess();
-                }).catch(function(err) {
+                }).catch(function (err) {
                     console.error('Clipboard API failed:', err);
                     fallbackCopy(text);
                 });
@@ -161,19 +181,19 @@
                 fallbackCopy(text);
             }
         }
-        
+
         function showCopySuccess() {
             const btn = document.getElementById('copy-content');
             if (btn) {
                 btn.textContent = 'Copied!';
                 btn.classList.add('btn-success');
-                setTimeout(function() {
+                setTimeout(function () {
                     btn.textContent = 'Copy';
                     btn.classList.remove('btn-success');
                 }, 2000);
             }
         }
-        
+
         function fallbackCopy(text) {
             const textArea = document.createElement('textarea');
             textArea.value = text;
@@ -183,7 +203,7 @@
             document.body.appendChild(textArea);
             textArea.focus();
             textArea.select();
-            
+
             try {
                 const successful = document.execCommand('copy');
                 if (successful) {
@@ -201,4 +221,5 @@
         }
     </script>
 </body>
+
 </html>

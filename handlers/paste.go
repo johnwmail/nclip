@@ -291,6 +291,15 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 func (h *PasteHandler) View(c *gin.Context) {
 	slug := c.Param("slug")
 
+	// Compute base URL for curl examples
+	baseURL := h.config.URL
+	if baseURL == "" {
+		scheme := "http"
+		if h.isHTTPS(c) {
+			scheme = "https"
+		}
+		baseURL = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+	}
 	if !utils.IsValidSlug(slug) {
 		c.HTML(http.StatusBadRequest, "view.html", gin.H{
 			"Title":      "NCLIP - Error",
@@ -298,6 +307,7 @@ func (h *PasteHandler) View(c *gin.Context) {
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
+			"BaseURL":    baseURL,
 		})
 		return
 	}
@@ -311,6 +321,7 @@ func (h *PasteHandler) View(c *gin.Context) {
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
+			"BaseURL":    baseURL,
 		})
 		return
 	}
@@ -323,6 +334,7 @@ func (h *PasteHandler) View(c *gin.Context) {
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
+			"BaseURL":    baseURL,
 		})
 		return
 	}
@@ -364,6 +376,7 @@ func (h *PasteHandler) View(c *gin.Context) {
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
+			"BaseURL":    baseURL,
 		})
 		return
 	}
