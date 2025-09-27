@@ -114,14 +114,15 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 			logAwsError(fmt.Sprintf("S3 Get metadata for %s", id), err)
 			return nil, err
 		}
-		errClose := out.Body.Close()
+		defer func() {
+			if errClose := out.Body.Close(); errClose != nil {
+				log.Printf("[WARN] S3 Get: error closing body for %s: %v", id, errClose)
+			}
+		}()
 		buf := new(bytes.Buffer)
 		if _, err := io.Copy(buf, out.Body); err != nil {
 			log.Printf("[ERROR] S3 Get: failed to copy metadata for %s: %v", id, err)
 			return nil, err
-		}
-		if errClose != nil {
-			log.Printf("[WARN] S3 Get: error closing body for %s: %v", id, errClose)
 		}
 		metaData = buf.Bytes()
 	} else {
@@ -182,14 +183,15 @@ func (fs *FilesystemStore) IncrementReadCount(id string) error {
 			logAwsError(fmt.Sprintf("S3 IncrementReadCount read metadata for %s", id), err)
 			return err
 		}
-		errClose := out.Body.Close()
+		defer func() {
+			if errClose := out.Body.Close(); errClose != nil {
+				log.Printf("[WARN] S3 IncrementReadCount: error closing body for %s: %v", id, errClose)
+			}
+		}()
 		buf := new(bytes.Buffer)
 		if _, err := io.Copy(buf, out.Body); err != nil {
 			log.Printf("[ERROR] S3 IncrementReadCount: failed to copy metadata for %s: %v", id, err)
 			return err
-		}
-		if errClose != nil {
-			log.Printf("[WARN] S3 IncrementReadCount: error closing body for %s: %v", id, errClose)
 		}
 		metaData = buf.Bytes()
 		var paste models.Paste
@@ -291,14 +293,15 @@ func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 			logAwsError(fmt.Sprintf("S3 GetContent read content for %s", id), err)
 			return nil, err
 		}
-		errClose := out.Body.Close()
+		defer func() {
+			if errClose := out.Body.Close(); errClose != nil {
+				log.Printf("[WARN] S3 GetContent: error closing body for %s: %v", id, errClose)
+			}
+		}()
 		buf := new(bytes.Buffer)
 		if _, err := io.Copy(buf, out.Body); err != nil {
 			log.Printf("[ERROR] S3 GetContent: failed to copy content for %s: %v", id, err)
 			return nil, err
-		}
-		if errClose != nil {
-			log.Printf("[WARN] S3 GetContent: error closing body for %s: %v", id, errClose)
 		}
 		return buf.Bytes(), nil
 	}

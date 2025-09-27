@@ -14,7 +14,7 @@ on:
         type: string
   push:
     branches:
-      - 'deploy/lambda'
+      - "deploy/lambda"
 
 jobs:
   deploy-lambda:
@@ -29,7 +29,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history and tags
+          fetch-depth: 0 # Fetch all history and tags
 
       - name: Validate GOARCH input
         run: |
@@ -47,7 +47,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
 
       - name: Download deps
         run: go mod download
