@@ -33,7 +33,7 @@ type FilesystemStore struct {
 }
 
 func NewFilesystemStore() (*FilesystemStore, error) {
-	dataDir := os.Getenv("DATA_DIR")
+	dataDir := os.Getenv("NCLIP_DATA_DIR")
 	if dataDir == "" {
 		dataDir = "./data"
 	}
@@ -44,9 +44,9 @@ func NewFilesystemStore() (*FilesystemStore, error) {
 	}
 	useS3 := s3Bucket != ""
 	bufferSize := 5 * 1024 * 1024 // 5MB default
-	if v := os.Getenv("BUFFER_SIZE"); v != "" {
+	if v := os.Getenv("NCLIP_BUFFER_SIZE"); v != "" {
 		if n, err := fmt.Sscanf(v, "%d", &bufferSize); n != 1 || err != nil {
-			log.Printf("[WARN] BUFFER_SIZE env var could not be parsed: %q", v)
+			log.Printf("[WARN] NCLIP_BUFFER_SIZE env var could not be parsed: %q", v)
 		}
 	}
 	var s3Client *s3.Client
