@@ -43,15 +43,18 @@ func (s *S3Store) Store(paste *models.Paste) error {
 		log.Printf("[ERROR] S3 Store: failed to marshal metadata for %s: %v", paste.ID, err)
 		return err
 	}
-	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(metaKey),
-		Body:   bytes.NewReader(metaData),
-	})
-	if err != nil {
-		log.Printf("[ERROR] S3 Store: failed to put metadata for %s: %v", paste.ID, err)
-	}
-	return err
+       _, err = s.client.PutObject(ctx, &s3.PutObjectInput{
+	       Bucket: aws.String(s.bucket),
+	       Key:    aws.String(metaKey),
+	       Body:   bytes.NewReader(metaData),
+       })
+       if err != nil {
+	       log.Printf("[ERROR] S3 Store: failed to put metadata for %s: %v", paste.ID, err)
+	       if awsErr, ok := err.(interface{ ErrorCode() string; ErrorMessage() string }); ok {
+		       log.Printf("[AWS ERROR] Code: %s, Message: %s", awsErr.ErrorCode(), awsErr.ErrorMessage())
+	       }
+       }
+       return err
 }
 
 func (s *S3Store) Get(id string) (*models.Paste, error) {
@@ -108,15 +111,18 @@ func (s *S3Store) IncrementReadCount(id string) error {
 func (s *S3Store) StoreContent(id string, content []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(applyS3Prefix(s.prefix, id)),
-		Body:   bytes.NewReader(content),
-	})
-	if err != nil {
-		log.Printf("[ERROR] S3 StoreContent: failed to put content for %s: %v", id, err)
-	}
-	return err
+       _, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+	       Bucket: aws.String(s.bucket),
+	       Key:    aws.String(applyS3Prefix(s.prefix, id)),
+	       Body:   bytes.NewReader(content),
+       })
+       if err != nil {
+	       log.Printf("[ERROR] S3 StoreContent: failed to put content for %s: %v", id, err)
+	       if awsErr, ok := err.(interface{ ErrorCode() string; ErrorMessage() string }); ok {
+		       log.Printf("[AWS ERROR] Code: %s, Message: %s", awsErr.ErrorCode(), awsErr.ErrorMessage())
+	       }
+       }
+       return err
 }
 
 func (s *S3Store) GetContent(id string) ([]byte, error) {
