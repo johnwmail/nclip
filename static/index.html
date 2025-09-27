@@ -137,16 +137,12 @@
                 </h2>
                 <div class="code-examples">
                     <div class="example">
-                        <p>Upload text:</p>
-                        <code>echo "hello world" | curl -sL --data-binary @- {{.Config.URL}}</code>
+                        <p>View this paste:</p>
+                        <code>curl -sL {{.PasteURL}}</code>
                     </div>
                     <div class="example">
-                        <p>Upload file:</p>
-                        <code>curl -sL --data-binary @/path/to/file {{.Config.URL}}</code>
-                    </div>
-                    <div class="example">
-                        <p>Burn after reading:</p>
-                        <code>echo "secret" | curl -sL --data-binary @- {{.Config.URL}}/burn/</code>
+                        <p>Download raw content:</p>
+                        <code>curl -sL {{.RawURL}}</code>
                     </div>
                 </div>
             </div>
