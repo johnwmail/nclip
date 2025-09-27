@@ -59,7 +59,10 @@ func NewFilesystemStore() (*FilesystemStore, error) {
 		s3Client = s3.NewFromConfig(cfg)
 	}
 	if !useS3 {
-		os.MkdirAll(dataDir, 0o755) // same as os.MkdirAll(dataDir, 0755)
+		if err := os.MkdirAll(dataDir, 0o755); err != nil {
+			log.Printf("[ERROR] Failed to create dataDir %s: %v", dataDir, err)
+			return nil, err
+		}
 	}
 	return &FilesystemStore{
 		dataDir:    dataDir,
