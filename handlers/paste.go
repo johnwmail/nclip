@@ -413,11 +413,14 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Paste content not found or deleted"})
 		return
 	}
+	// If burn-after-read, delete and return 404 if accessed again
 	if paste.BurnAfterRead {
 		if err := h.store.Delete(slug); err != nil {
-			// Log error but don't fail the request
 			fmt.Printf("Failed to delete burn-after-read paste %s: %v\n", slug, err)
 		}
+		// After deletion, return 404 and no content
+		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted (burn-after-read)"})
+		return
 	}
 	c.Header("Content-Type", paste.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
@@ -427,6 +430,10 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 		filename = slug + ext
 	}
 	escaped := url.PathEscape(filename)
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, escaped))
+	if utils.IsTextContent(paste.ContentType) {
+		c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"; filename*=UTF-8''%s", filename, escaped))
+	} else {
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, escaped))
+	}
 	c.Data(http.StatusOK, paste.ContentType, content)
 }
