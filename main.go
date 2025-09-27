@@ -261,7 +261,7 @@ func runHTTPServer(router *gin.Engine, cfg *config.Config, store storage.PasteSt
 	// Start server in a goroutine
 	go func() {
 		log.Printf("Starting nclip server on port %d", cfg.Port)
-		log.Printf("Storage backend: MongoDB (container mode)")
+		// MongoDB reference removed
 		log.Printf("Web UI: enabled")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

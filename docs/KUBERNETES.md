@@ -17,23 +17,18 @@ This guide provides detailed instructions for deploying nclip on Kubernetes, inc
    kubectl apply -f k8s/namespace.yaml
    ```
 
-3. **Deploy MongoDB:**
-   ```bash
-   kubectl apply -f k8s/mongodb/
-   ```
-
-4. **Deploy nclip app and service:**
+3. **Deploy nclip app and service:**
    ```bash
    kubectl apply -f k8s/deployment.yaml
    kubectl apply -f k8s/service.yaml
    ```
 
-5. **(Optional) Deploy ingress:**
+4. **(Optional) Deploy ingress:**
    ```bash
    kubectl apply -f k8s/ingress.yaml
    ```
 
-6. **(Optional) Use kustomize for overlays:**
+5. **(Optional) Use kustomize for overlays:**
    ```bash
    kubectl apply -k k8s/
    ```
@@ -43,7 +38,6 @@ This guide provides detailed instructions for deploying nclip on Kubernetes, inc
 ## Manifest Overview
 
 - `k8s/namespace.yaml`: Namespace for isolation
-- `k8s/mongodb/`: MongoDB deployment, service, PVC, secret, configmap
 - `k8s/deployment.yaml`: nclip Deployment
 - `k8s/service.yaml`: nclip Service (ClusterIP/LoadBalancer)
 - `k8s/ingress.yaml`: Ingress for external HTTP(S) access
@@ -53,9 +47,6 @@ This guide provides detailed instructions for deploying nclip on Kubernetes, inc
 
 ## Customization
 
-- **Secrets:** Edit `k8s/mongodb/secret.yaml` for MongoDB credentials.
-- **Config:** Adjust `k8s/mongodb/configmap.yaml` and environment variables in `deployment.yaml` as needed.
-- **Storage:** Edit `k8s/mongodb/pvc.yaml` for persistent volume size/class.
 - **Resources:** Set CPU/memory requests/limits in deployments for production.
 - **Service Type:** Change `service.yaml` to `LoadBalancer` for cloud, or use `NodePort` for local testing.
 
@@ -72,7 +63,6 @@ This guide provides detailed instructions for deploying nclip on Kubernetes, inc
 ## Scaling & High Availability
 
 - Increase `replicas` in `deployment.yaml` for nclip.
-- Use a managed MongoDB or a StatefulSet for MongoDB in production.
 - Consider anti-affinity and pod disruption budgets for resilience.
 
 ---
@@ -80,7 +70,6 @@ This guide provides detailed instructions for deploying nclip on Kubernetes, inc
 ## Troubleshooting
 
 - Check pod logs: `kubectl logs deployment/nclip`
-- Check MongoDB pod logs: `kubectl logs deployment/nclip-mongodb -n <namespace>`
 - Describe resources for error details: `kubectl describe pod <pod>`
 - Use `kubectl get all -A` to see all resources and their status.
 - For local testing, port-forward: `kubectl port-forward svc/nclip 8080:8080`

@@ -50,7 +50,7 @@ USER nclip
 
 # Default configuration
 ENV NCLIP_PORT=8080 \
-    NCLIP_MONGO_URL=mongodb://localhost:27017
+    # MongoDB env var removed
 
 # Expose ports
 EXPOSE 8080

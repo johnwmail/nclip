@@ -25,20 +25,7 @@ spec:
             secretKeyRef:
               name: mongodb-secret
               key: mongodb-db-name
-        - name: MONGO_INITDB_ROOT_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-secret
-              key: mongodb-root-username
-        - name: MONGO_INITDB_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-secret
-              key: mongodb-root-password
-        - name: NCLIP_MONGO_URL
-          value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@mongodb:27017/$(NCLIP_MONGODB_DATABASE)?authSource=admin"
-        - name: NCLIP_MONGODB_COLLECTION
-          value: "pastes"
+          # MongoDB env vars removed
         - name: NCLIP_TTL
           value: "24h"
         - name: NCLIP_PORT

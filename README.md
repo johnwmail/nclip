@@ -160,7 +160,7 @@ _nclip() {
     fi
   else
     cat | cusl --data-binary @- "$_URL"
-    # NCLIP_MONGO_URL and --mongo-url are no longer supported.
+  # MongoDB support and references have been fully removed.
     **Note:**
     - `GIN_MODE`, `AWS_LAMBDA_FUNCTION_NAME`, and `BUCKET` are used only in deployment workflows (e.g., GitHub Actions, Lambda detection), not for app configuration.
   fi
