@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -425,6 +426,7 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 	if ext != "" {
 		filename = slug + ext
 	}
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	escaped := url.PathEscape(filename)
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, escaped))
 	c.Data(http.StatusOK, paste.ContentType, content)
 }

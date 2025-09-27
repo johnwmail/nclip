@@ -53,9 +53,45 @@ func ExtensionByMime(mimeType string) string {
 	if mimeType == "" {
 		return ""
 	}
-	exts, _ := mime.ExtensionsByType(mimeType)
-	if len(exts) > 0 {
+
+	if base, _, err := mime.ParseMediaType(mimeType); err == nil {
+		mimeType = base
+	}
+
+	if exts, _ := mime.ExtensionsByType(mimeType); len(exts) > 0 {
 		return exts[0]
 	}
+
+	switch strings.ToLower(mimeType) {
+	case "application/x-zip-compressed", "application/x-zip":
+		return ".zip"
+	case "application/x-tar":
+		return ".tar"
+	case "application/x-gzip", "application/gzip":
+		return ".gz"
+	case "application/x-7z-compressed":
+		return ".7z"
+	case "application/x-bzip2":
+		return ".bz2"
+	case "application/x-xz":
+		return ".xz"
+	case "application/x-rar-compressed", "application/vnd.rar":
+		return ".rar"
+	case "application/pdf":
+		return ".pdf"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	case "image/svg+xml":
+		return ".svg"
+	case "application/octet-stream":
+		return ""
+	}
+
 	return ""
 }
