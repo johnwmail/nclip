@@ -105,8 +105,8 @@ type PasteStore interface {
 - Responsive design for mobile
 
 ### CLI Compatibility
-- `curl --data-binary @- http://host/` — Upload from stdin
-- `curl --data-binary @file http://host/` — Upload file
+- `curl -sL --data-binary @- http://host/` — Upload from stdin
+- `curl -sL --data-binary @file http://host/` — Upload file
 - Return plain text URLs for CLI usage
 - Content-Type detection for proper display
 

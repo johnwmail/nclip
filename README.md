@@ -19,8 +19,8 @@ A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 
 nclip is a versatile clipboard app that accepts content via:
 - **Web UI** - Browser interface at `http://localhost:8080`
-- **Curl** - Modern web API: `echo "text" | curl --data-binary @- http://localhost:8080`
-- **File upload** - Upload (small) files via web UI or curl: `curl --data-binary @/path/file http://localhost:8080`
+- **Curl** - Modern web API: `echo "text" | curl -sL --data-binary @- http://localhost:8080`
+- **File upload** - Upload (small) files via web UI or curl: `curl -sL --data-binary @/path/file http://localhost:8080`
 - **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG`
 - **Burn after reading** - Content that self-destructs after being accessed once
 
@@ -60,12 +60,12 @@ go build -o nclip .
 ./nclip
 
 # Upload content via curl
-echo "Hello World!" | curl --data-binary @- http://localhost:8080
+echo "Hello World!" | curl -sL --data-binary @- http://localhost:8080
 # Returns: http://localhost:8080/2F4D6
 
 # Access content
-curl http://localhost:8080/2F4D6          # HTML view
-curl http://localhost:8080/raw/2F4D6      # Raw content
+curl -sL http://localhost:8080/2F4D6          # HTML view
+curl -sL http://localhost:8080/raw/2F4D6      # Raw content
 
 # Slug length: Slugs must be 3–32 characters. If out of range, default is 5.
 
@@ -114,20 +114,20 @@ Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** includ
 ### Command Line
 ```bash
 # Upload text
-echo "Secret message" | curl --data-binary @- http://localhost:8080
+echo "Secret message" | curl -sL --data-binary @- http://localhost:8080
 
 # Upload text file
-curl --data-binary @myfile.txt http://localhost:8080
+curl -sL --data-binary @myfile.txt http://localhost:8080
 
 # Upload binary file
-curl --data-binary @document.pdf http://localhost:8080
+curl -sL --data-binary @document.pdf http://localhost:8080
 
 # Create burn-after-read paste
-echo "Self-destruct message" | curl --data-binary @- http://localhost:8080/burn/
+echo "Self-destruct message" | curl -sL --data-binary @- http://localhost:8080/burn/
 
 # Get metadata as JSON
-curl http://localhost:8080/json/2F4D6
-curl http://localhost:8080/api/v1/meta/2F4D6
+curl -sL http://localhost:8080/json/2F4D6
+curl -sL http://localhost:8080/api/v1/meta/2F4D6
 
 ### PowerShell / Windows
 ```powershell
@@ -154,12 +154,12 @@ _nclip() {
   local _URL="https://demo.nclip.app"
   if [ -t 0 ]; then
     if [ $# -eq 1 ] && [ -f "$1" ]; then
-      curl -sL --data-binary @"$1" "$_URL"
+      cusl --data-binary @"$1" "$_URL"
     else
-      echo -en "$*" | curl -sL --data-binary @- "$_URL"
+      echo -en "$*" | cusl --data-binary @- "$_URL"
     fi
   else
-    cat | curl -sL --data-binary @- "$_URL"
+    cat | cusl --data-binary @- "$_URL"
     # NCLIP_MONGO_URL and --mongo-url are no longer supported.
     **Note:**
     - `GIN_MODE`, `AWS_LAMBDA_FUNCTION_NAME`, and `BUCKET` are used only in deployment workflows (e.g., GitHub Actions, Lambda detection), not for app configuration.

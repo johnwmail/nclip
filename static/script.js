@@ -200,11 +200,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (examples.length >= 2) {
             // Update first example - View paste
             examples[0].querySelector('p').textContent = 'View this paste:';
-            examples[0].querySelector('code').textContent = `curl ${url}`;
+            examples[0].querySelector('code').textContent = `curl -sL ${url}`;
             
             // Update second example - Download raw
             examples[1].querySelector('p').textContent = 'Download raw content:';
-            examples[1].querySelector('code').textContent = `curl ${baseUrl}/raw/${slug}`;
+            examples[1].querySelector('code').textContent = `curl -sL ${baseUrl}/raw/${slug}`;
             
             // Hide the third example if it exists
             if (examples[2]) {

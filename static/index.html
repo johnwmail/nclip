@@ -138,15 +138,15 @@
                 <div class="code-examples">
                     <div class="example">
                         <p>Upload text:</p>
-                        <code>echo "hello world" | curl --data-binary @- {{.Config.URL}}</code>
+                        <code>echo "hello world" | curl -sL --data-binary @- {{.Config.URL}}</code>
                     </div>
                     <div class="example">
                         <p>Upload file:</p>
-                        <code>curl --data-binary @/path/to/file {{.Config.URL}}</code>
+                        <code>curl -sL --data-binary @/path/to/file {{.Config.URL}}</code>
                     </div>
                     <div class="example">
                         <p>Burn after reading:</p>
-                        <code>echo "secret" | curl --data-binary @- {{.Config.URL}}/burn/</code>
+                        <code>echo "secret" | curl -sL --data-binary @- {{.Config.URL}}/burn/</code>
                     </div>
                 </div>
             </div>
