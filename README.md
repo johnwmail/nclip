@@ -160,6 +160,9 @@ _nclip() {
     fi
   else
     cat | curl -sL --data-binary @- "$_URL"
+    # NCLIP_MONGO_URL and --mongo-url are no longer supported.
+    **Note:**
+    - `GIN_MODE`, `AWS_LAMBDA_FUNCTION_NAME`, and `BUCKET` are used only in deployment workflows (e.g., GitHub Actions, Lambda detection), not for app configuration.
   fi
 }
 ```
@@ -167,10 +170,8 @@ _nclip() {
 ### Configuration
 ```bash
 # Custom port and URL
-./nclip --port 8080 --url https://demo.nclip.app
-
-# Custom TTL and buffer size
-./nclip --ttl 48h --buffer-size 5242880  # 5MB max
+### Environment Variables
+All main configuration is via these environment variables (all have CLI flag equivalents):
 
 # Environment variables
 export NCLIP_URL=https://demo.nclip.app
@@ -183,9 +184,6 @@ export NCLIP_TTL=24h
 
 ### Quick Start with Docker Compose
 ```bash
-# Clone and start with the included docker-compose.yml
-git clone https://github.com/johnwmail/nclip.git
-cd nclip
 docker-compose up -d
 
 # Or use the example below

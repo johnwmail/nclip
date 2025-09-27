@@ -69,7 +69,6 @@ To run integration tests locally:
 3. Build and start nclip:
    ```bash
    go build -o nclip .
-   NCLIP_MONGO_URL=mongodb://nclip:secure_password_123@localhost:27017/nclip?authSource=admin ./nclip &
    ```
 
 4. Run tests:

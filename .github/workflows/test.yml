@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [ "*" ]
+    branches: ["*"]
   pull_request:
-    branches: [ "*" ]
+    branches: ["*"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,313 +16,287 @@ permissions:
   actions: read
 
 env:
-  GO_VERSION_LATEST: '1.25'  # Latest version for lint/security
+  GO_VERSION_LATEST: "1.25" # Latest version for lint/security
 
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
-        go-version: ['1.23', '1.24', '1.25']
-    
+        go-version: ["1.23", "1.24", "1.25"]
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
-        
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ matrix.go-version }}-
-          
-    - name: Download dependencies
-      run: go mod download
-      
-    - name: Verify dependencies
-      run: go mod verify
-      
-    - name: Run go vet
-      run: go vet ./...
-      
-    - name: Run go fmt check
-      run: |
-        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-          echo "The following files are not formatted:"
-          gofmt -s -l .
-          exit 1
-        fi
-        
-    - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
-      
-    - name: Upload coverage to Codecov
-      if: matrix.go-version == '1.25'
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run go fmt check
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "The following files are not formatted:"
+            gofmt -s -l .
+            exit 1
+          fi
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage to Codecov
+        if: matrix.go-version == '1.25'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ env.GO_VERSION_LATEST }}
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Prepare fresh Go caches
-      id: go-cache-paths
-      run: |
-        echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-        echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
-        echo "Current working directory: $(pwd)"
-        echo "Go version: $(go version)"
-        echo "Go env: $(go env GOROOT GOPATH GOMODCACHE GOCACHE)"
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION_LATEST }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ${{ steps.go-cache-paths.outputs.go-build }}
-          ${{ steps.go-cache-paths.outputs.go-mod }}
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION_LATEST }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION_LATEST }}-
+      - name: Prepare fresh Go caches
+        id: go-cache-paths
+        run: |
+          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+          echo "Current working directory: $(pwd)"
+          echo "Go version: $(go version)"
+          echo "Go env: $(go env GOROOT GOPATH GOMODCACHE GOCACHE)"
 
-    - name: Download dependencies
-      run: go mod download
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.go-cache-paths.outputs.go-build }}
+            ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION_LATEST }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ env.GO_VERSION_LATEST }}-
 
-    - name: Verify module
-      run: |
-        go mod verify
-        go list -m all
+      - name: Download dependencies
+        run: go mod download
 
-    - name: Sanity build (exports)
-      run: go build ./...
+      - name: Verify module
+        run: |
+          go mod verify
+          go list -m all
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v8
-      with:
-        version: latest
-        args: --timeout=5m --verbose --max-issues-per-linter=0 --max-same-issues=0
+      - name: Sanity build (exports)
+        run: go build ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          args: --timeout=5m --verbose --max-issues-per-linter=0 --max-same-issues=0
 
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ env.GO_VERSION_LATEST }}
-        
-    - name: Run Gosec Security Scanner
-      run: |
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
-        gosec -no-fail -fmt sarif -out results.sarif ./...
-        gosec -no-fail -fmt json -out results.json ./...
-        
-    - name: Upload SARIF file
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: results.sarif
-      continue-on-error: true
-        
-    - name: Upload security scan results
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-scan-results
-        path: |
-          results.sarif
-          results.json
-        retention-days: 7
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION_LATEST }}
+
+      - name: Run Gosec Security Scanner
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -no-fail -fmt sarif -out results.sarif ./...
+          gosec -no-fail -fmt json -out results.json ./...
+
+      - name: Upload SARIF file
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+        continue-on-error: true
+
+      - name: Upload security scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: |
+            results.sarif
+            results.json
+          retention-days: 7
 
   build:
     name: Build
     runs-on: ubuntu-latest
     needs: [test, lint]
-    
+
     strategy:
       matrix:
-        go-version: ['1.23', '1.24', '1.25']
+        go-version: ["1.23", "1.24", "1.25"]
         goos: [linux]
         goarch: [amd64, arm64]
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
-        
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ matrix.go-version }}-
-          
-    - name: Build binary
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
-        CGO_ENABLED: 0
-      run: |
-        BINARY_NAME=nclip
-        
-        VERSION=${GITHUB_REF#refs/tags/}
-        if [[ $VERSION == refs/* ]]; then
-          VERSION="dev-${GITHUB_SHA:0:7}"
-        fi
-        
-        echo "Building for $GOOS/$GOARCH..."
-        go build -v \
-          -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.gitCommit=${GITHUB_SHA:0:7}" \
-          -o "dist/${BINARY_NAME}_${GOOS}_${GOARCH}" \
-          .
-          
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: nclip-${{ matrix.goos }}-${{ matrix.goarch }}-go${{ matrix.go-version }}
-        path: dist/
-        retention-days: 7
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          BINARY_NAME=nclip
+
+          VERSION=${GITHUB_REF#refs/tags/}
+          if [[ $VERSION == refs/* ]]; then
+            VERSION="dev-${GITHUB_SHA:0:7}"
+          fi
+
+          echo "Building for $GOOS/$GOARCH..."
+          go build -v \
+            -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.gitCommit=${GITHUB_SHA:0:7}" \
+            -o "dist/${BINARY_NAME}_${GOOS}_${GOARCH}" \
+            .
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nclip-${{ matrix.goos }}-${{ matrix.goarch }}-go${{ matrix.go-version }}
+          path: dist/
+          retention-days: 7
 
   integration-test:
     name: Integration Test
     runs-on: ubuntu-latest
     needs: [test, lint]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
-    
+
     strategy:
       matrix:
-        go-version: ['1.23', '1.24', '1.25']
-    
+        go-version: ["1.23", "1.24", "1.25"]
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Start MongoDB using Docker Compose
-      run: |
-        # Use newer 'docker compose' command (built into Docker)
-        docker compose up -d mongodb
-        
-        # Wait for MongoDB to be ready
-        echo "Waiting for MongoDB to be ready..."
-        for i in {1..30}; do
-          if docker compose exec -T mongodb mongosh --eval "db.runCommand({ping: 1})" >/dev/null 2>&1; then
-            echo "MongoDB is ready!"
-            break
-          elif [ $i -eq 30 ]; then
-            echo "MongoDB failed to become ready after 30 attempts"
-            docker ps -a
-            docker compose logs mongodb
-            exit 1
-          else
-            echo "Attempt $i/30: MongoDB not ready, waiting 2s..."
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Filesystem-only integration test: no MongoDB, no Docker Compose
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build nclip binary
+        env:
+          CGO_ENABLED: 0
+        run: |
+          VERSION="test-${GITHUB_SHA:0:7}"
+          go build -v \
+            -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.gitCommit=${GITHUB_SHA:0:7}" \
+            -o nclip \
+            .
+          chmod +x nclip
+
+      - name: Start nclip server (filesystem backend)
+        env:
+          NCLIP_PORT: 8080
+          NCLIP_DATA_DIR: ./testdata
+          GIN_MODE: release
+        run: |
+          mkdir -p ./testdata
+          echo "Starting nclip server (filesystem backend only)..."
+          ./nclip &
+          NCLIP_PID=$!
+          echo "NCLIP_PID=$NCLIP_PID" >> $GITHUB_ENV
+          echo "nclip started with PID: $NCLIP_PID"
+
+      - name: Run integration tests
+        env:
+          NCLIP_URL: http://localhost:8080
+        run: |
+          echo "Running integration tests..."
+          bash scripts/integration-test.sh
+
+      - name: Stop nclip server
+        if: always()
+        run: |
+          if [ -n "${NCLIP_PID:-}" ]; then
+            echo "Stopping nclip server (PID: $NCLIP_PID)"
+            kill $NCLIP_PID || true
             sleep 2
+            kill -9 $NCLIP_PID 2>/dev/null || true
           fi
-        done
-        echo "MongoDB initialization completed automatically via docker compose"
-          
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
-        
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ matrix.go-version }}-
-          
-    - name: Download dependencies
-      run: go mod download
-      
-    - name: Build nclip binary
-      env:
-        CGO_ENABLED: 0
-      run: |
-        VERSION="test-${GITHUB_SHA:0:7}"
-        go build -v \
-          -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.gitCommit=${GITHUB_SHA:0:7}" \
-          -o nclip \
-          .
-        chmod +x nclip
-        
-    - name: Start nclip server
-      env:
-        NCLIP_MONGO_URL: mongodb://nclip:secure_password_123@localhost:27017/nclip?authSource=admin
-        NCLIP_PORT: 8080
-        NCLIP_ENABLE_METRICS: true
-        GIN_MODE: release
-      run: |
-        echo "Starting nclip server..."
-        ./nclip &
-        NCLIP_PID=$!
-        echo "NCLIP_PID=$NCLIP_PID" >> $GITHUB_ENV
-        echo "nclip started with PID: $NCLIP_PID"
-        
-    - name: Run integration tests
-      env:
-        NCLIP_URL: http://localhost:8080
-      run: |
-        echo "Running integration tests..."
-        bash scripts/integration-test.sh
-        
-    - name: Stop nclip server
-      if: always()
-      run: |
-        if [ -n "${NCLIP_PID:-}" ]; then
-          echo "Stopping nclip server (PID: $NCLIP_PID)"
-          kill $NCLIP_PID || true
-          sleep 2
-          kill -9 $NCLIP_PID 2>/dev/null || true
-        fi
-        
-    - name: Stop MongoDB container
-      if: always()
-      run: |
-        echo "Stopping MongoDB container..."
-        docker compose down mongodb || true
-        
-    - name: Upload integration test artifacts
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: integration-test-artifacts
-        path: |
-          nclip
-          scripts/
-        retention-days: 7
+
+      # No MongoDB container to stop
+
+      - name: Upload integration test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-artifacts
+          path: |
+            nclip
+            scripts/
+          retention-days: 7

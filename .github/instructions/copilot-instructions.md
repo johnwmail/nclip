@@ -145,20 +145,25 @@ type PasteStore interface {
 - Integration tests with real storage backends
 - Test both Lambda and server deployment modes
 
+
 ## Environment Variables
 
-All config via env vars with CLI flag alternatives:
-- `NCLIP_PORT` / `--port` (default: 8080) — HTTP server port
-- `NCLIP_URL` / `--url` (default: auto-detect) — Base URL for paste links (e.g. "https://demo.nclip.app")
-- `NCLIP_SLUG_LENGTH` / `--slug-length` (default: 5) — Length of generated paste IDs
-- `NCLIP_BUFFER_SIZE` / `--buffer-size` (default: 5242880) — Max upload size in bytes (5MB)
-- `NCLIP_TTL` / `--ttl` (default: "24h") — Default paste expiration time
+All main configuration is via these environment variables (all have CLI flag equivalents):
 
+| Environment Variable      | CLI Flag         | Description                                 |
+|--------------------------|------------------|---------------------------------------------|
+| NCLIP_PORT               | --port           | HTTP server port (default: 8080)            |
+| NCLIP_URL                | --url            | Base URL for paste links                    |
+| NCLIP_SLUG_LENGTH        | --slug-length    | Length of generated paste IDs (default: 5)  |
+| NCLIP_BUFFER_SIZE        | --buffer-size    | Max upload size in bytes (default: 5MB)     |
+| NCLIP_TTL                | --ttl            | Default paste expiration (default: 24h)     |
+| NCLIP_DATA_DIR           | --data-dir       | Local data directory (default: ./data)      |
+| NCLIP_S3_BUCKET          | --s3-bucket      | S3 bucket for Lambda mode                   |
+| NCLIP_S3_PREFIX          | --s3-prefix      | S3 key prefix (optional)                    |
 
-**Note**: Storage backend is automatically selected based on deployment environment:
-- Server mode: Uses filesystem
-- AWS Lambda: Uses S3 (NCLIP_S3_BUCKET)
-- Detection via AWS_LAMBDA_FUNCTION_NAME environment variable
+**Note:**
+- `GIN_MODE`, `AWS_LAMBDA_FUNCTION_NAME`, and `BUCKET` are used only in deployment workflows (e.g., GitHub Actions, Lambda detection), not for app configuration.
+- NCLIP_MONGO_URL and --mongo-url are no longer supported.
 
 
 ## Deployment Modes

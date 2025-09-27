@@ -76,8 +76,6 @@ func LoadConfig() *Config {
 
 	if val := os.Getenv("NCLIP_S3_PREFIX"); val != "" {
 		config.S3Prefix = val
-	} else if val := os.Getenv("S3_PREFIX"); val != "" {
-		config.S3Prefix = val
 	}
 
 	return config
