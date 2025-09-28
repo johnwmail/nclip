@@ -40,17 +40,16 @@ RUN addgroup -g 1001 -S nclip && \
 WORKDIR /app
 
 # Copy binary from builder stage
-COPY --from=builder /app/nclip .
+COPY --from=builder /app/nclip /app/nclip
 
 # Copy static assets for web UI
-COPY --from=builder /app/static ./static
+COPY --from=builder /app/static /app/static
 
 # Switch to non-root user
 USER nclip
 
 # Default configuration
-ENV NCLIP_PORT=8080 \
-    # MongoDB env var removed
+ENV NCLIP_PORT=8080
 
 # Expose ports
 EXPOSE 8080
@@ -60,4 +59,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${NCLIP_PORT}/health || exit 1
 
 # Run the application
-CMD ["./nclip"]
+CMD ["/app/nclip"]
