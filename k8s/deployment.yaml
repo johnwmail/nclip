@@ -22,8 +22,8 @@ spec:
           env:
             - name: NCLIP_DATA_DIR
               value: "/data"
-            - name: NCLIP_URL
-              value: "http://localhost:8080"
+            #- name: NCLIP_URL
+            #  value: "http://localhost:8080"
             - name: NCLIP_PORT
               value: "8080"
             - name: NCLIP_TTL
@@ -33,10 +33,10 @@ spec:
             - name: GIN_MODE
               value: "release"
           volumeMounts:
-          - name: data
-            mountPath: /data
-          - name: tmp
-            mountPath: /tmp
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
           resources:
             limits:
               memory: "128Mi"
@@ -64,7 +64,7 @@ spec:
                 - all
             seccompProfile:
               type: RuntimeDefault
-        volumes:
+      volumes:
         - name: data
           persistentVolumeClaim:
             claimName: nclip-pvc
