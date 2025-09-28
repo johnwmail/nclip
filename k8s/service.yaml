@@ -11,18 +11,4 @@ spec:
   - protocol: TCP
     port: 8080
     targetPort: 8080
-  type: ClusterIP
-# ---
-# apiVersion: v1
-# kind: Service
-# metadata:
-#   name: nclip-tcp
-#   namespace: nclip
-# spec:
-#   selector:
-#     app: nclip
-#   ports:
-#   - protocol: TCP
-#     port: 8099
-#     targetPort: 8099
-#   type: LoadBalancer
+  type: LoadBalancer

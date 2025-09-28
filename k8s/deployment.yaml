@@ -20,24 +20,27 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            - name: NCLIP_MONGODB_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  name: mongodb-secret
-                  key: mongodb-db-name
-              # MongoDB env vars removed
-            - name: NCLIP_TTL
-              value: "24h"
+            - name: NCLIP_DATA_DIR
+              value: "/data"
+            - name: NCLIP_URL
+              value: "http://localhost:8080"
             - name: NCLIP_PORT
               value: "8080"
+            - name: NCLIP_TTL
+              value: "24h"
             - name: NCLIP_BUFFER_SIZE
               value: "5242880" # 5MB
             - name: GIN_MODE
               value: "release"
+          volumeMounts:
+          - name: data
+            mountPath: /data
+          - name: tmp
+            mountPath: /tmp
           resources:
             limits:
               memory: "128Mi"
-              cpu: "200m"
+              cpu: "80m"
           livenessProbe:
             httpGet:
               path: /health
@@ -61,3 +64,9 @@ spec:
                 - all
             seccompProfile:
               type: RuntimeDefault
+        volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nclip-pvc
+        - name: tmp
+          emptyDir: {}
