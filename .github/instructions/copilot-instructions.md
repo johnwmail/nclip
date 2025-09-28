@@ -1,3 +1,11 @@
+## Test and Script Cleanup Requirement
+
+All integration tests, scripts, and automated test routines must clean up any files, directories, or artifacts they create. This includes:
+- Removing all files in the data directory (e.g., ./data/*) created during tests
+- Deleting any temporary files (e.g., /tmp/nclip_test.zip) or injected test artifacts
+- Ensuring the environment is clean before and after every test run
+
+This requirement ensures reproducible, reliable tests and prevents leftover artifacts from affecting subsequent runs or deployments.
 # Nclip Copilot Instructions
 
 This is a Go-based HTTP clipboard/pastebin service using the Gin framework. The service supports two modes:
