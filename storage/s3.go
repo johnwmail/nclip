@@ -90,6 +90,10 @@ func (s *S3Store) Get(id string) (*models.Paste, error) {
 		log.Printf("[ERROR] S3 Get: failed to unmarshal metadata for %s: %v", id, err)
 		return nil, err
 	}
+	if paste.IsExpired() {
+		log.Printf("[INFO] S3 Get: paste %s is expired", id)
+		return nil, fmt.Errorf("paste expired")
+	}
 	return &paste, nil
 }
 

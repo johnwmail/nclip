@@ -15,49 +15,49 @@ spec:
         app: nclip
     spec:
       containers:
-      - name: nclip
-        image: ghcr.io/johnwmail/nclip:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: NCLIP_MONGODB_DATABASE
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-secret
-              key: mongodb-db-name
-          # MongoDB env vars removed
-        - name: NCLIP_TTL
-          value: "24h"
-        - name: NCLIP_PORT
-          value: "8080"
-        - name: NCLIP_BUFFER_SIZE
-          value: "5242880"    # 5MB
-        - name: GIN_MODE
-          value: "release"
-        resources:
-          limits:
-            memory: "128Mi"
-            cpu: "200m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        securityContext:
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          runAsUser: 1001
-          runAsGroup: 1001
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - all
-          seccompProfile:
-            type: RuntimeDefault
+        - name: nclip
+          image: ghcr.io/johnwmail/nclip:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NCLIP_MONGODB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongodb-db-name
+              # MongoDB env vars removed
+            - name: NCLIP_TTL
+              value: "24h"
+            - name: NCLIP_PORT
+              value: "8080"
+            - name: NCLIP_BUFFER_SIZE
+              value: "5242880" # 5MB
+            - name: GIN_MODE
+              value: "release"
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - all
+            seccompProfile:
+              type: RuntimeDefault

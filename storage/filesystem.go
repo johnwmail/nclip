@@ -146,6 +146,10 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 		log.Printf("[ERROR] Get: failed to unmarshal metadata for %s: %v", id, err)
 		return nil, err
 	}
+	if paste.IsExpired() {
+		log.Printf("[INFO] FS Get: paste %s is expired", id)
+		return nil, os.ErrNotExist
+	}
 	return &paste, nil
 }
 

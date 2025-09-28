@@ -159,8 +159,19 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	// Detect content type
 	contentType := utils.DetectContentType(filename, content)
 
-	// Create paste metadata
-	expiresAt := time.Now().Add(h.config.DefaultTTL)
+	// Support custom TTL via X-TTL header
+	ttlStr := c.GetHeader("X-TTL")
+	var expiresAt time.Time
+	if ttlStr != "" {
+		d, err := time.ParseDuration(ttlStr)
+		if err != nil || d <= 0 {
+			expiresAt = time.Now().Add(h.config.DefaultTTL)
+		} else {
+			expiresAt = time.Now().Add(d)
+		}
+	} else {
+		expiresAt = time.Now().Add(h.config.DefaultTTL)
+	}
 	paste := &models.Paste{
 		ID:            slug,
 		CreatedAt:     time.Now(),
@@ -247,8 +258,19 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	// Detect content type
 	contentType := utils.DetectContentType(filename, content)
 
-	// Create burn-after-read paste metadata
-	expiresAt := time.Now().Add(h.config.DefaultTTL)
+	// Support custom TTL via X-TTL header
+	ttlStr := c.GetHeader("X-TTL")
+	var expiresAt time.Time
+	if ttlStr != "" {
+		d, err := time.ParseDuration(ttlStr)
+		if err != nil || d <= 0 {
+			expiresAt = time.Now().Add(h.config.DefaultTTL)
+		} else {
+			expiresAt = time.Now().Add(d)
+		}
+	} else {
+		expiresAt = time.Now().Add(h.config.DefaultTTL)
+	}
 	paste := &models.Paste{
 		ID:            slug,
 		CreatedAt:     time.Now(),
@@ -313,8 +335,8 @@ func (h *PasteHandler) View(c *gin.Context) {
 	}
 
 	paste, err := h.store.Get(slug)
-	if err != nil {
-		log.Printf("[ERROR] View: failed to read metadata for slug %s: %v", slug, err)
+	if err != nil || paste == nil {
+		log.Printf("[ERROR] View: paste not found, deleted, or expired for slug %s: %v", slug, err)
 		c.HTML(http.StatusNotFound, "view.html", gin.H{
 			"Title":      "NCLIP - Not Found",
 			"Error":      "Paste not found or deleted",
@@ -326,11 +348,12 @@ func (h *PasteHandler) View(c *gin.Context) {
 		return
 	}
 
-	if paste == nil {
-		log.Printf("[ERROR] View: paste not found or deleted for slug %s", slug)
+	// Check expiration
+	if paste.IsExpired() {
+		log.Printf("[ERROR] View: paste expired for slug %s", slug)
 		c.HTML(http.StatusNotFound, "view.html", gin.H{
 			"Title":      "NCLIP - Not Found",
-			"Error":      "Paste not found or deleted",
+			"Error":      "Paste not found or deleted (expired)",
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
@@ -401,15 +424,16 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 	}
 
 	paste, err := h.store.Get(slug)
-	if err != nil {
-		log.Printf("[ERROR] Raw: failed to read metadata for slug %s: %v", slug, err)
+	if err != nil || paste == nil {
+		log.Printf("[ERROR] Raw: paste not found, deleted, or expired for slug %s: %v", slug, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted"})
 		return
 	}
 
-	if paste == nil {
-		log.Printf("[ERROR] Raw: paste not found or deleted for slug %s", slug)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted"})
+	// Check expiration
+	if paste.IsExpired() {
+		log.Printf("[ERROR] Raw: paste expired for slug %s", slug)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted (expired)"})
 		return
 	}
 

@@ -259,6 +259,30 @@ test_binary_extension_append() {
     fi
 }
 
+test_expired_paste() {
+    log "Testing expired paste behavior..."
+    local test_content="Expired paste test $(date)"
+    local ttl="1s"
+    local paste_url
+    paste_url=$(curl -f -s -X POST "$NCLIP_URL/" -d "$test_content" -H "X-TTL: $ttl")
+    if [[ -z "$paste_url" || ! "$paste_url" =~ http ]]; then
+        error "Failed to create paste with TTL. Response: $paste_url"
+        return 1
+    fi
+    log "Paste created with short TTL: $paste_url"
+    log "Waiting for paste to expire..."
+    sleep 2
+    local status
+    status=$(curl -s -o /dev/null -w "%{http_code}" "$paste_url")
+    if [[ "$status" == "404" ]]; then
+        success "Expired paste returns 404 as expected"
+        return 0
+    else
+        error "Expired paste did not return 404. Status: $status"
+        return 1
+    fi
+}
+
 # Main test function
 run_integration_tests() {
     log "Starting nclip integration tests..."
@@ -319,6 +343,7 @@ run_integration_tests() {
         echo
     fi
     
+
     # Test burn-after-read
     if ! test_burn_after_read; then
         ((failed_tests++))
@@ -333,6 +358,12 @@ run_integration_tests() {
 
     # Test 404
     if ! test_not_found; then
+        ((failed_tests++))
+    fi
+    echo
+
+    # Test expired paste
+    if ! test_expired_paste; then
         ((failed_tests++))
     fi
     echo
