@@ -1,72 +1,138 @@
 package utils
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
 
-func TestGenerateSlug(t *testing.T) {
+func TestSecureRandomSlug(t *testing.T) {
+	for _, length := range []int{5, 6, 7, 10, 32} {
+		slug, err := SecureRandomSlug(length)
+		if err != nil {
+			t.Errorf("SecureRandomSlug(%d) error: %v", length, err)
+		}
+		if len(slug) != length {
+			t.Errorf("SecureRandomSlug(%d) length = %d, want %d", length, len(slug), length)
+		}
+		// Should be custom charset, uppercase, no O/I/0/1
+		allowed := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+		for _, c := range slug {
+			if !strings.ContainsRune(allowed, c) {
+				t.Errorf("SecureRandomSlug contains invalid char: %c", c)
+			}
+		}
+	}
+}
+
+func TestGenerateSlugBatch(t *testing.T) {
+	batch, err := GenerateSlugBatch(5, 8)
+	if err != nil {
+		t.Fatalf("GenerateSlugBatch error: %v", err)
+	}
+	if len(batch) != 5 {
+		t.Errorf("GenerateSlugBatch size = %d, want 5", len(batch))
+	}
+	for _, slug := range batch {
+		if len(slug) != 8 {
+			t.Errorf("Batch slug length = %d, want 8", len(slug))
+		}
+	}
+}
+
+// Mock store for collision simulation
+type mockStore struct {
+	taken   map[string]bool
+	expired map[string]bool
+}
+
+func (m *mockStore) Get(slug string) (*struct{}, error) {
+	if m.taken[slug] {
+		if m.expired[slug] {
+			return &struct{}{}, errors.New("expired")
+		}
+		return &struct{}{}, nil
+	}
+	return nil, errors.New("not found")
+}
+
+func TestBatchCollisionRetryLogic(t *testing.T) {
+	// Simulate all slugs in first batch taken, second batch partially free
+	store := &mockStore{
+		taken:   make(map[string]bool),
+		expired: make(map[string]bool),
+	}
+	// Take all first batch slugs
+	firstBatch, _ := GenerateSlugBatch(5, 5)
+	for _, slug := range firstBatch {
+		store.taken[slug] = true
+	}
+	// Second batch: only first slug is free
+	secondBatch, _ := GenerateSlugBatch(5, 6)
+	for i, slug := range secondBatch {
+		if i > 0 {
+			store.taken[slug] = true
+		}
+	}
+	// Third batch: all taken
+	thirdBatch, _ := GenerateSlugBatch(5, 7)
+	for _, slug := range thirdBatch {
+		store.taken[slug] = true
+	}
+	// Simulate the logic
+	batches := [][]string{firstBatch, secondBatch, thirdBatch}
+	var found string
+	for _, batch := range batches {
+		for _, candidate := range batch {
+			_, err := store.Get(candidate)
+			if err != nil || store.expired[candidate] {
+				found = candidate
+				break
+			}
+		}
+		if found != "" {
+			break
+		}
+	}
+	if found == "" {
+		t.Errorf("No free slug found after 3 batches")
+	} else if len(found) != 6 {
+		t.Errorf("Expected free slug from second batch (length 6), got %s (len=%d)", found, len(found))
+	}
+}
+
+// ...existing code...
+
+func TestSecureRandomSlug_LengthAndCharset(t *testing.T) {
 	tests := []struct {
 		name   string
 		length int
 		want   int // expected length
 	}{
-		{
-			name:   "default length",
-			length: 5,
-			want:   5,
-		},
-		{
-			name:   "custom length",
-			length: 10,
-			want:   10,
-		},
-		{
-			name:   "min valid length",
-			length: 3,
-			want:   3,
-		},
-		{
-			name:   "max valid length",
-			length: 32,
-			want:   32,
-		},
-		{
-			name:   "below min length defaults to 5",
-			length: 2,
-			want:   5,
-		},
-		{
-			name:   "above max length defaults to 5",
-			length: 33,
-			want:   5,
-		},
-		{
-			name:   "zero length defaults to 5",
-			length: 0,
-			want:   5,
-		},
-		{
-			name:   "negative length defaults to 5",
-			length: -1,
-			want:   5,
-		},
+		{"default length", 5, 5},
+		{"custom length", 10, 10},
+		{"min valid length", 3, 3},
+		{"max valid length", 32, 32},
+		{"below min length defaults to 5", 2, 5},
+		{"above max length defaults to 5", 33, 5},
+		{"zero length defaults to 5", 0, 5},
+		{"negative length defaults to 5", -1, 5},
 	}
-
+	allowed := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			slug, err := GenerateSlug(tt.length)
+			slug, err := SecureRandomSlug(tt.length)
 			if err != nil {
-				t.Errorf("GenerateSlug() error = %v", err)
+				t.Errorf("SecureRandomSlug() error = %v", err)
 				return
 			}
 			if len(slug) != tt.want {
-				t.Errorf("GenerateSlug() length = %v, want %v", len(slug), tt.want)
+				t.Errorf("SecureRandomSlug() length = %v, want %v", len(slug), tt.want)
 			}
-
-			// Verify slug contains only valid characters
-			if !IsValidSlug(slug) {
-				t.Errorf("GenerateSlug() generated invalid slug: %v", slug)
+			for _, c := range slug {
+				if !strings.ContainsRune(allowed, c) {
+					t.Errorf("SecureRandomSlug() generated invalid char: %c", c)
+				}
 			}
 		})
 	}
@@ -78,61 +144,21 @@ func TestIsValidSlug(t *testing.T) {
 		slug string
 		want bool
 	}{
-		{
-			name: "too short",
-			slug: "AB",
-			want: false,
-		},
-		{
-			name: "too long",
-			slug: strings.Repeat("A", 33),
-			want: false,
-		},
-		{
-			name: "min valid length",
-			slug: "ABC",
-			want: true,
-		},
-		{
-			name: "max valid length",
-			slug: strings.Repeat("A", 32),
-			want: true,
-		},
-		{
-			name: "empty string",
-			slug: "",
-			want: false,
-		},
-		{
-			name: "valid alphanumeric",
-			slug: "ABC234",
-			want: true,
-		},
-		{
-			name: "contains invalid character",
-			slug: "ABC-234",
-			want: false,
-		},
-		{
-			name: "contains space",
-			slug: "ABC 234",
-			want: false,
-		},
-		{
-			name: "contains special characters",
-			slug: "ABC@234",
-			want: false,
-		},
-		{
-			name: "contains lowercase",
-			slug: "abc234",
-			want: false,
-		},
-		{
-			name: "contains confusing chars 0,1,O,I",
-			slug: "AB01OI",
-			want: false,
-		},
+		{"too short", "AB", false},
+		{"too long", strings.Repeat("A", 33), false},
+		{"min valid length", "ABC", true},
+		{"max valid length", strings.Repeat("A", 32), true},
+		{"empty string", "", false},
+		{"valid alphanumeric", "ABC234", true},
+		{"contains invalid character", "ABC-234", false},
+		{"contains space", "ABC 234", false},
+		{"contains special characters", "ABC@234", false},
+		{"contains lowercase", "abc234", false},
+		{"contains confusing chars 0,1,O,I", "AB01OI", false},
+		{"contains excluded O", "ABCO234", false},
+		{"contains excluded I", "ABCI234", false},
+		{"contains excluded 0", "ABC0234", false},
+		{"contains excluded 1", "ABC1234", false},
 	}
 
 	for _, tt := range tests {
@@ -144,67 +170,54 @@ func TestIsValidSlug(t *testing.T) {
 	}
 }
 
-func TestSlugCharacterSet(t *testing.T) {
-	// Generate many slugs to test character distribution
+func TestSecureRandomSlug_CharacterSet(t *testing.T) {
+	allowed := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	slugs := make([]string, 1000)
 	for i := 0; i < 1000; i++ {
-		slug, err := GenerateSlug(10)
+		slug, err := SecureRandomSlug(10)
 		if err != nil {
-			t.Fatalf("GenerateSlug() error = %v", err)
+			t.Fatalf("SecureRandomSlug() error = %v", err)
 		}
 		slugs[i] = slug
 	}
-
-	// Collect all characters used
 	charCount := make(map[rune]int)
 	for _, slug := range slugs {
 		for _, char := range slug {
 			charCount[char]++
 		}
 	}
-
-	// Verify only expected characters are used
 	for char := range charCount {
-		if !strings.ContainsRune(charset, char) {
+		if !strings.ContainsRune(allowed, char) {
 			t.Errorf("Unexpected character found in generated slugs: %c", char)
 		}
 	}
 }
 
-func TestSlugUniqueness(t *testing.T) {
-	// Generate multiple slugs and verify they're different
+func TestSecureRandomSlug_Uniqueness(t *testing.T) {
 	slugs := make(map[string]bool)
 	duplicates := 0
-
 	for i := 0; i < 1000; i++ {
-		slug, err := GenerateSlug(5)
+		slug, err := SecureRandomSlug(5)
 		if err != nil {
-			t.Fatalf("GenerateSlug() error = %v", err)
+			t.Fatalf("SecureRandomSlug() error = %v", err)
 		}
-
 		if slugs[slug] {
 			duplicates++
 		}
 		slugs[slug] = true
 	}
-
-	// With a 5-character slug from a charset of reasonable size,
-	// we shouldn't see many duplicates in 1000 attempts
 	if duplicates > 10 {
 		t.Errorf("Too many duplicate slugs generated: %d out of 1000", duplicates)
 	}
 }
 
-func TestSlugDoesNotContainConfusingCharacters(t *testing.T) {
-	// Generate many slugs to verify no confusing characters are used
-	confusingChars := "01OI" // chars that can be confused with other chars
-
+func TestSecureRandomSlug_DoesNotContainConfusingCharacters(t *testing.T) {
+	confusingChars := "01OI"
 	for i := 0; i < 1000; i++ {
-		slug, err := GenerateSlug(10)
+		slug, err := SecureRandomSlug(10)
 		if err != nil {
-			t.Fatalf("GenerateSlug() error = %v", err)
+			t.Fatalf("SecureRandomSlug() error = %v", err)
 		}
-
 		for _, char := range slug {
 			if strings.ContainsRune(confusingChars, char) {
 				t.Errorf("Slug contains confusing character %c: %s", char, slug)
@@ -214,23 +227,18 @@ func TestSlugDoesNotContainConfusingCharacters(t *testing.T) {
 }
 
 func TestSlugOnlyContainsUppercaseAndNumbers(t *testing.T) {
-	// Generate many slugs to verify only uppercase letters and numbers (excluding 0,1,O,I) are used
+	allowed := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	for i := 0; i < 1000; i++ {
-		slug, err := GenerateSlug(10)
+		slug, err := SecureRandomSlug(10)
 		if err != nil {
 			t.Fatalf("GenerateSlug() error = %v", err)
 		}
-
 		for _, char := range slug {
 			if char >= 'a' && char <= 'z' {
 				t.Errorf("Slug contains lowercase character %c: %s", char, slug)
 			}
-			if !((char >= 'A' && char <= 'Z') || (char >= '2' && char <= '9')) {
+			if !strings.ContainsRune(allowed, char) {
 				t.Errorf("Slug contains invalid character %c: %s", char, slug)
-			}
-			// Check for excluded characters
-			if char == '0' || char == '1' || char == 'O' || char == 'I' {
-				t.Errorf("Slug contains excluded character %c: %s", char, slug)
 			}
 		}
 	}

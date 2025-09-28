@@ -3,29 +3,37 @@ package utils
 import (
 	"crypto/rand"
 	"math/big"
+	"strings"
 )
 
-const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-// GenerateSlug creates a random alphanumeric slug of the specified length
-func GenerateSlug(length int) (string, error) {
-	// Enforce slug length between 3 and 32, default to 5 if out of range
+// SecureRandomSlug generates a random slug of given length using crypto/rand and a custom charset
+func SecureRandomSlug(length int) (string, error) {
 	if length < 3 || length > 32 {
 		length = 5
 	}
-
+	charset := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no O, I, 0, 1
 	result := make([]byte, length)
-	charsetLength := big.NewInt(int64(len(charset)))
-
 	for i := range result {
-		randomIndex, err := rand.Int(rand.Reader, charsetLength)
+		idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
 		if err != nil {
 			return "", err
 		}
-		result[i] = charset[randomIndex.Int64()]
+		result[i] = charset[idx.Int64()]
 	}
-
 	return string(result), nil
+}
+
+// GenerateSlugBatch returns a batch of candidate slugs
+func GenerateSlugBatch(batchSize, length int) ([]string, error) {
+	slugs := make([]string, batchSize)
+	for i := 0; i < batchSize; i++ {
+		slug, err := SecureRandomSlug(length)
+		if err != nil {
+			return nil, err
+		}
+		slugs[i] = slug
+	}
+	return slugs, nil
 }
 
 // IsValidSlug checks if a slug contains only valid characters
@@ -34,15 +42,9 @@ func IsValidSlug(slug string) bool {
 	if len(slug) < 3 || len(slug) > 32 {
 		return false
 	}
+	allowed := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	for _, char := range slug {
-		valid := false
-		for _, validChar := range charset {
-			if char == validChar {
-				valid = true
-				break
-			}
-		}
-		if !valid {
+		if !strings.ContainsRune(allowed, char) {
 			return false
 		}
 	}

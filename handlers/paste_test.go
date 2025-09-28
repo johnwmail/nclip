@@ -4,11 +4,60 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/config"
+	"github.com/johnwmail/nclip/models"
 )
+
+// takenStore implements storage.PasteStore, always returns a taken paste
+type takenStore struct{}
+
+func (s *takenStore) Get(id string) (*models.Paste, error) {
+	return &models.Paste{ID: id, ExpiresAt: nil}, nil
+}
+func (s *takenStore) Store(*models.Paste) error         { return nil }
+func (s *takenStore) StoreContent(string, []byte) error { return nil }
+func (s *takenStore) GetContent(string) ([]byte, error) { return nil, nil }
+func (s *takenStore) Delete(string) error               { return nil }
+func (s *takenStore) IncrementReadCount(string) error   { return nil }
+func (s *takenStore) Close() error                      { return nil }
+
+func TestSlugCollisionExhaustion(t *testing.T) {
+	// Mock GenerateSlugBatch to always return the same 5 slugs
+	fixedSlugs := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD", "EEEEE"}
+	mockGen := func(batchSize, length int) ([]string, error) {
+		return fixedSlugs, nil
+	}
+
+	cfg := &config.Config{
+		URL:        "http://localhost:8080",
+		SlugLength: 5,
+		DefaultTTL: 3600,
+		BufferSize: 5 * 1024 * 1024,
+		Version:    "test",
+		BuildTime:  "test-time",
+		CommitHash: "test-hash",
+	}
+	store := &takenStore{}
+	handler := NewPasteHandler(store, cfg)
+	handler.GenerateSlugBatch = mockGen
+
+	// Setup Gin router for POST /
+	r := gin.New()
+	r.POST("/", handler.Upload)
+
+	// Make POST request
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/", strings.NewReader("test content"))
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 error, got %d", w.Code)
+	}
+}
 
 // setupTestHandler creates a test handler for testing
 func setupTestHandler() *PasteHandler {

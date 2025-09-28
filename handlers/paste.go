@@ -19,15 +19,17 @@ import (
 
 // PasteHandler handles paste-related operations
 type PasteHandler struct {
-	store  storage.PasteStore
-	config *config.Config
+	store             storage.PasteStore
+	config            *config.Config
+	GenerateSlugBatch func(batchSize, length int) ([]string, error)
 }
 
 // NewPasteHandler creates a new paste handler
 func NewPasteHandler(store storage.PasteStore, config *config.Config) *PasteHandler {
 	return &PasteHandler{
-		store:  store,
-		config: config,
+		store:             store,
+		config:            config,
+		GenerateSlugBatch: utils.GenerateSlugBatch,
 	}
 }
 
@@ -148,12 +150,60 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	// Generate unique slug
-	slug, err := utils.GenerateSlug(h.config.SlugLength)
-	if err != nil {
-		log.Printf("[ERROR] Failed to generate slug: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug"})
-		return
+	var slug string
+	// Support explicit slug via X-Slug header
+	slug = c.GetHeader("X-Slug")
+	if slug != "" {
+		log.Printf("[DEBUG] Explicit slug requested: %s", slug)
+		if !utils.IsValidSlug(slug) {
+			log.Printf("[ERROR] Invalid slug format: %s", slug)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
+			return
+		}
+		existing, err := h.store.Get(slug)
+		log.Printf("[DEBUG] store.Get(%s) returned: existing=%v, err=%v", slug, existing, err)
+		if err == nil && existing != nil && !existing.IsExpired() {
+			log.Printf("[ERROR] Slug already exists and is not expired: %s", slug)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Slug already exists"})
+			return
+		}
+		log.Printf("[DEBUG] Slug %s is available for creation", slug)
+	} else {
+		// Try up to 3 batches, increasing slug length each time based on config
+		batchSize := 5
+		baseLength := h.config.SlugLength
+		lengths := []int{baseLength, baseLength + 1, baseLength + 2}
+		var lastCandidates []string
+		var lastCollisions []string
+		found := false
+		for _, length := range lengths {
+			candidates, err := h.GenerateSlugBatch(batchSize, length)
+			if err != nil {
+				log.Printf("[ERROR] Failed to generate slug batch (length %d): %v", length, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug"})
+				return
+			}
+			lastCandidates = candidates
+			lastCollisions = nil
+			for _, candidate := range candidates {
+				existing, err := h.store.Get(candidate)
+				if err != nil || existing == nil || existing.IsExpired() {
+					slug = candidate
+					found = true
+					break
+				} else {
+					lastCollisions = append(lastCollisions, candidate)
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			log.Printf("[ERROR] Could not generate unique slug after 3 batches. Last candidates: %v. Collisions: %v", lastCandidates, lastCollisions)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate unique slug after 3 batches"})
+			return
+		}
 	}
 
 	// Detect content type
@@ -164,11 +214,15 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	var expiresAt time.Time
 	if ttlStr != "" {
 		d, err := time.ParseDuration(ttlStr)
-		if err != nil || d <= 0 {
-			expiresAt = time.Now().Add(h.config.DefaultTTL)
-		} else {
-			expiresAt = time.Now().Add(d)
+		minTTL := time.Hour
+		maxTTL := 7 * 24 * time.Hour
+		log.Printf("[DEBUG] Parsed X-TTL duration: %v (raw: %s)", d, ttlStr)
+		if err != nil || d < minTTL || d > maxTTL {
+			log.Printf("[ERROR] X-TTL out of range or invalid: %v (raw: %s)", d, ttlStr)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "X-TTL must be between 1h and 7d"})
+			return
 		}
+		expiresAt = time.Now().Add(d)
 	} else {
 		expiresAt = time.Now().Add(h.config.DefaultTTL)
 	}
@@ -248,10 +302,38 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 		return
 	}
 
-	// Generate unique slug
-	slug, err := utils.GenerateSlug(h.config.SlugLength)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug"})
+	// Generate unique slug using batch logic (lengths: 5, 6, 7)
+	batchSize := 5
+	lengths := []int{5, 6, 7}
+	var slug string
+	var lastCandidates []string
+	var lastCollisions []string
+	found := false
+	for _, length := range lengths {
+		candidates, err := utils.GenerateSlugBatch(batchSize, length)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug"})
+			return
+		}
+		lastCandidates = candidates
+		lastCollisions = nil
+		for _, candidate := range candidates {
+			existing, err := h.store.Get(candidate)
+			if err != nil || existing == nil || existing.IsExpired() {
+				slug = candidate
+				found = true
+				break
+			} else {
+				lastCollisions = append(lastCollisions, candidate)
+			}
+		}
+		if found {
+			break
+		}
+	}
+	if !found {
+		log.Printf("[ERROR] Could not generate unique slug after 3 batches. Last candidates: %v. Collisions: %v", lastCandidates, lastCollisions)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate unique slug after 3 batches"})
 		return
 	}
 
@@ -263,11 +345,15 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	var expiresAt time.Time
 	if ttlStr != "" {
 		d, err := time.ParseDuration(ttlStr)
-		if err != nil || d <= 0 {
-			expiresAt = time.Now().Add(h.config.DefaultTTL)
-		} else {
-			expiresAt = time.Now().Add(d)
+		minTTL := time.Hour
+		maxTTL := 7 * 24 * time.Hour
+		log.Printf("[DEBUG] Parsed X-TTL duration: %v (raw: %s)", d, ttlStr)
+		if err != nil || d < minTTL || d > maxTTL {
+			log.Printf("[ERROR] X-TTL out of range or invalid: %v (raw: %s)", d, ttlStr)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "X-TTL must be between 1h and 7d"})
+			return
 		}
+		expiresAt = time.Now().Add(d)
 	} else {
 		expiresAt = time.Now().Add(h.config.DefaultTTL)
 	}

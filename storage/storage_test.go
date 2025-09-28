@@ -8,6 +8,36 @@ import (
 	"github.com/johnwmail/nclip/models"
 )
 
+// TestSlugCollision verifies that storing a paste with an existing slug does not overwrite the original paste
+func TestSlugCollision(t *testing.T) {
+	store := NewMockPasteStore()
+	defer store.Close()
+
+	slug := "COLLISION"
+	paste1 := &models.Paste{ID: slug, Content: []byte("first")}
+	paste2 := &models.Paste{ID: slug, Content: []byte("second")}
+
+	// Store first paste
+	err := store.Store(paste1)
+	if err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
+	// Try to store second paste with same slug
+	err = store.Store(paste2)
+	if err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
+	// Get paste
+	retrieved, err := store.Get(slug)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	// Should still be the first paste (no overwrite)
+	if string(retrieved.Content) != "first" {
+		t.Errorf("Slug collision: expected 'first', got '%s'", string(retrieved.Content))
+	}
+}
+
 // MockPasteStore is a mock implementation of PasteStore for testing
 type MockPasteStore struct {
 	pastes  map[string]*models.Paste
@@ -54,6 +84,10 @@ func (m *MockPasteStore) Store(paste *models.Paste) error {
 	}
 	if paste.ID == "" {
 		return errors.New("paste ID cannot be empty")
+	}
+	if _, exists := m.pastes[paste.ID]; exists {
+		// Do not overwrite existing paste
+		return nil
 	}
 	m.pastes[paste.ID] = paste
 	return nil
