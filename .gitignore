@@ -41,8 +41,10 @@ go.work
 # JetBrains IDEA
 .idea
 
+*.log
+*.pid
 *.zip
 bootstrap
 main
-server
+data/
 
