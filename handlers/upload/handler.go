@@ -80,6 +80,17 @@ func (h *Handler) readUploadContent(c *gin.Context) ([]byte, string, error) {
 func (h *Handler) storePasteAndRespond(c *gin.Context, req services.CreatePasteRequest) {
 	resp, err := h.service.CreatePaste(req)
 	if err != nil {
+		// Check if this is a validation error (should return 400) or server error (500)
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "slug already exists") ||
+			strings.Contains(errMsg, "invalid slug format") ||
+			strings.Contains(errMsg, "X-TTL must be between") {
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.JSON(http.StatusBadRequest, gin.H{"error": errMsg})
+			return
+		}
+		// For other errors, return 500
+		log.Printf("[ERROR] Failed to create paste: %v", err)
 		c.Header("Content-Type", "application/json; charset=utf-8")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create paste"})
 		return
