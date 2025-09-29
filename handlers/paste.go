@@ -16,6 +16,50 @@ import (
 	"github.com/johnwmail/nclip/utils"
 )
 
+// Helper: generateUniqueSlug tries to generate a unique slug using batch logic
+func (h *PasteHandler) generateUniqueSlug() (string, error) {
+	batchSize := 5
+	lengths := []int{5, 6, 7}
+	var slug string
+	for _, length := range lengths {
+		candidates, err := utils.GenerateSlugBatch(batchSize, length)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate slug")
+		}
+		for _, candidate := range candidates {
+			existing, err := h.store.Get(candidate)
+			if err != nil || existing == nil || existing.IsExpired() {
+				slug = candidate
+				return slug, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to generate unique slug after 3 batches")
+}
+
+// Helper: parseBurnTTL parses TTL for burn-after-read
+func (h *PasteHandler) parseBurnTTL(c *gin.Context) (time.Time, error) {
+	ttlStr := c.GetHeader("X-TTL")
+	if ttlStr != "" {
+		d, err := time.ParseDuration(ttlStr)
+		minTTL := time.Hour
+		maxTTL := 7 * 24 * time.Hour
+		if utils.IsDebugEnabled() {
+			log.Printf("[DEBUG] Parsed X-TTL duration: %v (raw: %s)", d, ttlStr)
+		}
+		if err != nil || d < minTTL || d > maxTTL {
+			return time.Time{}, fmt.Errorf("X-TTL must be between 1h and 7d")
+		}
+		return time.Now().Add(d), nil
+	}
+	return time.Now().Add(h.config.DefaultTTL), nil
+}
+
+// Helper: respondError sends a JSON error response
+func respondError(c *gin.Context, status int, msg string) {
+	c.JSON(status, gin.H{"error": msg})
+}
+
 // PasteHandler handles paste-related operations
 type PasteHandler struct {
 	store             storage.PasteStore
@@ -279,94 +323,51 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	var filename string
 	var err error
 
-	// Check if it's a multipart form (file upload)
-	if c.Request.Header.Get("Content-Type") != "" &&
-		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-
+	// Extract content
+	if c.Request.Header.Get("Content-Type") != "" && strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
+			respondError(c, http.StatusBadRequest, "No file provided")
 			return
 		}
-		defer func() { _ = file.Close() }() // Ignore close errors in defer
-
+		defer func() { _ = file.Close() }()
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
+			respondError(c, http.StatusInternalServerError, "Failed to read file")
 			return
 		}
 	} else {
-		// Raw content upload
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content"})
+			respondError(c, http.StatusInternalServerError, "Failed to read content")
 			return
 		}
 	}
-
 	if len(content) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Empty content"})
+		respondError(c, http.StatusBadRequest, "Empty content")
 		return
 	}
 
-	// Generate unique slug using batch logic (lengths: 5, 6, 7)
-	batchSize := 5
-	lengths := []int{5, 6, 7}
-	var slug string
-	var lastCandidates []string
-	var lastCollisions []string
-	found := false
-	for _, length := range lengths {
-		candidates, err := utils.GenerateSlugBatch(batchSize, length)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug"})
-			return
-		}
-		lastCandidates = candidates
-		lastCollisions = nil
-		for _, candidate := range candidates {
-			existing, err := h.store.Get(candidate)
-			if err != nil || existing == nil || existing.IsExpired() {
-				slug = candidate
-				found = true
-				break
-			} else {
-				lastCollisions = append(lastCollisions, candidate)
-			}
-		}
-		if found {
-			break
-		}
-	}
-	if !found {
-		log.Printf("[ERROR] Could not generate unique slug after 3 batches. Last candidates: %v. Collisions: %v", lastCandidates, lastCollisions)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate unique slug after 3 batches"})
+	// Generate unique slug
+	slug, err := h.generateUniqueSlug()
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
+		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Detect content type
 	contentType := utils.DetectContentType(filename, content)
 
-	// Support custom TTL via X-TTL header
-	ttlStr := c.GetHeader("X-TTL")
-	var expiresAt time.Time
-	if ttlStr != "" {
-		d, err := time.ParseDuration(ttlStr)
-		minTTL := time.Hour
-		maxTTL := 7 * 24 * time.Hour
-		if utils.IsDebugEnabled() {
-			log.Printf("[DEBUG] Parsed X-TTL duration: %v (raw: %s)", d, ttlStr)
-		}
-		if err != nil || d < minTTL || d > maxTTL {
-			log.Printf("[ERROR] X-TTL out of range or invalid: %v (raw: %s)", d, ttlStr)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "X-TTL must be between 1h and 7d"})
-			return
-		}
-		expiresAt = time.Now().Add(d)
-	} else {
-		expiresAt = time.Now().Add(h.config.DefaultTTL)
+	// Parse TTL
+	expiresAt, err := h.parseBurnTTL(c)
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
+		respondError(c, http.StatusBadRequest, err.Error())
+		return
 	}
+
 	paste := &models.Paste{
 		ID:            slug,
 		CreatedAt:     time.Now(),
@@ -379,11 +380,11 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 
 	// Store content and metadata
 	if err := h.store.StoreContent(slug, content); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store content"})
+		respondError(c, http.StatusInternalServerError, "Failed to store content")
 		return
 	}
 	if err := h.store.Store(paste); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store metadata"})
+		respondError(c, http.StatusInternalServerError, "Failed to store metadata")
 		return
 	}
 
@@ -391,8 +392,7 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 	pasteURL := h.generatePasteURL(c, slug)
 
 	// Return URL as plain text for cli tools compatibility
-	if h.isCli(c) ||
-		c.Request.Header.Get("Accept") == "text/plain" {
+	if h.isCli(c) || c.Request.Header.Get("Accept") == "text/plain" {
 		c.String(http.StatusOK, pasteURL+"\n")
 		return
 	}

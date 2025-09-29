@@ -7,6 +7,43 @@ import (
 	"strings"
 )
 
+// extensionMap holds common mime type to extension mappings
+var extensionMap = map[string]string{
+	"application/zip":              ".zip",
+	"application/x-zip-compressed": ".zip",
+	"application/x-zip":            ".zip",
+	"application/x-tar":            ".tar",
+	"application/tar":              ".tar",
+	"application/x-gzip":           ".gz",
+	"application/gzip":             ".gz",
+	"application/x-7z-compressed":  ".7z",
+	"application/7z":               ".7z",
+	"application/x-bzip2":          ".bz2",
+	"application/bzip2":            ".bz2",
+	"application/x-xz":             ".xz",
+	"application/xz":               ".xz",
+	"application/x-rar-compressed": ".rar",
+	"application/vnd.rar":          ".rar",
+	"application/rar":              ".rar",
+	"application/pdf":              ".pdf",
+	"image/jpeg":                   ".jpg",
+	"image/png":                    ".png",
+	"image/gif":                    ".gif",
+	"image/webp":                   ".webp",
+	"image/svg+xml":                ".svg",
+	"application/octet-stream":     ".bin",
+	"application/x-binary":         ".bin",
+	"application/bin":              ".bin",
+}
+
+func extensionByMimeMap(mimeType string) string {
+	ext, ok := extensionMap[strings.ToLower(mimeType)]
+	if ok {
+		return ext
+	}
+	return ""
+}
+
 // DetectContentType attempts to detect the MIME type of content
 // It first tries to detect from the filename, then from the content itself
 func DetectContentType(filename string, content []byte) string {
@@ -53,50 +90,11 @@ func ExtensionByMime(mimeType string) string {
 	if mimeType == "" {
 		return ""
 	}
-
 	if base, _, err := mime.ParseMediaType(mimeType); err == nil {
 		mimeType = base
 	}
-
 	if exts, _ := mime.ExtensionsByType(mimeType); len(exts) > 0 && exts[0] != "" {
 		return exts[0]
 	}
-
-	switch strings.ToLower(mimeType) {
-	case "application/zip", "application/x-zip-compressed", "application/x-zip":
-		return ".zip"
-	case "application/x-tar", "application/tar":
-		return ".tar"
-	case "application/x-gzip", "application/gzip":
-		return ".gz"
-	case "application/x-7z-compressed", "application/7z":
-		return ".7z"
-	case "application/x-bzip2", "application/bzip2":
-		return ".bz2"
-	case "application/x-xz", "application/xz":
-		return ".xz"
-	case "application/x-rar-compressed", "application/vnd.rar", "application/rar":
-		return ".rar"
-	case "application/pdf":
-		return ".pdf"
-	case "image/jpeg":
-		return ".jpg"
-	case "image/png":
-		return ".png"
-	case "image/gif":
-		return ".gif"
-	case "image/webp":
-		return ".webp"
-	case "image/svg+xml":
-		return ".svg"
-	case "application/octet-stream", "application/x-binary", "application/bin":
-		return ".bin"
-	}
-
-	// fallback: only treat as binary for true binary types
-	lower := strings.ToLower(mimeType)
-	if lower == "application/octet-stream" || lower == "application/x-binary" || lower == "application/bin" {
-		return ".bin"
-	}
-	return ""
+	return extensionByMimeMap(mimeType)
 }
