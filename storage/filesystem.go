@@ -130,6 +130,39 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 	return &paste, nil
 }
 
+func (fs *FilesystemStore) Exists(id string) (bool, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if fs.useS3 {
+		key := fs.s3Key(id + ".json")
+		input := &s3.HeadObjectInput{
+			Bucket: aws.String(fs.s3Bucket),
+			Key:    aws.String(key),
+		}
+		_, err := fs.s3Client.HeadObject(context.Background(), input)
+		if err != nil {
+			var apiErr smithy.APIError
+			if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NoSuchKey" {
+				return false, nil
+			}
+			logAwsError(fmt.Sprintf("S3 Exists check for %s", id), err)
+			return false, err
+		}
+		return true, nil
+	}
+	// Local FS
+	metaPath := filepath.Join(fs.dataDir, id+".json")
+	_, err := os.Stat(metaPath)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		log.Printf("[ERROR] FS Exists: failed to stat metadata for %s: %v", id, err)
+		return false, err
+	}
+	return true, nil
+}
+
 func (fs *FilesystemStore) Delete(id string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()

@@ -10,6 +10,9 @@ type PasteStore interface {
 	// Get retrieves a paste by its ID
 	Get(id string) (*models.Paste, error)
 
+	// Exists checks if a paste exists by its ID
+	Exists(id string) (bool, error)
+
 	// Delete removes a paste from storage
 	Delete(id string) error
 

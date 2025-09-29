@@ -53,6 +53,11 @@ func (m *MockPasteStore) Get(id string) (*models.Paste, error) {
 	return m.pastes[id], nil
 }
 
+func (m *MockPasteStore) Exists(id string) (bool, error) {
+	_, exists := m.pastes[id]
+	return exists, nil
+}
+
 func (m *MockPasteStore) Delete(id string) error {
 	delete(m.pastes, id)
 	return nil

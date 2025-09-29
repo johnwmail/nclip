@@ -18,6 +18,7 @@ type takenStore struct{}
 func (s *takenStore) Get(id string) (*models.Paste, error) {
 	return &models.Paste{ID: id, ExpiresAt: nil}, nil
 }
+func (s *takenStore) Exists(id string) (bool, error)    { return true, nil }
 func (s *takenStore) Store(*models.Paste) error         { return nil }
 func (s *takenStore) StoreContent(string, []byte) error { return nil }
 func (s *takenStore) GetContent(string) ([]byte, error) { return nil, nil }

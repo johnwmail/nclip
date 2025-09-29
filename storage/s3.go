@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
 	"github.com/johnwmail/nclip/models"
 	"github.com/johnwmail/nclip/utils"
 )
@@ -99,6 +101,25 @@ func (s *S3Store) Get(id string) (*models.Paste, error) {
 		return nil, fmt.Errorf("paste expired")
 	}
 	return &paste, nil
+}
+
+func (s *S3Store) Exists(id string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	metaKey := applyS3Prefix(s.prefix, id+".json")
+	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(metaKey),
+	})
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NoSuchKey" {
+			return false, nil
+		}
+		log.Printf("[ERROR] S3 Exists: failed to check existence for %s: %v", id, err)
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *S3Store) Delete(id string) error {

@@ -111,6 +111,17 @@ func (m *MockPasteStore) Get(id string) (*models.Paste, error) {
 	return &copyPaste, nil
 }
 
+func (m *MockPasteStore) Exists(id string) (bool, error) {
+	if m.closed {
+		return false, errors.New("store is closed")
+	}
+	if id == "" {
+		return false, errors.New("ID cannot be empty")
+	}
+	_, exists := m.pastes[id]
+	return exists, nil
+}
+
 func (m *MockPasteStore) IncrementReadCount(id string) error {
 	if m.closed {
 		return errors.New("store is closed")

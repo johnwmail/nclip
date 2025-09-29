@@ -27,6 +27,15 @@ func (h *PasteHandler) generateUniqueSlug() (string, error) {
 			return "", fmt.Errorf("failed to generate slug")
 		}
 		for _, candidate := range candidates {
+			exists, err := h.store.Exists(candidate)
+			if err != nil {
+				continue // skip on error
+			}
+			if !exists {
+				slug = candidate
+				return slug, nil
+			}
+			// exists, check if expired
 			existing, err := h.store.Get(candidate)
 			if err != nil || existing == nil || existing.IsExpired() {
 				slug = candidate
@@ -282,11 +291,24 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 			return
 		}
 		// Check for collision
-		existing, err := h.store.Get(customSlug)
-		if err == nil && existing != nil && !existing.IsExpired() {
+		exists, err := h.store.Exists(customSlug)
+		if err != nil {
 			c.Header("Content-Type", "application/json; charset=utf-8")
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Slug already exists"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check slug"})
 			return
+		}
+		if exists {
+			existing, err := h.store.Get(customSlug)
+			if err != nil {
+				c.Header("Content-Type", "application/json; charset=utf-8")
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve paste"})
+				return
+			}
+			if existing != nil && !existing.IsExpired() {
+				c.Header("Content-Type", "application/json; charset=utf-8")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Slug already exists"})
+				return
+			}
 		}
 		slug := customSlug
 		expiresAt, err := h.parseTTL(c)
