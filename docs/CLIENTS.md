@@ -11,10 +11,18 @@ This guide explains how to interact with nclip using various clients, including 
 echo "Hello World!" | curl -sL --data-binary @- http://localhost:8080
 ```
 
-**Upload file:**
+
+**Upload file (raw):**
 ```bash
 curl -sL --data-binary @myfile.txt http://localhost:8080
 ```
+
+**Upload file (multipart/form-data):**
+```bash
+curl -sL -F "file=@myfile.txt" http://localhost:8080
+```
+
+You can use either `--data-binary` for raw uploads or `-F/--form` for multipart uploads. Both are supported.
 
 **Set custom TTL (expiry):**
 ```bash
