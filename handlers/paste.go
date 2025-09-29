@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -22,6 +21,122 @@ type PasteHandler struct {
 	store             storage.PasteStore
 	config            *config.Config
 	GenerateSlugBatch func(batchSize, length int) ([]string, error)
+}
+
+// Helper: readUploadContent extracts content and filename from request
+func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, error) {
+	var content []byte
+	var filename string
+	var err error
+
+	if c.Request.Header.Get("Content-Type") != "" &&
+		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+		file, header, err := c.Request.FormFile("file")
+		if err != nil {
+			return nil, "", fmt.Errorf("no file provided")
+		}
+		defer func() { _ = file.Close() }()
+		filename = header.Filename
+		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
+		if err != nil {
+			return nil, filename, fmt.Errorf("failed to read file")
+		}
+	} else {
+		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to read content")
+		}
+	}
+	if len(content) == 0 {
+		return nil, filename, fmt.Errorf("empty content")
+	}
+	return content, filename, nil
+}
+
+// Helper: selectOrGenerateSlug chooses or generates a unique slug
+func (h *PasteHandler) selectOrGenerateSlug(c *gin.Context) (string, error) {
+	batchSize := 5
+	lengths := []int{5, 6, 7}
+	var slug string
+	var lastCandidates []string
+	var lastCollisions []string
+	found := false
+	for _, length := range lengths {
+		candidates, err := h.GenerateSlugBatch(batchSize, length)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate slug")
+		}
+		lastCandidates = candidates
+		lastCollisions = nil
+		for _, candidate := range candidates {
+			existing, err := h.store.Get(candidate)
+			if err != nil || existing == nil || existing.IsExpired() {
+				slug = candidate
+				found = true
+				break
+			} else {
+				lastCollisions = append(lastCollisions, candidate)
+			}
+		}
+		if found {
+			break
+		}
+	}
+	if !found {
+		log.Printf("[ERROR] Could not generate unique slug after 3 batches. Last candidates: %v. Collisions: %v", lastCandidates, lastCollisions)
+		return "", fmt.Errorf("failed to generate unique slug after 3 batches")
+	}
+	return slug, nil
+}
+
+// Helper: parseTTL parses TTL from X-TTL header or uses default
+func (h *PasteHandler) parseTTL(c *gin.Context) (time.Time, error) {
+	ttlStr := c.GetHeader("X-TTL")
+	if ttlStr != "" {
+		d, err := time.ParseDuration(ttlStr)
+		minTTL := time.Hour
+		maxTTL := 7 * 24 * time.Hour
+		if utils.IsDebugEnabled() {
+			log.Printf("[DEBUG] Parsed X-TTL duration: %v (raw: %s)", d, ttlStr)
+		}
+		if err != nil || d < minTTL || d > maxTTL {
+			return time.Time{}, fmt.Errorf("X-TTL must be between 1h and 7d")
+		}
+		return time.Now().Add(d), nil
+	}
+	return time.Now().Add(h.config.DefaultTTL), nil
+}
+
+// Helper: storePasteAndRespond stores paste and responds to client
+func (h *PasteHandler) storePasteAndRespond(c *gin.Context, slug string, content []byte, expiresAt time.Time, filename string) {
+	contentType := utils.DetectContentType(filename, content)
+	paste := &models.Paste{
+		ID:            slug,
+		CreatedAt:     time.Now(),
+		ExpiresAt:     &expiresAt,
+		Size:          int64(len(content)),
+		ContentType:   contentType,
+		BurnAfterRead: true,
+		ReadCount:     0,
+	}
+	if err := h.store.StoreContent(slug, content); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store content"})
+		return
+	}
+	if err := h.store.Store(paste); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store metadata"})
+		return
+	}
+	pasteURL := h.generatePasteURL(c, slug)
+	if h.isCli(c) || c.Request.Header.Get("Accept") == "text/plain" {
+		c.String(http.StatusOK, pasteURL+"\n")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"url":             pasteURL,
+		"slug":            slug,
+		"burn_after_read": true,
+	})
 }
 
 // NewPasteHandler creates a new paste handler
@@ -102,167 +217,25 @@ func (h *PasteHandler) isCli(c *gin.Context) bool {
 
 // Upload handles paste upload via POST /
 func (h *PasteHandler) Upload(c *gin.Context) {
-	// Aggressive logging: log all POST / requests, headers, and body
-	log.Printf("[DEBUG] POST / called. Headers:")
-	for k, v := range c.Request.Header {
-		log.Printf("[HEADER] %s: %v", k, v)
-	}
-	bodyBytes, _ := io.ReadAll(c.Request.Body)
-	log.Printf("[DEBUG] POST / body: %s", string(bodyBytes))
-	// Rewind body for further reading (preserve raw bytes)
-	c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-	var content []byte
-	var filename string
-	var err error
-
-	// Check if it's a multipart form (file upload)
-	if c.Request.Header.Get("Content-Type") != "" &&
-		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-
-		file, header, err := c.Request.FormFile("file")
-		if err != nil {
-			log.Printf("[ERROR] No file provided in multipart upload: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
-			return
-		}
-		defer func() { _ = file.Close() }() // Ignore close errors in defer
-
-		filename = header.Filename
-		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
-		if err != nil {
-			log.Printf("[ERROR] Failed to read uploaded file: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
-			return
-		}
-	} else {
-		// Raw content upload
-		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
-		if err != nil {
-			log.Printf("[ERROR] Failed to read raw upload content: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read content"})
-			return
-		}
-	}
-
-	if len(content) == 0 {
-		log.Printf("[ERROR] Empty content in upload")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Empty content"})
+	content, filename, err := h.readUploadContent(c)
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	var slug string
-	// Support explicit slug via X-Slug header
-	slug = c.GetHeader("X-Slug")
-	if slug != "" {
-		log.Printf("[DEBUG] Explicit slug requested: %s", slug)
-		if !utils.IsValidSlug(slug) {
-			log.Printf("[ERROR] Invalid slug format: %s", slug)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
-			return
-		}
-		existing, err := h.store.Get(slug)
-		log.Printf("[DEBUG] store.Get(%s) returned: existing=%v, err=%v", slug, existing, err)
-		if err == nil && existing != nil && !existing.IsExpired() {
-			log.Printf("[ERROR] Slug already exists and is not expired: %s", slug)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Slug already exists"})
-			return
-		}
-		log.Printf("[DEBUG] Slug %s is available for creation", slug)
-	} else {
-		// Try up to 3 batches, increasing slug length each time based on config
-		batchSize := 5
-		baseLength := h.config.SlugLength
-		lengths := []int{baseLength, baseLength + 1, baseLength + 2}
-		var lastCandidates []string
-		var lastCollisions []string
-		found := false
-		for _, length := range lengths {
-			candidates, err := h.GenerateSlugBatch(batchSize, length)
-			if err != nil {
-				log.Printf("[ERROR] Failed to generate slug batch (length %d): %v", length, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate slug"})
-				return
-			}
-			lastCandidates = candidates
-			lastCollisions = nil
-			for _, candidate := range candidates {
-				existing, err := h.store.Get(candidate)
-				if err != nil || existing == nil || existing.IsExpired() {
-					slug = candidate
-					found = true
-					break
-				} else {
-					lastCollisions = append(lastCollisions, candidate)
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			log.Printf("[ERROR] Could not generate unique slug after 3 batches. Last candidates: %v. Collisions: %v", lastCandidates, lastCollisions)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate unique slug after 3 batches"})
-			return
-		}
-	}
-
-	// Detect content type
-	contentType := utils.DetectContentType(filename, content)
-
-	// Support custom TTL via X-TTL header
-	ttlStr := c.GetHeader("X-TTL")
-	var expiresAt time.Time
-	if ttlStr != "" {
-		d, err := time.ParseDuration(ttlStr)
-		minTTL := time.Hour
-		maxTTL := 7 * 24 * time.Hour
-		log.Printf("[DEBUG] Parsed X-TTL duration: %v (raw: %s)", d, ttlStr)
-		if err != nil || d < minTTL || d > maxTTL {
-			log.Printf("[ERROR] X-TTL out of range or invalid: %v (raw: %s)", d, ttlStr)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "X-TTL must be between 1h and 7d"})
-			return
-		}
-		expiresAt = time.Now().Add(d)
-	} else {
-		expiresAt = time.Now().Add(h.config.DefaultTTL)
-	}
-	paste := &models.Paste{
-		ID:            slug,
-		CreatedAt:     time.Now(),
-		ExpiresAt:     &expiresAt,
-		Size:          int64(len(content)),
-		ContentType:   contentType,
-		BurnAfterRead: false,
-		ReadCount:     0,
-	}
-
-	// Store content and metadata
-	if err := h.store.StoreContent(slug, content); err != nil {
-		log.Printf("[ERROR] Failed to store content for slug %s: %v", slug, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store content"})
+	slug, err := h.selectOrGenerateSlug(c)
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.store.Store(paste); err != nil {
-		log.Printf("[ERROR] Failed to store metadata for slug %s: %v", slug, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store metadata"})
+	expiresAt, err := h.parseTTL(c)
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Generate URL
-	pasteURL := h.generatePasteURL(c, slug)
-
-	// Return URL as plain text for cli tools compatibility
-	if h.isCli(c) ||
-		c.Request.Header.Get("Accept") == "text/plain" {
-		c.String(http.StatusOK, pasteURL+"\n")
-		return
-	}
-
-	// Return JSON for other clients
-	c.JSON(http.StatusOK, gin.H{
-		"url":  pasteURL,
-		"slug": slug,
-	})
+	h.storePasteAndRespond(c, slug, content, expiresAt, filename)
 }
 
 // UploadBurn handles burn-after-read paste upload via POST /burn/
@@ -347,7 +320,9 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 		d, err := time.ParseDuration(ttlStr)
 		minTTL := time.Hour
 		maxTTL := 7 * 24 * time.Hour
-		log.Printf("[DEBUG] Parsed X-TTL duration: %v (raw: %s)", d, ttlStr)
+		if utils.IsDebugEnabled() {
+			log.Printf("[DEBUG] Parsed X-TTL duration: %v (raw: %s)", d, ttlStr)
+		}
 		if err != nil || d < minTTL || d > maxTTL {
 			log.Printf("[ERROR] X-TTL out of range or invalid: %v (raw: %s)", d, ttlStr)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "X-TTL must be between 1h and 7d"})

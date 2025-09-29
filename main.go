@@ -16,6 +16,7 @@ import (
 	"github.com/johnwmail/nclip/config"
 	"github.com/johnwmail/nclip/handlers"
 	"github.com/johnwmail/nclip/storage"
+	"github.com/johnwmail/nclip/utils"
 
 	// Lambda imports (only used when in Lambda mode)
 	"github.com/aws/aws-lambda-go/events"
@@ -49,24 +50,28 @@ func main() {
 	log.Printf("Build Time:    %s", BuildTime)
 	log.Printf("Commit Hash:   %s", CommitHash)
 
-	// Aggressive logging: print all environment variables
-	log.Printf("[DEBUG] ENVIRONMENT VARIABLES:")
-	for _, e := range os.Environ() {
-		log.Printf("[ENV] %s", e)
-	}
-
 	// Load configuration
 	cfg := config.LoadConfig()
 	cfg.Version = Version
 	cfg.BuildTime = BuildTime
 	cfg.CommitHash = CommitHash
 
-	// Aggressive logging: print config
-	log.Printf("[DEBUG] Loaded config: %+v", cfg)
-
 	// Set Gin mode based on environment
-	if os.Getenv("GIN_MODE") == "" {
+	if os.Getenv("GIN_MODE") == "release" {
 		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// Aggressive logging: print all environment variables
+	if utils.IsDebugEnabled() {
+		log.Printf("[DEBUG] ENVIRONMENT VARIABLES:")
+		for _, e := range os.Environ() {
+			log.Printf("[ENV] %s", e)
+		}
+	}
+
+	// Aggressive logging: print config
+	if utils.IsDebugEnabled() {
+		log.Printf("[DEBUG] Loaded config: %+v", cfg)
 	}
 
 	// Aggressive logging: print which storage backend is being used
@@ -76,7 +81,9 @@ func main() {
 	} else {
 		backend = "auto (default)"
 	}
-	log.Printf("[DEBUG] Storage backend selection: %s", backend)
+	if utils.IsDebugEnabled() {
+		log.Printf("[DEBUG] Storage backend selection: %s", backend)
+	}
 
 	// Initialize storage backend based on deployment mode
 	var store storage.PasteStore
@@ -88,7 +95,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to initialize S3 storage for Lambda: %v", err)
 		}
-		if os.Getenv("GIN_MODE") == "debug" {
+		if utils.IsDebugEnabled() {
 			log.Printf("S3 Bucket: %s", cfg.S3Bucket)
 			log.Printf("S3 Prefix: %s", cfg.S3Prefix)
 		}
@@ -100,7 +107,7 @@ func main() {
 			log.Fatalf("Failed to initialize filesystem storage: %v", err)
 		}
 		log.Println("Server mode: Using filesystem storage")
-		if os.Getenv("GIN_MODE") == "debug" {
+		if utils.IsDebugEnabled() {
 			log.Printf("Listening on port: %d", cfg.Port)
 		}
 	}
