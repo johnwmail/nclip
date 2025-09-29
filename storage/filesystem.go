@@ -95,7 +95,10 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 		}
 		out, err := fs.s3Client.GetObject(context.Background(), input)
 		if err != nil {
-			logAwsError(fmt.Sprintf("S3 Get metadata for %s", id), err)
+			var apiErr smithy.APIError
+			if !errors.As(err, &apiErr) || apiErr.ErrorCode() != "NoSuchKey" {
+				logAwsError(fmt.Sprintf("S3 Get metadata for %s", id), err)
+			}
 			return nil, err
 		}
 		defer func() {
@@ -114,7 +117,9 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 		var err error
 		metaData, err = os.ReadFile(metaPath)
 		if err != nil {
-			log.Printf("[ERROR] FS Get: failed to read metadata for %s: %v", id, err)
+			if !os.IsNotExist(err) {
+				log.Printf("[ERROR] FS Get: failed to read metadata for %s: %v", id, err)
+			}
 			return nil, err
 		}
 	}
