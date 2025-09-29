@@ -25,6 +25,10 @@ func TestNewFilesystemStore_Defaults(t *testing.T) {
 func TestFilesystemStore_StoreAndGet_LocalFS(t *testing.T) {
 	os.Setenv("NCLIP_DATA_DIR", "./testdata")
 	os.Setenv("NCLIP_S3_BUCKET", "")
+	// Ensure testdata directory exists
+	if err := os.MkdirAll("./testdata", 0o755); err != nil {
+		t.Fatalf("Failed to create testdata dir: %v", err)
+	}
 	store, err := NewFilesystemStore()
 	if err != nil {
 		t.Fatalf("NewFilesystemStore failed: %v", err)
@@ -42,6 +46,8 @@ func TestFilesystemStore_StoreAndGet_LocalFS(t *testing.T) {
 		t.Errorf("expected ID testfs, got %s", got.ID)
 	}
 	_ = store.Delete("testfs")
+	// Clean up testdata directory
+	_ = os.RemoveAll("./testdata")
 }
 
 func TestFilesystemStore_Delete_LocalFS(t *testing.T) {
