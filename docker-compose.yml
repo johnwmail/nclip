@@ -1,12 +1,11 @@
 services:
-  # nclip Application  
+  # nclip Application
   nclip:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: nclip-app
     restart: unless-stopped
-    cups: 0.8
     mem_limit: 128mb
     user: 1001:1001
     read_only: true
@@ -20,12 +19,12 @@ services:
       #NCLIP_URL: http://localhost:8080
       NCLIP_PORT: 8080
       NCLIP_TTL: 24h
-      NCLIP_BUFFER_SIZE: 5242880    # 5MB
+      NCLIP_BUFFER_SIZE: 5242880 # 5MB
       GIN_MODE: release
     volumes:
       - data:/data
     ports:
-      - "8080:8080"   # HTTP interface
+      - "8080:8080" # HTTP interface
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -35,4 +34,3 @@ services:
 volumes:
   data:
     driver: local
-
