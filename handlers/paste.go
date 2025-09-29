@@ -128,10 +128,12 @@ func (h *PasteHandler) storePasteAndRespond(c *gin.Context, slug string, content
 		return
 	}
 	pasteURL := h.generatePasteURL(c, slug)
+	// Always return JSON for web UI (browser)
 	if h.isCli(c) || c.Request.Header.Get("Accept") == "text/plain" {
 		c.String(http.StatusOK, pasteURL+"\n")
 		return
 	}
+	c.Header("Content-Type", "application/json; charset=utf-8")
 	c.JSON(http.StatusOK, gin.H{
 		"url":             pasteURL,
 		"slug":            slug,
@@ -220,18 +222,21 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	content, filename, err := h.readUploadContent(c)
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
+		c.Header("Content-Type", "application/json; charset=utf-8")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	slug, err := h.selectOrGenerateSlug(c)
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
+		c.Header("Content-Type", "application/json; charset=utf-8")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	expiresAt, err := h.parseTTL(c)
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
+		c.Header("Content-Type", "application/json; charset=utf-8")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

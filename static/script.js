@@ -1,13 +1,13 @@
 // Upload functionality
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const textContent = document.getElementById('text-content');
     const uploadTextBtn = document.getElementById('upload-text');
     const burnTextCheckbox = document.getElementById('burn-text');
-    
+
     const fileInput = document.getElementById('file-input');
     const uploadFileBtn = document.getElementById('upload-file');
     const burnFileCheckbox = document.getElementById('burn-file');
-    
+
     const resultSection = document.getElementById('result-section');
     const pasteUrlInput = document.getElementById('paste-url');
     const copyUrlBtn = document.getElementById('copy-url');
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const initialUsageHTML = usageExamplesContainer ? usageExamplesContainer.innerHTML : '';
 
     // Text upload
-    uploadTextBtn.addEventListener('click', function() {
+    uploadTextBtn.addEventListener('click', function () {
         const content = textContent.value.trim();
         if (!content) {
             alert('Please enter some text to upload.');
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const isBurn = burnTextCheckbox.checked;
         const endpoint = isBurn ? '/burn/' : '/';
-        
+
         uploadTextBtn.disabled = true;
         uploadTextBtn.textContent = 'Uploading...';
 
@@ -41,24 +41,30 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: content
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            showResult(data.url, data.slug);
-        })
-        .catch(error => {
-            alert('Upload failed: ' + error.message);
-        })
-        .finally(() => {
-            uploadTextBtn.disabled = false;
-            uploadTextBtn.textContent = 'Paste Text';
-        });
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // Not JSON (e.g., HTML error page)
+                    throw new Error('Server error: Unexpected response format');
+                }
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                showResult(data.url, data.slug);
+            })
+            .catch(error => {
+                alert('Upload failed: ' + error.message);
+            })
+            .finally(() => {
+                uploadTextBtn.disabled = false;
+                uploadTextBtn.textContent = 'Paste Text';
+            });
     });
 
     // File upload
-    uploadFileBtn.addEventListener('click', function() {
+    uploadFileBtn.addEventListener('click', function () {
         const file = fileInput.files[0];
         if (!file) {
             alert('Please select a file to upload.');
@@ -69,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const endpoint = isBurn ? '/burn/' : '/';
         const formData = new FormData();
         formData.append('file', file);
-        
+
         uploadFileBtn.disabled = true;
         uploadFileBtn.textContent = 'Uploading...';
 
@@ -77,20 +83,26 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: formData
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            showResult(data.url, data.slug);
-        })
-        .catch(error => {
-            alert('Upload failed: ' + error.message);
-        })
-        .finally(() => {
-            uploadFileBtn.disabled = false;
-            uploadFileBtn.textContent = 'Upload File';
-        });
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // Not JSON (e.g., HTML error page)
+                    throw new Error('Server error: Unexpected response format');
+                }
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                showResult(data.url, data.slug);
+            })
+            .catch(error => {
+                alert('Upload failed: ' + error.message);
+            })
+            .finally(() => {
+                uploadFileBtn.disabled = false;
+                uploadFileBtn.textContent = 'Upload File';
+            });
     });
 
     // Show result
@@ -100,19 +112,19 @@ document.addEventListener('DOMContentLoaded', function() {
             viewPasteLink.href = '/' + slug;
         }
         rawPasteLink.href = '/raw/' + slug;
-        
+
         // Hide the upload section
         const uploadSection = document.querySelector('.upload-section');
         if (uploadSection) {
             uploadSection.style.display = 'none';
         }
-        
+
         // Update usage examples to show how to read this paste
         updateUsageExamples(url, slug);
-        
+
         resultSection.style.display = 'block';
         // Removed auto-scroll - let user stay at current position
-        
+
         // Clear forms
         textContent.value = '';
         fileInput.value = '';
@@ -121,24 +133,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Copy URL functionality
-    copyUrlBtn.addEventListener('click', function() {
+    copyUrlBtn.addEventListener('click', function () {
         pasteUrlInput.select();
-        navigator.clipboard.writeText(pasteUrlInput.value).then(function() {
+        navigator.clipboard.writeText(pasteUrlInput.value).then(function () {
             const originalText = copyUrlBtn.textContent;
             copyUrlBtn.textContent = 'Copied!';
             copyUrlBtn.classList.add('success');
-            setTimeout(function() {
+            setTimeout(function () {
                 copyUrlBtn.textContent = originalText;
                 copyUrlBtn.classList.remove('success');
             }, 2000);
-        }).catch(function() {
+        }).catch(function () {
             // Fallback for older browsers
             pasteUrlInput.select();
             document.execCommand('copy');
             const originalText = copyUrlBtn.textContent;
             copyUrlBtn.textContent = 'Copied!';
             copyUrlBtn.classList.add('success');
-            setTimeout(function() {
+            setTimeout(function () {
                 copyUrlBtn.textContent = originalText;
                 copyUrlBtn.classList.remove('success');
             }, 2000);
@@ -146,12 +158,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // New Paste button functionality
-    newPasteBtn.addEventListener('click', function(event) {
+    newPasteBtn.addEventListener('click', function (event) {
         // Always reload the main page to ensure a pristine, server-rendered state
         event.preventDefault();
         window.location.assign('/');
         return;
-        
+
         // Legacy fallback (kept for reference, unreachable due to return above)
         // Hide result section
         resultSection.style.display = 'none';
@@ -196,16 +208,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateUsageExamples(url, slug) {
         const baseUrl = url.replace('/' + slug, '');
         const examples = document.querySelectorAll('.example');
-        
+
         if (examples.length >= 2) {
             // Update first example - View paste
             examples[0].querySelector('p').textContent = 'View this paste:';
             examples[0].querySelector('code').textContent = `curl -sL ${url}`;
-            
+
             // Update second example - Download raw
             examples[1].querySelector('p').textContent = 'Download raw content:';
             examples[1].querySelector('code').textContent = `curl -sL ${baseUrl}/raw/${slug}`;
-            
+
             // Hide the third example if it exists
             if (examples[2]) {
                 examples[2].style.display = 'none';
@@ -217,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function restoreOriginalUsageExamples() { /* no-op: handled by initialUsageHTML restore */ }
 
     // Keyboard shortcuts
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         // Ctrl+Enter to upload text
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             if (textContent.value.trim()) {
@@ -227,13 +239,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Drag and drop file upload
-    document.addEventListener('dragover', function(e) {
+    document.addEventListener('dragover', function (e) {
         e.preventDefault();
         e.stopPropagation();
         document.body.classList.add('drag-over');
     });
 
-    document.addEventListener('dragleave', function(e) {
+    document.addEventListener('dragleave', function (e) {
         e.preventDefault();
         e.stopPropagation();
         if (e.clientX === 0 && e.clientY === 0) {
@@ -241,11 +253,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.addEventListener('drop', function(e) {
+    document.addEventListener('drop', function (e) {
         e.preventDefault();
         e.stopPropagation();
         document.body.classList.remove('drag-over');
-        
+
         const files = e.dataTransfer.files;
         if (files.length > 0) {
             fileInput.files = files;
