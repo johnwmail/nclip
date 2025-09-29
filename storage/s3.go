@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/johnwmail/nclip/models"
+	"github.com/johnwmail/nclip/utils"
 )
 
 type S3Store struct {
@@ -22,16 +23,17 @@ type S3Store struct {
 	client *s3.Client
 }
 
+// NewS3Store creates a new S3Store instance
 func NewS3Store(bucket, prefix string) (*S3Store, error) {
 	if bucket == "" {
 		return nil, fmt.Errorf("s3 bucket name must not be empty")
 	}
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 	client := s3.NewFromConfig(cfg)
-	return &S3Store{bucket: bucket, prefix: normalizeS3Prefix(prefix), client: client}, nil
+	return &S3Store{bucket: bucket, prefix: prefix, client: client}, nil
 }
 
 func (s *S3Store) Store(paste *models.Paste) error {
@@ -51,9 +53,11 @@ func (s *S3Store) Store(paste *models.Paste) error {
 	})
 	if err != nil {
 		log.Printf("[ERROR] S3 Store: failed to put metadata for %s: %v", paste.ID, err)
-		log.Printf("[DEBUG] S3 bucket: %s, prefix: %s, metaKey: %s", s.bucket, s.prefix, metaKey)
-		for _, e := range os.Environ() {
-			log.Printf("[ENV] %s", e)
+		if utils.IsDebugEnabled() {
+			log.Printf("[DEBUG] S3 bucket: %s, prefix: %s, metaKey: %s", s.bucket, s.prefix, metaKey)
+			for _, e := range os.Environ() {
+				log.Printf("[ENV] %s", e)
+			}
 		}
 		if awsErr, ok := err.(interface {
 			ErrorCode() string
@@ -130,9 +134,11 @@ func (s *S3Store) StoreContent(id string, content []byte) error {
 	})
 	if err != nil {
 		log.Printf("[ERROR] S3 StoreContent: failed to put content for %s: %v", id, err)
-		log.Printf("[DEBUG] S3 bucket: %s, prefix: %s, key: %s", s.bucket, s.prefix, applyS3Prefix(s.prefix, id))
-		for _, e := range os.Environ() {
-			log.Printf("[ENV] %s", e)
+		if utils.IsDebugEnabled() {
+			log.Printf("[DEBUG] S3 bucket: %s, prefix: %s, key: %s", s.bucket, s.prefix, applyS3Prefix(s.prefix, id))
+			for _, e := range os.Environ() {
+				log.Printf("[ENV] %s", e)
+			}
 		}
 		if awsErr, ok := err.(interface {
 			ErrorCode() string
