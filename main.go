@@ -15,6 +15,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/config"
 	"github.com/johnwmail/nclip/handlers"
+	"github.com/johnwmail/nclip/handlers/retrieval"
+	"github.com/johnwmail/nclip/handlers/upload"
+	"github.com/johnwmail/nclip/internal/services"
 	"github.com/johnwmail/nclip/storage"
 	"github.com/johnwmail/nclip/utils"
 
@@ -202,8 +205,12 @@ func lambdaHandler(ctx context.Context, event interface{}) (interface{}, error) 
 
 // setupRouter creates and configures the Gin router
 func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
+	// Initialize service
+	pasteService := services.NewPasteService(store, cfg)
+
 	// Initialize handlers
-	pasteHandler := handlers.NewPasteHandler(store, cfg)
+	uploadHandler := upload.NewHandler(pasteService, cfg)
+	retrievalHandler := retrieval.NewHandler(pasteService, store, cfg)
 	metaHandler := handlers.NewMetaHandler(store)
 	systemHandler := handlers.NewSystemHandler()
 	webuiHandler := handlers.NewWebUIHandler(cfg)
@@ -228,10 +235,10 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	router.GET("/", webuiHandler.Index)
 
 	// Core API routes
-	router.POST("/", pasteHandler.Upload)
-	router.POST("/burn/", pasteHandler.UploadBurn)
-	router.GET("/:slug", pasteHandler.View)
-	router.GET("/raw/:slug", pasteHandler.Raw)
+	router.POST("/", uploadHandler.Upload)
+	router.POST("/burn/", uploadHandler.UploadBurn)
+	router.GET("/:slug", retrievalHandler.View)
+	router.GET("/raw/:slug", retrievalHandler.Raw)
 
 	// Metadata API
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)

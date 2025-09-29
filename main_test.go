@@ -11,6 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/config"
 	"github.com/johnwmail/nclip/handlers"
+	"github.com/johnwmail/nclip/handlers/retrieval"
+	"github.com/johnwmail/nclip/handlers/upload"
+	"github.com/johnwmail/nclip/internal/services"
 	"github.com/johnwmail/nclip/models"
 )
 
@@ -100,7 +103,9 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 
 	store := NewMockStore()
 
-	pasteHandler := handlers.NewPasteHandler(store, cfg)
+	pasteService := services.NewPasteService(store, cfg)
+	uploadHandler := upload.NewHandler(pasteService, cfg)
+	retrievalHandler := retrieval.NewHandler(pasteService, store, cfg)
 	metaHandler := handlers.NewMetaHandler(store)
 	systemHandler := handlers.NewSystemHandler()
 	webuiHandler := handlers.NewWebUIHandler(cfg)
@@ -111,10 +116,10 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 
 	// Routes (WebUI always enabled)
 	router.GET("/", webuiHandler.Index)
-	router.POST("/", pasteHandler.Upload)
-	router.POST("/burn/", pasteHandler.UploadBurn)
-	router.GET("/:slug", pasteHandler.View)
-	router.GET("/raw/:slug", pasteHandler.Raw)
+	router.POST("/", uploadHandler.Upload)
+	router.POST("/burn/", uploadHandler.UploadBurn)
+	router.GET("/:slug", retrievalHandler.View)
+	router.GET("/raw/:slug", retrievalHandler.Raw)
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
 	router.GET("/json/:slug", metaHandler.GetMetadata)
 	router.GET("/health", systemHandler.Health)
