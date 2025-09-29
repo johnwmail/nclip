@@ -109,40 +109,17 @@ Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** includ
 
 *Access content via `/raw/{slug}` or `/{slug}`, not via metadata.*
 
-## 📋 Usage Examples
 
-### Command Line
+## 📋 Usage Example
+
+Quick upload with curl:
 ```bash
-# Upload text
-echo "Secret message" | curl -sL --data-binary @- http://localhost:8080
-
-# Upload text file
-curl -sL --data-binary @myfile.txt http://localhost:8080
-
-# Upload binary file
-curl -sL --data-binary @document.pdf http://localhost:8080
-
-# Create burn-after-read paste
-echo "Self-destruct message" | curl -sL --data-binary @- http://localhost:8080/burn/
-
-# Get metadata as JSON
-curl -sL http://localhost:8080/json/2F4D6
-curl -sL http://localhost:8080/api/v1/meta/2F4D6
-
-### PowerShell / Windows
-```powershell
-# Post plain text
-Invoke-WebRequest -Uri http://localhost:8080 -Method POST -Body "Hello from PowerShell!" -UseBasicParsing
-
-# Post a text or binary file
-Invoke-WebRequest -Uri http://localhost:8080 -Method POST -InFile "C:\path\to\file.txt" -UseBasicParsing
-
-# Using Invoke-RestMethod (for text)
-Invoke-RestMethod -Uri http://localhost:8080 -Method POST -Body "Hello from PowerShell!"
-
-# Using Invoke-RestMethod (for retire)
-Invoke-RestMethod -Uri http://localhost:8080/raw/2F4D6
+echo "Hello World!" | curl -sL -d @- http://localhost:8080
 ```
+
+For more client usage examples (wget, PowerShell, HTTPie, advanced features, and custom headers like `X-TTL` and `X-SLUG`), see:
+
+👉 [docs/CLIENTS.md](docs/CLIENTS.md)
 
 ## 🐚 Bash Aliases
 
