@@ -224,7 +224,7 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	// Serve static files
 	router.Static("/static", "./static")
 
-	// Web UI routes (always enabled)
+	// Web UI routes
 	router.GET("/", webuiHandler.Index)
 
 	// Core API routes
@@ -268,8 +268,6 @@ func runHTTPServer(router *gin.Engine, cfg *config.Config, store storage.PasteSt
 	// Start server in a goroutine
 	go func() {
 		log.Printf("Starting nclip server on port %d", cfg.Port)
-		// MongoDB reference removed
-		log.Printf("Web UI: enabled")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
