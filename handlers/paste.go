@@ -110,13 +110,15 @@ func (h *PasteHandler) parseTTL(c *gin.Context) (time.Time, error) {
 // Helper: storePasteAndRespond stores paste and responds to client
 func (h *PasteHandler) storePasteAndRespond(c *gin.Context, slug string, content []byte, expiresAt time.Time, filename string) {
 	contentType := utils.DetectContentType(filename, content)
+	// Only set BurnAfterRead true for /burn/ endpoint
+	burnAfterRead := strings.HasSuffix(c.FullPath(), "/burn/")
 	paste := &models.Paste{
 		ID:            slug,
 		CreatedAt:     time.Now(),
 		ExpiresAt:     &expiresAt,
 		Size:          int64(len(content)),
 		ContentType:   contentType,
-		BurnAfterRead: true,
+		BurnAfterRead: burnAfterRead,
 		ReadCount:     0,
 	}
 	if err := h.store.StoreContent(slug, content); err != nil {
@@ -226,6 +228,34 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// Check for custom slug header
+	customSlug := c.GetHeader("X-Slug")
+	if customSlug != "" {
+		// Validate slug format
+		if !utils.IsValidSlug(customSlug) {
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
+			return
+		}
+		// Check for collision
+		existing, err := h.store.Get(customSlug)
+		if err == nil && existing != nil && !existing.IsExpired() {
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Slug already exists"})
+			return
+		}
+		slug := customSlug
+		expiresAt, err := h.parseTTL(c)
+		if err != nil {
+			log.Printf("[ERROR] %v", err)
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		h.storePasteAndRespond(c, slug, content, expiresAt, filename)
+		return
+	}
+	// No custom slug, generate one
 	slug, err := h.selectOrGenerateSlug(c)
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
