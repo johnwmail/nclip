@@ -328,9 +328,9 @@ test_binary_extension_append() {
     log "Testing binary extension append in Content-Disposition..."
     local zip_file="/tmp/nclip_test.zip"
     local zip_content="PK\x03\x04testzip"
-    echo -n -e "$zip_content" > "$zip_file"
+        echo -n -e "$zip_content" > "$zip_file"
     local response
-    response=$(curl -f -s -X POST --data-binary @"$zip_file" "$NCLIP_URL/")
+    response=$(curl -f -s -X POST --data-binary @"$zip_file" -H "Content-Type:" "$NCLIP_URL/")
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload binary file. Response: $response"
         return 1
@@ -345,6 +345,177 @@ test_binary_extension_append() {
         return 0
     else
         error "Binary extension NOT appended. Header: $header"
+        return 1
+    fi
+}
+
+# Test that text files get user-friendly extensions in Content-Disposition
+test_text_file_extensions() {
+    log "Testing text file extensions in Content-Disposition..."
+    
+    local failed_tests=0
+    
+    # Test text/plain -> .txt
+    log "Testing text/plain -> .txt"
+    local response
+    response=$(curl -f -s -X POST "$NCLIP_URL/" -d "Hello World" -H "Content-Type: text/plain")
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload text/plain content. Response: $response"
+        ((failed_tests++))
+    else
+        local slug
+        slug=$(basename "$response")
+        local raw_url="$NCLIP_URL/raw/$slug"
+        local header
+        header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+        if [[ "$header" == *"$slug.txt"* ]]; then
+            success "text/plain extension correctly appended: .txt"
+        else
+            error "text/plain extension NOT appended correctly. Expected: $slug.txt, Header: $header"
+            ((failed_tests++))
+        fi
+    fi
+    
+    # Test text/html -> .html
+    log "Testing text/html -> .html"
+    response=$(curl -f -s -X POST "$NCLIP_URL/" -d "<html><body>Hello</body></html>" -H "Content-Type: text/html")
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload text/html content. Response: $response"
+        ((failed_tests++))
+    else
+        slug=$(basename "$response")
+        raw_url="$NCLIP_URL/raw/$slug"
+        header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+        if [[ "$header" == *"$slug.html"* ]]; then
+            success "text/html extension correctly appended: .html"
+        else
+            error "text/html extension NOT appended correctly. Expected: $slug.html, Header: $header"
+            ((failed_tests++))
+        fi
+    fi
+    
+    # Test text/javascript -> .js
+    log "Testing text/javascript -> .js"
+    response=$(curl -f -s -X POST "$NCLIP_URL/" -d "console.log('hello');" -H "Content-Type: text/javascript")
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload text/javascript content. Response: $response"
+        ((failed_tests++))
+    else
+        slug=$(basename "$response")
+        raw_url="$NCLIP_URL/raw/$slug"
+        header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+        if [[ "$header" == *"$slug.js"* ]]; then
+            success "text/javascript extension correctly appended: .js"
+        else
+            error "text/javascript extension NOT appended correctly. Expected: $slug.js, Header: $header"
+            ((failed_tests++))
+        fi
+    fi
+    
+    # Test application/json -> .json
+    log "Testing application/json -> .json"
+    response=$(curl -f -s -X POST "$NCLIP_URL/" -d '{"name":"hello"}' -H "Content-Type: application/json")
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload application/json content. Response: $response"
+        ((failed_tests++))
+    else
+        slug=$(basename "$response")
+        raw_url="$NCLIP_URL/raw/$slug"
+        header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+        if [[ "$header" == *"$slug.json"* ]]; then
+            success "application/json extension correctly appended: .json"
+        else
+            error "application/json extension NOT appended correctly. Expected: $slug.json, Header: $header"
+            ((failed_tests++))
+        fi
+    fi
+    
+    if [[ $failed_tests -eq 0 ]]; then
+        success "All text file extension tests passed"
+        return 0
+    else
+        error "$failed_tests text file extension test(s) failed"
+        return 1
+    fi
+}
+
+# Test that binary/archive files get correct extensions in Content-Disposition
+test_binary_archive_extensions() {
+    log "Testing binary/archive file extensions in Content-Disposition..."
+    
+    local failed_tests=0
+    
+    # Test application/zip -> .zip
+    log "Testing application/zip -> .zip"
+    local zip_file="/tmp/nclip_test_ext.zip"
+    echo -n -e "PK\x03\x04testzip" > "$zip_file"
+    local response
+    response=$(curl -f -s -X POST --data-binary @"$zip_file" "$NCLIP_URL/" -H "Content-Type: application/zip")
+    rm -f "$zip_file"
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload application/zip content. Response: $response"
+        ((failed_tests++))
+    else
+        local slug
+        slug=$(basename "$response")
+        local raw_url="$NCLIP_URL/raw/$slug"
+        local header
+        header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+        if [[ "$header" == *"$slug.zip"* ]]; then
+            success "application/zip extension correctly appended: .zip"
+        else
+            error "application/zip extension NOT appended correctly. Expected: $slug.zip, Header: $header"
+            ((failed_tests++))
+        fi
+    fi
+    
+    # Test image/png -> .png
+    log "Testing image/png -> .png"
+    local png_file="/tmp/nclip_test_ext.png"
+    echo -n -e "\x89PNGtestpng" > "$png_file"
+    response=$(curl -f -s -X POST --data-binary @"$png_file" "$NCLIP_URL/" -H "Content-Type: image/png")
+    rm -f "$png_file"
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload image/png content. Response: $response"
+        ((failed_tests++))
+    else
+        slug=$(basename "$response")
+        raw_url="$NCLIP_URL/raw/$slug"
+        header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+        if [[ "$header" == *"$slug.png"* ]]; then
+            success "image/png extension correctly appended: .png"
+        else
+            error "image/png extension NOT appended correctly. Expected: $slug.png, Header: $header"
+            ((failed_tests++))
+        fi
+    fi
+    
+    # Test application/pdf -> .pdf
+    log "Testing application/pdf -> .pdf"
+    local pdf_file="/tmp/nclip_test_ext.pdf"
+    echo -n -e "%PDF-1.4testpdf" > "$pdf_file"
+    response=$(curl -f -s -X POST --data-binary @"$pdf_file" "$NCLIP_URL/" -H "Content-Type: application/pdf")
+    rm -f "$pdf_file"
+    if [[ -z "$response" || ! "$response" =~ http ]]; then
+        error "Failed to upload application/pdf content. Response: $response"
+        ((failed_tests++))
+    else
+        slug=$(basename "$response")
+        raw_url="$NCLIP_URL/raw/$slug"
+        header=$(curl -s -D - "$raw_url" -o /dev/null | grep -i "Content-Disposition")
+        if [[ "$header" == *"$slug.pdf"* ]]; then
+            success "application/pdf extension correctly appended: .pdf"
+        else
+            error "application/pdf extension NOT appended correctly. Expected: $slug.pdf, Header: $header"
+            ((failed_tests++))
+        fi
+    fi
+    
+    if [[ $failed_tests -eq 0 ]]; then
+        success "All binary/archive extension tests passed"
+        return 0
+    else
+        error "$failed_tests binary/archive extension test(s) failed"
         return 1
     fi
 }
@@ -468,6 +639,18 @@ run_integration_tests() {
 
     # Test binary extension append
     if ! test_binary_extension_append; then
+        ((failed_tests++))
+    fi
+    echo
+
+    # Test text file extensions
+    if ! test_text_file_extensions; then
+        ((failed_tests++))
+    fi
+    echo
+
+    # Test binary/archive file extensions
+    if ! test_binary_archive_extensions; then
         ((failed_tests++))
     fi
     echo

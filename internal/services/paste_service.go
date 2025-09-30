@@ -28,6 +28,7 @@ func NewPasteService(store storage.PasteStore, config *config.Config) *PasteServ
 type CreatePasteRequest struct {
 	Content       []byte
 	Filename      string
+	ContentType   string
 	CustomSlug    string
 	BurnAfterRead bool
 	TTL           time.Duration
@@ -110,7 +111,10 @@ func (s *PasteService) CreatePaste(req CreatePasteRequest) (*CreatePasteResponse
 
 	expiresAt := time.Now().Add(req.TTL)
 
-	contentType := utils.DetectContentType(req.Filename, req.Content)
+	contentType := req.ContentType
+	if contentType == "" {
+		contentType = utils.DetectContentType(req.Filename, req.Content)
+	}
 	paste := &models.Paste{
 		ID:            slug,
 		CreatedAt:     time.Now(),
