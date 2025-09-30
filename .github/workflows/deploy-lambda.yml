@@ -133,7 +133,7 @@ jobs:
           publish: true
           role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
           s3-bucket: "${{ vars.BUCKET }}"
-          environment: '{"NCLIP_BUFFER_SIZE":"${{ vars.NCLIP_BUFFER_SIZE }}","NCLIP_S3_BUCKET":"${{ vars.BUCKET }}","NCLIP_S3_PREFIX":"${{ vars.S3_PREFIX }}","GIN_MODE":"${{ vars.GIN_MODE }}"}'
+          environment: '{"NCLIP_BUFFER_SIZE":"${{ vars.NCLIP_BUFFER_SIZE }}","NCLIP_S3_BUCKET":"${{ vars.BUCKET }}","NCLIP_S3_PREFIX":"${{ vars.S3_PREFIX }}","GIN_MODE":"release"}'
 
       - name: Post-deploy info
         run: |
