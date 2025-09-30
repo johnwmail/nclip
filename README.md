@@ -8,13 +8,6 @@
 
 A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 
-## Storage Architecture
-
-- **Lambda mode:** Content is stored in S3 as objects (`$slug`), with metadata in a JSON file (`$slug.json`).
-- **Server mode:** Content is stored in the local filesystem as files (`$slug`), with metadata in a JSON file (`$slug.json`).
-- **Metadata** includes expiry, burn-after-read, content type, and other small fields.
-- This design keeps logic and code nearly identical between Lambda and server modes.
-
 ## Overview
 
 nclip is a versatile clipboard app that accepts content via:
@@ -91,6 +84,13 @@ open http://localhost:8080
 ### System Endpoints
 - `GET /health` — Health check (200 OK)
 
+## Storage Architecture
+
+- **Lambda mode:** Content is stored in S3 as objects (`$slug`), with metadata in a JSON file (`$slug.json`).
+- **Server mode:** Content is stored in the local filesystem as files (`$slug`), with metadata in a JSON file (`$slug.json`).
+- **Metadata** includes expiry, burn-after-read, content type, and other small fields.
+- This design keeps logic and code nearly identical between Lambda and server modes.
+
 ## 📊 Paste Metadata (JSON)
 
 Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** include the actual content.
@@ -106,9 +106,6 @@ Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** includ
   "read_count": 0                       // Number of times read
 }
 ```
-
-*Access content via `/raw/{slug}` or `/{slug}`, not via metadata.*
-
 
 ## 📋 Usage Example
 
