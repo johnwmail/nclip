@@ -170,7 +170,7 @@ All main configuration is via these environment variables (all have CLI flag equ
 | NCLIP_S3_PREFIX          | --s3-prefix      | S3 key prefix (optional)                    |
 
 **Note:**
-- `GIN_MODE`, `AWS_LAMBDA_FUNCTION_NAME`, and `BUCKET` are used only in deployment workflows (e.g., GitHub Actions, Lambda detection), not for app configuration.
+- `GIN_MODE`, `AWS_LAMBDA_FUNCTION_NAME`, and `S3_BUCKET` are used only in deployment workflows (e.g., GitHub Actions, Lambda detection), not for app configuration.
 - NCLIP_MONGO_URL and --mongo-url are no longer supported.
 
 

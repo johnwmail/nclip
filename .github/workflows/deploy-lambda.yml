@@ -68,8 +68,8 @@ jobs:
 
       - name: Validate required Lambda variables
         run: |
-          if [ -z "${{ vars.BUCKET }}" ]; then
-            echo "❌ Error: Repository variable BUCKET must be set for Lambda deployments" >&2
+          if [ -z "${{ vars.S3_BUCKET }}" ]; then
+            echo "❌ Error: Repository variable S3_BUCKET must be set for Lambda deployments" >&2
             exit 1
           fi
 

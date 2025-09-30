@@ -79,7 +79,6 @@ Create an IAM role with the following permissions:
 - `s3:GetObject` - Read paste content and metadata
 - `s3:PutObject` - Create new pastes
 - `s3:DeleteObject` - Clean up expired pastes
-- `s3:HeadObject` - Check if pastes exist (for slug generation)
 
 ### GitHub Actions Permissions
 
@@ -172,6 +171,7 @@ For public read access to pastes:
        --runtime provided.al2023 \
        --role arn:aws:iam::ACCOUNT:role/nclip-lambda-role \
        --handler bootstrap \
+       --timeout 10 \
        --zip-file fileb://lambda-function.zip \
        --architectures x86_64 \
        --environment "Variables={NCLIP_S3_BUCKET=your-bucket,NCLIP_S3_PREFIX=nclip,GIN_MODE=release}"

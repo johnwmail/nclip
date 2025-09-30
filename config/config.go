@@ -67,10 +67,8 @@ func LoadConfig() *Config {
 			config.DefaultTTL = ttl
 		}
 	}
-	// Support both NCLIP_S3_BUCKET and BUCKET for S3 bucket name
+
 	if val := os.Getenv("NCLIP_S3_BUCKET"); val != "" {
-		config.S3Bucket = val
-	} else if val := os.Getenv("BUCKET"); val != "" {
 		config.S3Bucket = val
 	}
 
