@@ -2,7 +2,7 @@ version: "2"
 
 run:
   timeout: 5m
-  tests: false  # Skip test files to avoid errcheck issues
+  tests: false # Skip test files to avoid errcheck issues
 
 linters:
   enable:
@@ -14,3 +14,7 @@ linters:
     - misspell
     - unconvert
     - gocyclo
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15

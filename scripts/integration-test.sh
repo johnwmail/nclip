@@ -9,11 +9,20 @@ set -euo pipefail
 # Cleanup function to remove temp files/dirs
 cleanup_temp_files() {
     log "Cleaning up all test artifacts..."
-    # Remove all files in ./data/
-    rm -f ./data/*
-    # Remove all nclip temp files in /tmp/
-    rm -f /tmp/nclip_test.zip
-    # Add more patterns here if needed
+    # Remove files in ./data/ that were recently created by the tests (last 60 minutes)
+    if [[ -d "./data" ]]; then
+        find ./data -maxdepth 1 -type f -mmin -60 -print -delete || true
+    fi
+
+    # Remove known temporary files created by the tests in /tmp/
+    rm -f /tmp/nclip_test.zip /tmp/nclip_test_ext.* /tmp/nclip_test.* 2>/dev/null || true
+
+    # If a testdata dir was created (CI uses ./testdata), remove it if empty
+    if [[ -d "./testdata" ]]; then
+        rmdir ./testdata 2>/dev/null || true
+    fi
+
+    # Other cleanup hooks can be added here (e.g. removing specific slugs)
     return 0
 }
 
