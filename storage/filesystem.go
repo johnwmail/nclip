@@ -71,6 +71,15 @@ func NewFilesystemStore() (*FilesystemStore, error) {
 	if dataDir == "" {
 		dataDir = "./data"
 	}
+
+	// Create the data directory if it doesn't exist
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		log.Printf("[ERROR] Failed to create data directory %s: %v", dataDir, err)
+		return nil, fmt.Errorf("failed to create data directory %s: %w", dataDir, err)
+	} else {
+		log.Printf("[INFO] Created data directory: %s", dataDir)
+	}
+
 	s3Bucket := os.Getenv("NCLIP_S3_BUCKET")
 	// TODO: Implement initialization logic if needed
 	return &FilesystemStore{

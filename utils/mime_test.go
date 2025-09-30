@@ -149,20 +149,98 @@ func TestExtensionByMime(t *testing.T) {
 		mimeType string
 		want     string
 	}{
-		{
-			name:     "text plain",
-			mimeType: "text/plain",
-			want:     ".asc", // mime.ExtensionsByType returns .asc first
-		},
-		{
-			name:     "json",
-			mimeType: "application/json",
-			want:     ".json",
-		},
+		// Archives and compressed files
 		{
 			name:     "zip",
 			mimeType: "application/zip",
 			want:     ".zip",
+		},
+		{
+			name:     "zip compressed",
+			mimeType: "application/x-zip-compressed",
+			want:     ".zip",
+		},
+		{
+			name:     "zip x-zip",
+			mimeType: "application/x-zip",
+			want:     ".zip",
+		},
+		{
+			name:     "tar",
+			mimeType: "application/x-tar",
+			want:     ".tar",
+		},
+		{
+			name:     "tar application/tar",
+			mimeType: "application/tar",
+			want:     ".tar",
+		},
+		{
+			name:     "gzip",
+			mimeType: "application/x-gzip",
+			want:     ".gz",
+		},
+		{
+			name:     "gzip application/gzip",
+			mimeType: "application/gzip",
+			want:     ".gz",
+		},
+		{
+			name:     "7z",
+			mimeType: "application/x-7z-compressed",
+			want:     ".7z",
+		},
+		{
+			name:     "7z application/7z",
+			mimeType: "application/7z",
+			want:     ".7z",
+		},
+		{
+			name:     "bzip2",
+			mimeType: "application/x-bzip2",
+			want:     ".bz2",
+		},
+		{
+			name:     "bzip2 application/bzip2",
+			mimeType: "application/bzip2",
+			want:     ".bz2",
+		},
+		{
+			name:     "xz",
+			mimeType: "application/x-xz",
+			want:     ".xz",
+		},
+		{
+			name:     "xz application/xz",
+			mimeType: "application/xz",
+			want:     ".xz",
+		},
+		{
+			name:     "rar",
+			mimeType: "application/x-rar-compressed",
+			want:     ".rar",
+		},
+		{
+			name:     "rar vnd.rar",
+			mimeType: "application/vnd.rar",
+			want:     ".rar",
+		},
+		{
+			name:     "rar application/rar",
+			mimeType: "application/rar",
+			want:     ".rar",
+		},
+
+		// Documents and media
+		{
+			name:     "pdf",
+			mimeType: "application/pdf",
+			want:     ".pdf",
+		},
+		{
+			name:     "jpeg image",
+			mimeType: "image/jpeg",
+			want:     ".jpg",
 		},
 		{
 			name:     "png image",
@@ -170,19 +248,31 @@ func TestExtensionByMime(t *testing.T) {
 			want:     ".png",
 		},
 		{
-			name:     "jpeg image",
-			mimeType: "image/jpeg",
-			want:     ".jfif", // mime.ExtensionsByType returns .jfif first
+			name:     "gif image",
+			mimeType: "image/gif",
+			want:     ".gif",
 		},
 		{
-			name:     "pdf",
-			mimeType: "application/pdf",
-			want:     ".pdf",
+			name:     "webp image",
+			mimeType: "image/webp",
+			want:     ".webp",
+		},
+		{
+			name:     "svg image",
+			mimeType: "image/svg+xml",
+			want:     ".svg",
+		},
+
+		// Text files - user-friendly extensions
+		{
+			name:     "text plain",
+			mimeType: "text/plain",
+			want:     ".txt",
 		},
 		{
 			name:     "html",
 			mimeType: "text/html",
-			want:     ".htm", // mime.ExtensionsByType returns .htm first
+			want:     ".html",
 		},
 		{
 			name:     "css",
@@ -190,10 +280,111 @@ func TestExtensionByMime(t *testing.T) {
 			want:     ".css",
 		},
 		{
-			name:     "javascript",
-			mimeType: "application/javascript",
-			want:     "", // No extension returned by mime.ExtensionsByType
+			name:     "javascript text",
+			mimeType: "text/javascript",
+			want:     ".js",
 		},
+		{
+			name:     "xml text",
+			mimeType: "text/xml",
+			want:     ".xml",
+		},
+		{
+			name:     "markdown",
+			mimeType: "text/markdown",
+			want:     ".md",
+		},
+		{
+			name:     "python text",
+			mimeType: "text/x-python",
+			want:     ".py",
+		},
+		{
+			name:     "go text",
+			mimeType: "text/x-go",
+			want:     ".go",
+		},
+		{
+			name:     "shell script text",
+			mimeType: "text/x-sh",
+			want:     ".sh",
+		},
+		{
+			name:     "yaml text",
+			mimeType: "text/x-yaml",
+			want:     ".yaml",
+		},
+		{
+			name:     "toml text",
+			mimeType: "text/x-toml",
+			want:     ".toml",
+		},
+
+		// Application types
+		{
+			name:     "json",
+			mimeType: "application/json",
+			want:     ".json",
+		},
+		{
+			name:     "xml application",
+			mimeType: "application/xml",
+			want:     ".xml",
+		},
+		{
+			name:     "yaml application",
+			mimeType: "application/yaml",
+			want:     ".yaml",
+		},
+		{
+			name:     "yaml x-yaml",
+			mimeType: "application/x-yaml",
+			want:     ".yaml",
+		},
+		{
+			name:     "toml application",
+			mimeType: "application/toml",
+			want:     ".toml",
+		},
+		{
+			name:     "toml x-toml",
+			mimeType: "application/x-toml",
+			want:     ".toml",
+		},
+		{
+			name:     "javascript app",
+			mimeType: "application/javascript",
+			want:     ".js",
+		},
+		{
+			name:     "shell script app",
+			mimeType: "application/x-sh",
+			want:     ".sh",
+		},
+		{
+			name:     "python code app",
+			mimeType: "application/x-python-code",
+			want:     ".py",
+		},
+
+		// Binary and generic
+		{
+			name:     "octet stream",
+			mimeType: "application/octet-stream",
+			want:     ".bin",
+		},
+		{
+			name:     "binary x-binary",
+			mimeType: "application/x-binary",
+			want:     ".bin",
+		},
+		{
+			name:     "binary application/bin",
+			mimeType: "application/bin",
+			want:     ".bin",
+		},
+
+		// Edge cases
 		{
 			name:     "empty mime type",
 			mimeType: "",

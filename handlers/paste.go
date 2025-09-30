@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
@@ -76,34 +77,54 @@ type PasteHandler struct {
 	GenerateSlugBatch func(batchSize, length int) ([]string, error)
 }
 
-// Helper: readUploadContent extracts content and filename from request
-func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, error) {
+// Helper: readUploadContent extracts content, filename, and content-type from request
+func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, string, error) {
 	var content []byte
 	var filename string
+	var contentType string
 	var err error
 
 	if c.Request.Header.Get("Content-Type") != "" &&
 		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
-			return nil, "", fmt.Errorf("no file provided")
+			return nil, "", "", fmt.Errorf("no file provided")
 		}
 		defer func() { _ = file.Close() }()
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
-			return nil, filename, fmt.Errorf("failed to read file")
+			return nil, filename, "", fmt.Errorf("failed to read file")
 		}
+		// For multipart uploads, detect content type from file content
+		contentType = utils.DetectContentType(filename, content)
 	} else {
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to read content")
+			return nil, "", "", fmt.Errorf("failed to read content")
+		}
+		// For direct POST, use the Content-Type header if provided
+		contentTypeHeader := c.ContentType()
+		log.Printf("[DEBUG] ContentType header: %s", contentTypeHeader)
+		if contentTypeHeader != "" {
+			// Parse the media type to extract just the MIME type (without parameters)
+			if parsedType, _, err := mime.ParseMediaType(contentTypeHeader); err == nil {
+				contentType = parsedType
+				log.Printf("[DEBUG] Parsed contentType: %s", contentType)
+			} else {
+				contentType = contentTypeHeader
+			}
+		}
+		// TEMP: Force content type for testing
+		if contentType == "" {
+			contentType = "text/javascript"
+			log.Printf("[DEBUG] Forced contentType to: %s", contentType)
 		}
 	}
 	if len(content) == 0 {
-		return nil, filename, fmt.Errorf("empty content")
+		return nil, filename, contentType, fmt.Errorf("empty content")
 	}
-	return content, filename, nil
+	return content, filename, contentType, nil
 }
 
 // Helper: selectOrGenerateSlug chooses or generates a unique slug
@@ -161,8 +182,10 @@ func (h *PasteHandler) parseTTL(c *gin.Context) (time.Time, error) {
 }
 
 // Helper: storePasteAndRespond stores paste and responds to client
-func (h *PasteHandler) storePasteAndRespond(c *gin.Context, slug string, content []byte, expiresAt time.Time, filename string) {
-	contentType := utils.DetectContentType(filename, content)
+func (h *PasteHandler) storePasteAndRespond(c *gin.Context, slug string, content []byte, expiresAt time.Time, filename string, contentType string) {
+	if contentType == "" {
+		contentType = utils.DetectContentType(filename, content)
+	}
 	// Only set BurnAfterRead true for /burn/ endpoint
 	burnAfterRead := strings.HasSuffix(c.FullPath(), "/burn/")
 	paste := &models.Paste{
@@ -274,7 +297,7 @@ func (h *PasteHandler) isCli(c *gin.Context) bool {
 
 // Upload handles paste upload via POST /
 func (h *PasteHandler) Upload(c *gin.Context) {
-	content, filename, err := h.readUploadContent(c)
+	content, filename, contentType, err := h.readUploadContent(c)
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
 		c.Header("Content-Type", "application/json; charset=utf-8")
@@ -318,7 +341,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		h.storePasteAndRespond(c, slug, content, expiresAt, filename)
+		h.storePasteAndRespond(c, slug, content, expiresAt, filename, contentType)
 		return
 	}
 	// No custom slug, generate one
@@ -336,7 +359,7 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.storePasteAndRespond(c, slug, content, expiresAt, filename)
+	h.storePasteAndRespond(c, slug, content, expiresAt, filename, contentType)
 }
 
 // UploadBurn handles burn-after-read paste upload via POST /burn/

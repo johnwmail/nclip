@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -46,34 +47,47 @@ func (h *Handler) parseTTL(c *gin.Context) (time.Time, error) {
 	return time.Now().Add(h.config.DefaultTTL), nil
 }
 
-// readUploadContent extracts content and filename from request
-func (h *Handler) readUploadContent(c *gin.Context) ([]byte, string, error) {
+// readUploadContent extracts content, filename, and content-type from request
+func (h *Handler) readUploadContent(c *gin.Context) ([]byte, string, string, error) {
 	var content []byte
 	var filename string
+	var contentType string
 	var err error
 
 	if c.Request.Header.Get("Content-Type") != "" &&
 		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
-			return nil, "", fmt.Errorf("no file provided")
+			return nil, "", "", fmt.Errorf("no file provided")
 		}
 		defer func() { _ = file.Close() }()
 		filename = header.Filename
 		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
 		if err != nil {
-			return nil, filename, fmt.Errorf("failed to read file")
+			return nil, filename, "", fmt.Errorf("failed to read file")
 		}
+		// For multipart uploads, detect content type from file content
+		contentType = utils.DetectContentType(filename, content)
 	} else {
 		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to read content")
+			return nil, "", "", fmt.Errorf("failed to read content")
+		}
+		// For direct POST, use the Content-Type header if provided
+		contentTypeHeader := c.ContentType()
+		if contentTypeHeader != "" {
+			// Parse the media type to extract just the MIME type (without parameters)
+			if parsedType, _, err := mime.ParseMediaType(contentTypeHeader); err == nil {
+				contentType = parsedType
+			} else {
+				contentType = contentTypeHeader
+			}
 		}
 	}
 	if len(content) == 0 {
-		return nil, filename, fmt.Errorf("empty content")
+		return nil, filename, contentType, fmt.Errorf("empty content")
 	}
-	return content, filename, nil
+	return content, filename, contentType, nil
 }
 
 // storePasteAndRespond stores paste and responds to client
@@ -154,7 +168,7 @@ func (h *Handler) isCli(c *gin.Context) bool {
 
 // Upload handles paste upload via POST /
 func (h *Handler) Upload(c *gin.Context) {
-	content, filename, err := h.readUploadContent(c)
+	content, filename, contentType, err := h.readUploadContent(c)
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
 		c.Header("Content-Type", "application/json; charset=utf-8")
@@ -165,6 +179,7 @@ func (h *Handler) Upload(c *gin.Context) {
 	req := services.CreatePasteRequest{
 		Content:       content,
 		Filename:      filename,
+		ContentType:   contentType,
 		BurnAfterRead: strings.HasSuffix(c.FullPath(), "/burn/"),
 	}
 
@@ -194,7 +209,7 @@ func (h *Handler) Upload(c *gin.Context) {
 
 // UploadBurn handles paste upload with burn-after-read via POST /burn/
 func (h *Handler) UploadBurn(c *gin.Context) {
-	content, filename, err := h.readUploadContent(c)
+	content, filename, contentType, err := h.readUploadContent(c)
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
 		c.Header("Content-Type", "application/json; charset=utf-8")
@@ -205,6 +220,7 @@ func (h *Handler) UploadBurn(c *gin.Context) {
 	req := services.CreatePasteRequest{
 		Content:       content,
 		Filename:      filename,
+		ContentType:   contentType,
 		BurnAfterRead: true,
 	}
 
