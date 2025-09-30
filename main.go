@@ -94,6 +94,15 @@ func main() {
 		log.Println("Lambda mode: Using S3 storage")
 	} else {
 		// Server mode: Use filesystem
+		// Ensure data directory exists before initializing filesystem storage
+		dataDir := os.Getenv("NCLIP_DATA_DIR")
+		if dataDir == "" {
+			dataDir = "./data"
+		}
+		if err := os.MkdirAll(dataDir, 0o755); err != nil {
+			log.Fatalf("Failed to create data directory %s: %v", dataDir, err)
+		}
+
 		store, err = storage.NewFilesystemStore()
 		if err != nil {
 			log.Fatalf("Failed to initialize filesystem storage: %v", err)
