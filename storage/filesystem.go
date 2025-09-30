@@ -48,6 +48,11 @@ func (fs *FilesystemStore) Store(paste *models.Paste) error {
 		return nil
 	}
 	// Local FS
+	// Ensure data directory exists (may have been removed after startup by external cleanup)
+	if err := os.MkdirAll(fs.dataDir, 0o755); err != nil {
+		log.Printf("[ERROR] FS Store: failed to create data directory %s: %v", fs.dataDir, err)
+		return err
+	}
 	metaPath := filepath.Join(fs.dataDir, paste.ID+".json")
 	if err := os.WriteFile(metaPath, metaData, 0o644); err != nil {
 		log.Printf("[ERROR] FS Store: failed to write metadata for %s: %v", paste.ID, err)
@@ -301,6 +306,12 @@ func (fs *FilesystemStore) StoreContent(id string, content []byte) error {
 		return nil
 	}
 	// Local FS
+	// Ensure data directory exists before attempting to write content. This avoids failures
+	// when the directory was removed after startup (e.g., CI cleanup hooks).
+	if err := os.MkdirAll(fs.dataDir, 0o755); err != nil {
+		log.Printf("[ERROR] FS StoreContent: failed to create data directory %s: %v", fs.dataDir, err)
+		return err
+	}
 	contentPath := filepath.Join(fs.dataDir, id)
 	if err := os.WriteFile(contentPath, content, 0o644); err != nil {
 		log.Printf("[ERROR] FS StoreContent: failed to write content for %s: %v", id, err)
