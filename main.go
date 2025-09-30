@@ -77,17 +77,6 @@ func main() {
 		log.Printf("[DEBUG] Loaded config: %+v", cfg)
 	}
 
-	// Aggressive logging: print which storage backend is being used
-	var backend string
-	if os.Getenv("NCLIP_BACKEND") != "" {
-		backend = os.Getenv("NCLIP_BACKEND")
-	} else {
-		backend = "auto (default)"
-	}
-	if utils.IsDebugEnabled() {
-		log.Printf("[DEBUG] Storage backend selection: %s", backend)
-	}
-
 	// Initialize storage backend based on deployment mode
 	var store storage.PasteStore
 	var err error

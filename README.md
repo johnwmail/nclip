@@ -1,5 +1,6 @@
 [![Test](https://github.com/johnwmail/nclip/workflows/Test/badge.svg)](https://github.com/johnwmail/nclip/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/johnwmail/nclip)](https://goreportcard.com/report/github.com/johnwmail/nclip)
+[![codecov](https://codecov.io/gh/johnwmail/nclip/branch/main/graph/badge.svg?token=G9K6YJH1XK)](https://codecov.io/gh/johnwmail/nclip)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub release](https://img.shields.io/github/release/johnwmail/nclip.svg)](https://github.com/johnwmail/nclip/releases)
 [![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org/)
@@ -8,12 +9,24 @@
 
 A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 
-## Storage Architecture
+## Table of Contents
 
-- **Lambda mode:** Content is stored in S3 as objects (`$slug`), with metadata in a JSON file (`$slug.json`).
-- **Server mode:** Content is stored in the local filesystem as files (`$slug`), with metadata in a JSON file (`$slug.json`).
-- **Metadata** includes expiry, burn-after-read, content type, and other small fields.
-- This design keeps logic and code nearly identical between Lambda and server modes.
+- [Overview](#overview)
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [API Endpoints](#-api-endpoints)
+- [Client Usage Examples](#-usage-examples)
+- [Storage Architecture](#storage-architecture)
+- [Configuration](#-configuration)
+- [Deployment](#deployment)
+  - [Docker](#-docker-deployment)
+  - [Kubernetes](#kubernetes)
+  - [AWS Lambda](#-aws-lambda-deployment)
+- [Monitoring](#-monitoring)
+- [Development](#-development)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Links](#-links)
 
 ## Overview
 
@@ -30,9 +43,9 @@ nclip is a versatile clipboard app that accepts content via:
 🎯 **Unified Codebase**: Same code, logic, and UI for both environments
 🗄️ **Multi-Storage Backend**: Filesystem for server mode, S3 for Lambda
 🐳 **Container Ready**: Docker & Kubernetes deployment
-- ⏰ **Auto-Expiration**: TTL support with configurable defaults
-- 🛡️ **Production Ready**: Health checks, structured logging
-- 🔧 **Configurable**: Environment variables & CLI flags
+⏰ **Auto-Expiration**: TTL support with configurable defaults
+🛡️ **Production Ready**: Health checks, structured logging
+🔧 **Configurable**: Environment variables & CLI flags
 
 ## 🚀 Quick Start
 
@@ -54,7 +67,7 @@ cd nclip
 go build -o nclip .
 ```
 
-### Basic Usage
+### Client Usage Examples
 ```bash
 # Start the service (automatically uses local filesystem in server mode)
 ./nclip
@@ -73,6 +86,9 @@ curl -sL http://localhost:8080/raw/2F4D6      # Raw content
 open http://localhost:8080
 ```
 
+For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and advanced features (custom TTL, slugs, etc.), see:
+
+👉 **[docs/CLIENTS.md](docs/CLIENTS.md)** - Complete client usage guide
 
 
 ## 📋 API Endpoints
@@ -91,6 +107,129 @@ open http://localhost:8080
 ### System Endpoints
 - `GET /health` — Health check (200 OK)
 
+### Configuration
+```bash
+# Custom port and URL
+### Environment Variables
+All main configuration is via these environment variables (all have CLI flag equivalents):
+
+# Environment variables
+export NCLIP_URL=https://demo.nclip.app
+export NCLIP_TTL=24h
+./nclip
+```
+
+## � Deployment
+
+nclip supports multiple deployment methods: Docker, Kubernetes, and AWS Lambda. Choose the deployment that best fits your needs.
+
+### Quick Start Options
+
+| Method | Use Case | Setup Time | Scaling |
+|--------|----------|------------|---------|
+| **Docker** | Local development, small deployments | 2 minutes | Single instance |
+| **Kubernetes** | Production, high availability | 10 minutes | Auto-scaling |
+| **AWS Lambda** | Serverless, pay-per-use | 15 minutes | Automatic |
+
+---
+
+## 🐳 Docker Deployment
+
+### Quick Start (Recommended)
+```bash
+# Clone and run with Docker Compose
+git clone https://github.com/johnwmail/nclip.git
+cd nclip
+docker-compose up -d
+```
+
+**Access:** http://localhost:8080
+
+### Manual Docker Setup
+```bash
+# Pull and run the official image
+docker run -d -p 8080:8080 --name nclip ghcr.io/johnwmail/nclip:latest
+```
+
+## ☸️ Kubernetes Deployment
+
+### Quick Start
+```bash
+# Use the provided Kubernetes manifests
+kubectl apply -f k8s/
+```
+
+📋 **[Kubernetes Guide](docs/KUBERNETES.md)** - Complete deployment, scaling, and monitoring instructions
+
+---
+
+## ☁️ AWS Lambda Deployment
+
+### Overview
+nclip automatically detects AWS Lambda environment and switches to S3 storage for serverless deployment.
+
+### Prerequisites
+1. **AWS Account** with appropriate permissions
+2. **S3 Bucket** for paste storage
+3. **IAM Role** with S3 permissions
+
+### Quick Setup
+```bash
+# 1. Create S3 bucket
+aws s3api create-bucket --bucket your-nclip-bucket --region us-east-1
+
+# Build for Lambda
+GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o bootstrap .
+
+# Create deployment package
+zip lambda-function.zip bootstrap
+
+# Create/update Lambda function
+aws lambda create-function \
+    --function-name your-nclip-function \
+    --runtime provided.al2023 \
+    --role arn:aws:iam::ACCOUNT:role/nclip-lambda-role \
+    --handler bootstrap \
+    --timeout 10 \
+    --zip-file fileb://lambda-function.zip \
+    --environment "Variables={NCLIP_S3_BUCKET=your-bucket,GIN_MODE=release}"
+```
+
+### IAM Permissions Required
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:HeadObject"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+📋 **[Lambda Guide](docs/LAMBDA.md)** - Complete AWS Lambda deployment, monitoring, and troubleshooting
+
+---
+
+## 🗄️ Storage Backends
+
+| Deployment | Content Storage | Metadata Storage | TTL Support |
+|------------|----------------|------------------|-------------|
+| **Docker/K8s** | Filesystem | Filesystem | App logic |
+| **AWS Lambda** | S3 | S3 | App logic |
+
+**Storage selection is automatic** - no configuration needed. nclip detects the deployment environment and chooses the appropriate storage backend.
+
 ## 📊 Paste Metadata (JSON)
 
 Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** include the actual content.
@@ -107,227 +246,55 @@ Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** includ
 }
 ```
 
-*Access content via `/raw/{slug}` or `/{slug}`, not via metadata.*
-
-
-## 📋 Usage Example
-
-Quick upload with curl:
-```bash
-echo "Hello World!" | curl -sL -d @- http://localhost:8080
-```
-
-For more client usage examples (wget, PowerShell, HTTPie, advanced features, and custom headers like `X-TTL` and `X-SLUG`), see:
-
-👉 [docs/CLIENTS.md](docs/CLIENTS.md)
-
-## 🐚 Bash Aliases
-
-You may find these bash aliases useful for working with nclip:
-
-```bash
-alias nclip="_nclip"
-_nclip() {
-  local _URL="https://demo.nclip.app"
-  if [ -t 0 ]; then
-    if [ $# -eq 1 ] && [ -f "$1" ]; then
-      cusl --data-binary @"$1" "$_URL"
-    else
-      echo -en "$*" | cusl --data-binary @- "$_URL"
-    fi
-  else
-    cat | cusl --data-binary @- "$_URL"
-  # MongoDB support and references have been fully removed.
-    **Note:**
-    - `GIN_MODE`, `AWS_LAMBDA_FUNCTION_NAME`, and `BUCKET` are used only in deployment workflows (e.g., GitHub Actions, Lambda detection), not for app configuration.
-  fi
-}
-```
-
-### Configuration
-```bash
-# Custom port and URL
-### Environment Variables
-All main configuration is via these environment variables (all have CLI flag equivalents):
-
-# Environment variables
-export NCLIP_URL=https://demo.nclip.app
-export NCLIP_TTL=24h
-./nclip
-```
-
-
-## 🐳 Docker Deployment
-
-### Quick Start with Docker Compose
-```bash
-docker-compose up -d
-
-# Or use the example below
-```
-
-### Docker Compose (with local filesystem)
-```yaml
-services:
-  nclip:
-    image: johnwmail/nclip:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - NCLIP_URL=https://demo.nclip.app
-    volumes:
-      - ./data:/data  # Persist data to local ./data directory
-```
-
-### Production Docker Compose
-```bash
-# The repository includes a production-ready docker-compose.yml
-# with health checks and volume mappings
-docker-compose up -d
-```
-
-kubectl create deployment nclip --image=nclip
-kubectl expose deployment nclip --port=8080 --type=LoadBalancer
-### Kubernetes
-```bash
-# Deploy to Kubernetes with local filesystem (server mode)
-kubectl apply -f k8s/nclip-filesystem.yaml
-
-# Or build and deploy
-docker build -t nclip .
-kubectl create deployment nclip --image=nclip
-kubectl expose deployment nclip --port=8080 --type=LoadBalancer
-See [docs/KUBERNETES.md](docs/KUBERNETES.md) for detailed Kubernetes deployment instructions.
-```
-
-## ☁️ AWS Lambda Deployment
-
-nclip automatically switches to S3 for storage when deployed as AWS Lambda (detected via `AWS_LAMBDA_FUNCTION_NAME`).
-
-### Prerequisites
-```bash
-# Create S3 bucket
-aws s3api create-bucket --bucket my-nclip-bucket --region us-east-1
-
-# Enable versioning and lifecycle rules (optional)
-aws s3api put-bucket-versioning --bucket my-nclip-bucket --versioning-configuration Status=Enabled
-aws s3api put-bucket-lifecycle-configuration --bucket my-nclip-bucket --lifecycle-configuration file://lifecycle.json
-```
-
-### Deploy via GitHub Actions
-
-When you push to the `deploy/lambda` branch, a GitHub Actions workflow automatically builds and deploys the Lambda function using the configuration in [`.github/workflows/lambda.yml`](.github/workflows/lambda.yml).
-```bash
-# Push to lambda deployment branch
-git push origin deploy/lambda
-```
-- `GIN_MODE=release`
-
-> **Note:** Ensure your Lambda function has appropriate AWS credentials and an IAM role with permissions for S3 access (e.g., `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject` on the target bucket).
-
-## 🗄️ Storage Backends
-
-| Deployment         | Content Storage      | Metadata Storage      | TTL Support         |
-|--------------------|---------------------|----------------------|---------------------|
-| **Server mode**    | Filesystem (`$slug`)| Filesystem (`$slug.json`)| Handled by app logic |
-| **AWS Lambda**     | S3 (`$slug`)        | S3 (`$slug.json`)| Handled by app logic |
-
-Storage selection is automatic based on deployment environment - no configuration needed.
 
 ## ⚙️ Configuration
 
-nclip supports configuration via environment variables and CLI flags.
+nclip supports configuration via environment variables and CLI flags. Environment variables take precedence over CLI flags.
 
 ### Environment Variables
+
+| Variable | CLI Flag | Default | Description |
+|----------|----------|---------|-------------|
+| `NCLIP_PORT` | `--port` | `8080` | HTTP port to listen on |
+| `NCLIP_URL` | `--url` | `""` | Base URL for paste links (auto-detected if empty) |
+| `NCLIP_SLUG_LENGTH` | `--slug-length` | `5` | Length of generated slugs (3-32 characters) |
+| `NCLIP_BUFFER_SIZE` | `--buffer-size` | `5242880` | Maximum upload size in bytes (5MB) |
+| `NCLIP_TTL` | `--ttl` | `24h` | Default paste expiration time |
+| `NCLIP_S3_BUCKET` | `--s3-bucket` | `""` | S3 bucket name for Lambda mode |
+| `NCLIP_S3_PREFIX` | `--s3-prefix` | `""` | S3 key prefix for Lambda mode |
+
+### Examples
+
+**Using Environment Variables:**
 ```bash
-
-# Server configuration
-NCLIP_PORT=8080                    # HTTP port
-NCLIP_URL=https://demo.nclip.app   # Base URL for paste links
-NCLIP_SLUG_LENGTH=5                # Slug length (must be 3–32, default 5 if out of range)
-NCLIP_BUFFER_SIZE=5242880          # Max upload size (5MB)
-NCLIP_TTL=24h                      # Default paste expiration
-
-# Storage configuration
-NCLIP_S3_BUCKET=my-nclip-bucket         # S3 bucket for Lambda
+export NCLIP_PORT=3000
+export NCLIP_URL=https://demo.nclip.app
+export NCLIP_TTL=48h
+./nclip
 ```
 
-### CLI Flags
-All environment variables have corresponding CLI flags:
+**Using CLI Flags:**
 ```bash
-./nclip --port 8080 --url https://demo.nclip.app --ttl 48h
+./nclip --port 3000 --url https://demo.nclip.app --ttl 48h
 ```
 
-## 📊 Monitoring
+**Combined (Environment takes precedence):**
+```bash
+export NCLIP_PORT=3000
+./nclip --url https://demo.nclip.app --ttl 48h
+```
+
+## �� Monitoring
 
 - **Health Check**: `GET /health` - Returns 200 OK with system status
 - **Structured Logging**: JSON format with request tracing
 
 ## 🔧 Development
 
-### Running Tests
-```bash
-# Format, vet, and test
-go fmt ./... && go vet ./... && go test -v ./...
-
-# Linting
-golangci-lint run
-
-# Build for different platforms
-GOOS=linux GOARCH=amd64 go build -o nclip-linux-amd64 .
-GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o bootstrap .  # Lambda
-```
-
-### Project Structure
-```
-/
-├── main.go              # Unified entry point (server mode + Lambda)
-├── config/              # Configuration management
-├── storage/             # Storage interface & implementations
-│   ├── interface.go     # PasteStore interface
-│   ├── filesystem.go    # Filesystem (server mode) implementation
-│   └── s3.go            # S3 (Lambda) implementation
-├── handlers/            # HTTP request handlers
-├── models/              # Data models
-├── static/              # Web UI assets
-└── utils/               # Utilities (slug generation, MIME detection)
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with [Go](https://golang.org/) and [Gin](https://gin-gonic.com/)
-- Supports modern cloud-native deployments
-
-## 🗂️ Container Registry Management
-
-The repository includes automated cleanup of old container images to manage storage costs:
-
-- **Automated Cleanup**: Monthly cleanup of container images older than 30 days
-- **Manual Control**: Trigger cleanup with custom retention policies via GitHub Actions
-- **Safe Deletion**: Always preserves `latest` tag and recent versions
-- **Dry Run Mode**: Preview cleanup actions before execution
-
-📋 **[Container Cleanup Guide](docs/CONTAINER_CLEANUP.md)** - Complete documentation for managing container images
-
-## �️ Development
-
 ### Requirements
 
 - **Go**: 1.23 or higher (minimum supported version)
-- **Docker**: For container builds
-  # ...existing code...
+- **Docker**: For container builds and testing
 
 ### Build Strategy
 
@@ -348,17 +315,97 @@ cd nclip
 go mod download
 go build -o nclip .
 
-# Run tests
-go test ./...
-
 # Run with local filesystem
 ./nclip
-
-# Run integration tests
-make integration-tests
 ```
 
-## �🔗 Links
+### Running Tests
+```bash
+# Format, vet, and test
+go fmt ./... && go vet ./... && go test -v ./...
+
+# Linting
+golangci-lint run
+
+# Run integration tests
+go run main.go
+bash scripts/integration-tests.sh
+```
+
+### Project Structure
+```
+/
+├── main.go              # Unified entry point (server mode + Lambda)
+├── main_test.go         # Integration tests
+├── config/              # Configuration management
+│   ├── config.go        # Configuration loading from env vars and CLI flags
+│   └── config_test.go   # Configuration tests
+├── handlers/            # HTTP request handlers
+│   ├── paste.go         # Main paste upload/retrieval handler
+│   ├── paste_test.go    # Paste handler tests
+│   ├── meta.go          # Metadata API handler
+│   ├── meta_test.go     # Metadata handler tests
+│   ├── system.go        # System endpoints (health, etc.)
+│   ├── system_test.go   # System handler tests
+│   ├── webui.go         # Web UI handler
+│   ├── webui_test.go    # Web UI tests
+│   ├── retrieval/       # Paste retrieval handlers
+│   └── upload/          # Paste upload handlers
+├── internal/            # Private application code
+│   └── services/        # Business logic services
+│       └── paste_service.go # Paste business logic
+├── models/              # Data models and structures
+│   ├── paste.go         # Paste data model
+│   └── paste_test.go    # Paste model tests
+├── storage/             # Storage abstraction layer
+│   ├── interface.go     # PasteStore interface definition
+│   ├── interface_test.go # Interface tests
+│   ├── filesystem.go    # Filesystem storage (server mode)
+│   ├── filesystem_test.go # Filesystem storage tests
+│   ├── s3.go            # S3 storage (Lambda mode)
+│   ├── s3_test.go       # S3 storage tests
+│   ├── s3util.go        # S3 utility functions
+│   ├── s3util_test.go   # S3 utility tests
+│   └── storage_test.go  # Storage integration tests
+├── utils/               # Shared utilities
+│   ├── debug.go         # Debug logging utilities
+│   ├── debug_test.go    # Debug utility tests
+│   ├── mime.go          # MIME type detection
+│   ├── mime_test.go     # MIME detection tests
+│   ├── slug.go          # Slug generation utilities
+│   └── slug_test.go     # Slug generation tests
+├── static/              # Static web assets
+│   ├── index.html       # Main web UI
+│   ├── favicon.ico      # Favicon
+│   ├── style.css        # CSS styles
+│   ├── script.js        # JavaScript functionality
+│   └── view.html        # Paste view template
+├── docs/                # Documentation
+│   ├── CLIENTS.md       # Client usage examples
+│   ├── CONTAINER_CLEANUP.md # Container management
+│   ├── INTEGRATION-TESTS.md # Integration testing
+│   ├── KUBERNETES.md    # Kubernetes deployment
+│   └── LAMBDA.md        # AWS Lambda deployment
+├── k8s/                 # Kubernetes manifests
+│   ├── deployment.yaml  # Deployment configuration
+│   ├── service.yaml     # Service configuration
+│   ├── ingress.yaml     # Ingress configuration
+│   ├── namespace.yaml   # Namespace definition
+│   ├── kustomization.yaml # Kustomize configuration
+│   └── pvc.yaml         # Persistent volume claim
+├── scripts/             # Utility scripts
+│   └── integration-test.sh # Integration test runner
+├── .github/             # GitHub configuration
+│   └── workflows/       # GitHub Actions workflows
+├── Dockerfile           # Docker image definition
+├── docker-compose.yml   # Docker Compose configuration
+├── go.mod               # Go module definition
+├── go.sum               # Go module checksums
+├── .golangci.yml        # Go linting configuration
+└── .gitignore           # Git ignore rules
+```
+
+## 🔗 Links
 
 - **Documentation**: [docs/](docs/)
 - **GitHub Registry**: `docker pull ghcr.io/johnwmail/nclip`

@@ -68,8 +68,8 @@ jobs:
 
       - name: Validate required Lambda variables
         run: |
-          if [ -z "${{ vars.BUCKET }}" ]; then
-            echo "❌ Error: Repository variable BUCKET must be set for Lambda deployments" >&2
+          if [ -z "${{ vars.S3_BUCKET }}" ]; then
+            echo "❌ Error: Repository variable S3_BUCKET must be set for Lambda deployments" >&2
             exit 1
           fi
 
@@ -130,10 +130,11 @@ jobs:
           architectures: ${{ steps.set-arch.outputs.arch }}
           runtime: provided.al2023
           handler: bootstrap
+          timeout: 10
           publish: true
           role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
-          s3-bucket: "${{ vars.BUCKET }}"
-          environment: '{"NCLIP_BUFFER_SIZE":"${{ vars.NCLIP_BUFFER_SIZE }}","NCLIP_S3_BUCKET":"${{ vars.BUCKET }}","NCLIP_S3_PREFIX":"${{ vars.S3_PREFIX }}","GIN_MODE":"${{ vars.GIN_MODE }}"}'
+          s3-bucket: "${{ vars.S3_BUCKET }}"
+          environment: '{"NCLIP_S3_BUCKET":"${{ vars.S3_BUCKET }}","NCLIP_S3_PREFIX":"${{ vars.S3_PREFIX }}","NCLIP_BUFFER_SIZE":"${{ vars.NCLIP_BUFFER_SIZE }}","GIN_MODE":"${{ vars.GIN_MODE }}"}'
 
       - name: Post-deploy info
         run: |

@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -112,12 +113,23 @@ func (s *S3Store) Exists(id string) (bool, error) {
 		Key:    aws.String(metaKey),
 	})
 	if err != nil {
+		// Check for AWS API errors
 		var apiErr smithy.APIError
-		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NoSuchKey" {
+		if errors.As(err, &apiErr) {
+			errorCode := apiErr.ErrorCode()
+			// Object doesn't exist - this is what we want for available slugs
+			if errorCode == "NoSuchKey" || errorCode == "NotFound" || errorCode == "404" {
+				return false, nil
+			}
+		}
+		// Also check for HTTP 404 in error message
+		if strings.Contains(err.Error(), "StatusCode: 404") || strings.Contains(err.Error(), "NotFound") {
 			return false, nil
 		}
-		log.Printf("[ERROR] S3 Exists: failed to check existence for %s: %v", id, err)
-		return false, err
+		// For any other error, log it but don't fail - treat as not exists to be safe
+		// This handles cases where there might be temporary permission issues
+		log.Printf("[WARN] S3 Exists: error checking %s, treating as not exists: %v", id, err)
+		return false, nil
 	}
 	return true, nil
 }

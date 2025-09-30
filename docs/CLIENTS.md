@@ -108,7 +108,41 @@ echo "My custom slug" | http POST http://localhost:8080 X-SLUG:MYPASTE
 
 ---
 
-### 5. Advanced: Burn-After-Read
+### 5. Bash Aliases (Linux/macOS)
+
+You may find these bash aliases useful for working with nclip:
+
+```bash
+alias nclip="_nclip"
+_nclip() {
+  local _URL="https://demo.nclip.app"
+  if [ -t 0 ]; then
+    if [ $# -eq 1 ] && [ -f "$1" ]; then
+      curl --data-binary @"$1" "$_URL"
+    else
+      echo -en "$*" | curl --data-binary @- "$_URL"
+    fi
+  else
+    cat | curl --data-binary @- "$_URL"
+  fi
+}
+```
+
+**Usage examples:**
+```bash
+# Upload text
+nclip "Hello World!"
+
+# Upload file
+nclip myfile.txt
+
+# Upload from stdin
+echo "Hello from stdin" | nclip
+```
+
+---
+
+### 6. Advanced: Burn-After-Read
 
 **Create burn-after-read paste (curl):**
 ```bash
@@ -117,7 +151,7 @@ echo "Self-destruct message" | curl -sL --data-binary @- http://localhost:8080/b
 
 ---
 
-### 6. Notes on Custom Headers
+### 7. Notes on Custom Headers
 
 - `X-TTL`: Set a custom time-to-live (expiry) for a paste. Valid range: 1h–7d. Example: `X-TTL: 2h`
 - `X-SLUG`: Specify a custom slug/ID for the paste. Must be unique and valid. Example: `X-SLUG: MYPASTE`
