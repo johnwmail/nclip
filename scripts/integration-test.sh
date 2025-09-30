@@ -6,7 +6,58 @@ set -euo pipefail
 # Integration test script for nclip (S3/filesystem or any backend)
 # This script tests all major API endpoints to ensure they work correctly, regardless of storage backend.
 
-# Cleanup function to remove temp files/dirs
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YIGHL='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+log() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
+
+warn() {
+    echo -e "${YIGHL}[WARN]${NC} $*"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+# Retry helper for POST requests (body-only). Usage: try_post VAR_NAME URL DATA
+try_post() {
+    local _varname="$1"; shift
+    local _url="$1"; shift
+    local _data="$1"; shift
+    local _attempt=0
+    local _max=3
+    local _resp
+    while true; do
+        _attempt=$((_attempt+1))
+        _resp=$(curl -sS -w "\n%{http_code}" -X POST "$_url" -d "$_data" || true)
+        # split response and status
+        local _status
+        _status=$(echo "$_resp" | tail -n1)
+        local _body
+        _body=$(echo "$_resp" | sed '$d')
+        if [[ "$_status" =~ ^2[0-9][0-9]$ ]]; then
+            eval "$_varname=\"$_body\""
+            return 0
+        fi
+        if [[ $_attempt -ge $_max ]]; then
+            eval "$_varname=\"$_body\""
+            return 22
+        fi
+        warn "POST to $_url failed (status=$_status). Retrying ($_attempt/$_max)..."
+        sleep 1
+    done
+}
+
 TRASH_RECORD_FILE="/tmp/nclip_integration_slugs.txt"
 cleanup_temp_files() {
     log "Cleaning up all test artifacts..."
@@ -644,9 +695,15 @@ run_integration_tests() {
     
     log "Creating test paste with content: $test_content"
     local paste_url
-    paste_url=$(curl -f -s -X POST "$NCLIP_URL/" -d "$test_content")
-    if [[ -n "$paste_url" && "$paste_url" == http* ]]; then
-        basename "$paste_url" >> "$TRASH_RECORD_FILE" || true
+    # Use retrying POST to avoid transient network/server hiccups causing immediate failure
+    paste_url=""
+    if try_post paste_url "$NCLIP_URL/" "$test_content"; then
+        if [[ -n "$paste_url" && "$paste_url" == http* ]]; then
+            basename "$paste_url" >> "$TRASH_RECORD_FILE" || true
+        fi
+    else
+        error "Failed to create initial paste after retries. Response: $paste_url"
+        return 22
     fi
     
     if [[ -n "$paste_url" ]] && [[ "$paste_url" == http* ]]; then
