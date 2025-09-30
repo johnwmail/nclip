@@ -15,6 +15,7 @@ nclip-*
 # Test coverage
 coverage.out
 coverage.html
+coverage.txt
 
 # Security scanning results
 results.sarif
