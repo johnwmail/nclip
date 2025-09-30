@@ -2,70 +2,215 @@
 
 This guide provides detailed instructions for deploying nclip on Kubernetes, including manifest customization, scaling, ingress, and troubleshooting.
 
----
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Prerequisites](#prerequisites)
+- [Manifest Overview](#manifest-overview)
+- [Configuration](#configuration)
+- [Ingress & TLS](#ingress--tls)
+- [Scaling & High Availability](#scaling--high-availability)
+- [Storage](#storage)
+- [Monitoring & Health Checks](#monitoring--health-checks)
+- [Troubleshooting](#troubleshooting)
+- [Security](#security)
 
 ## Quick Start
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/johnwmail/nclip.git
-   cd nclip
-   ```
+### Deploy with kubectl
 
-2. **Create the namespace (optional):**
-   ```bash
-   kubectl apply -f k8s/namespace.yaml
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/johnwmail/nclip.git
+cd nclip
 
-3. **Deploy nclip app and service:**
-   ```bash
-   kubectl apply -f k8s/deployment.yaml
-   kubectl apply -f k8s/service.yaml
-   ```
+# Create namespace (optional)
+kubectl apply -f k8s/namespace.yaml
 
-4. **(Optional) Deploy ingress:**
-   ```bash
-   kubectl apply -f k8s/ingress.yaml
-   ```
+# Deploy nclip
+kubectl apply -f k8s/
 
-5. **(Optional) Use kustomize for overlays:**
-   ```bash
-   kubectl apply -k k8s/
-   ```
+# Check deployment status
+kubectl get pods -n nclip
+kubectl get svc -n nclip
+```
 
----
+### Access the Application
+
+```bash
+# Port forward for local access
+kubectl port-forward -n nclip svc/nclip 8080:8080
+
+# Visit http://localhost:8080
+```
+
+## Prerequisites
+
+- Kubernetes cluster (1.19+)
+- kubectl configured to access your cluster
+- (Optional) Ingress controller for external access
+- (Optional) Persistent volume provisioner for data persistence
 
 ## Manifest Overview
 
-- `k8s/namespace.yaml`: Namespace for isolation
-- `k8s/deployment.yaml`: nclip Deployment
-- `k8s/service.yaml`: nclip Service (ClusterIP/LoadBalancer)
-- `k8s/ingress.yaml`: Ingress for external HTTP(S) access
-- `k8s/kustomization.yaml`: Kustomize support
+| File | Purpose | Type |
+|------|---------|------|
+| `k8s/namespace.yaml` | Namespace for isolation | Namespace |
+| `k8s/deployment.yaml` | nclip application deployment | Deployment |
+| `k8s/service.yaml` | Service to expose nclip | Service |
+| `k8s/ingress.yaml` | Ingress for external access | Ingress |
+| `k8s/pvc.yaml` | Persistent volume claim for data | PersistentVolumeClaim |
+| `k8s/kustomization.yaml` | Kustomize configuration | Kustomization |
 
----
+## Configuration
 
-## Customization
+### Environment Variables
 
-- **Resources:** Set CPU/memory requests/limits in deployments for production.
-- **Service Type:** Change `service.yaml` to `LoadBalancer` for cloud, or use `NodePort` for local testing.
+Configure nclip through environment variables in the deployment:
 
----
+```yaml
+env:
+- name: NCLIP_URL
+  value: "https://demo.nclip.app"
+- name: NCLIP_PORT
+  value: "8080"
+- name: NCLIP_TTL
+  value: "24h"
+```
+
+### Resource Limits
+
+Set appropriate resource requests and limits for production:
+
+```yaml
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+```
+
+### Service Types
+
+Choose the appropriate service type:
+
+- **ClusterIP**: Internal cluster access only
+- **LoadBalancer**: Cloud provider load balancer
+- **NodePort**: Direct node port access
+
+## Storage
+
+nclip uses filesystem storage by default. For production deployments with persistent data:
+
+```bash
+# Apply the persistent volume claim
+kubectl apply -f k8s/pvc.yaml
+```
+
+Update `deployment.yaml` to mount the persistent volume:
+
+```yaml
+volumeMounts:
+- name: nclip-data
+  mountPath: /data
+
+volumes:
+- name: nclip-data
+  persistentVolumeClaim:
+    claimName: nclip-pvc
+```
+
+## Monitoring & Health Checks
+
+nclip includes built-in health checks accessible at `/health`:
+
+```bash
+# Check health endpoint
+curl http://your-nclip-service/health
+
+# View application logs
+kubectl logs -n nclip deployment/nclip
+
+# Monitor resource usage
+kubectl top pods -n nclip
+```
 
 ## Ingress & TLS
 
-- Edit `k8s/ingress.yaml` to set your domain and TLS settings.
-- Ensure an ingress controller (e.g., nginx, traefik) is installed in your cluster.
-- For HTTPS, configure TLS secrets and reference them in the ingress manifest.
+Configure ingress for external access:
 
----
+```bash
+# Install ingress controller (nginx example)
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.1/deploy/static/provider/cloud/deploy.yaml
+
+# Apply nclip ingress
+kubectl apply -f k8s/ingress.yaml
+```
+
+For HTTPS, create and configure TLS secrets:
+
+```bash
+# Create TLS secret from certificate files
+kubectl create secret tls nclip-tls --cert=tls.crt --key=tls.key -n nclip
+
+# Or use cert-manager for automatic certificates
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+```
+
+Update `ingress.yaml` to reference the TLS secret:
+
+```yaml
+tls:
+- hosts:
+  - demo.nclip.app
+  secretName: nclip-tls
+```
 
 ## Scaling & High Availability
 
-- Increase `replicas` in `deployment.yaml` for nclip.
-- Consider anti-affinity and pod disruption budgets for resilience.
+### Horizontal Scaling
 
----
+```bash
+# Scale deployment to multiple replicas
+kubectl scale deployment nclip --replicas=3 -n nclip
+```
+
+### Pod Anti-Affinity
+
+Configure anti-affinity to spread pods across nodes:
+
+```yaml
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - nclip
+        topologyKey: kubernetes.io/hostname
+```
+
+### Pod Disruption Budget
+
+Ensure high availability during cluster maintenance:
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nclip-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: nclip
+```
 
 ## Troubleshooting
 
