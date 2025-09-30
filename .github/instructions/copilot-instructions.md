@@ -121,70 +121,109 @@ type PasteStore interface {
 ## Code Organization
 
 ```
-/
-├── main.go              # Entry point, config, router setup
-├── config/
-│   └── config.go        # Configuration struct and parsing
-├── storage/
-│   ├── interface.go     # PasteStore interface
-│   ├── filesystem.go    # Filesystem implementation (server mode)
-│   └── s3.go            # S3 implementation (Lambda mode)
-├── handlers/
-│   ├── paste.go         # Upload, view, raw endpoints
-│   ├── burn.go          # Burn-after-read functionality
-│   ├── meta.go          # Metadata endpoint
-│   └── system.go        # Health endpoint
-├── models/
-│   └── paste.go         # Paste struct and utilities
-├── static/
-│   ├── index.html       # Web UI
-│   ├── style.css        # Styling
-│   └── script.js        # Frontend JS
-└── utils/
-    ├── slug.go          # Slug generation
-    └── mime.go          # Content-type detection
+## nclip Copilot Instructions (2025)
+
+This document describes the current architecture, coding conventions, testing and deployment practices for `nclip`. It's targeted at contributors and any automated copilot/coding agent assisting with the codebase.
+
+### 1) Test and Script Cleanup (must follow)
+
+All integration tests and scripts must clean up the artifacts they create. Recommended patterns:
+- Create test artifacts with a predictable prefix (e.g. `nclip-test-<slug>`), and delete only matching files during cleanup.
+- When prefixing isn't possible, delete files in `./data` only if they are recently modified (e.g. `-mmin -60`) and/or explicitly recorded in a temp file during the test run.
+- Always remove temporary files in `/tmp/` created by tests (use explicit names).
+
+This avoids accidental deletion of unrelated data and keeps CI reproducible.
+
+---
+
+### 2) High-level Architecture
+
+- Language: Go (1.25+ recommended)
+- HTTP framework: Gin
+- Storage abstraction: `PasteStore` interface (Filesystem and S3 implementations)
+- Data model: JSON metadata + raw binary content
+- Configuration: environment variables and CLI flags
+
+### 3) API Endpoints (current)
+
+- GET / — Web UI (upload form)
+- POST / — Upload paste (returns paste URL)
+- POST /burn/ — Burn-after-read paste
+- GET /{slug} — HTML view
+- GET /raw/{slug} — Raw content download (sets Content-Disposition)
+- GET /api/v1/meta/{slug} — Metadata JSON
+- GET /json/{slug} — Alias for metadata
+- GET /health — Health check
+
+### 4) Data Types
+
+Paste metadata (canonical):
+
+```go
+type Paste struct {
+    ID            string     `json:"id"`
+    CreatedAt     time.Time  `json:"created_at"`
+    ExpiresAt     *time.Time `json:"expires_at,omitempty"`
+    Size          int64      `json:"size"`
+    ContentType   string     `json:"content_type"`
+    BurnAfterRead bool       `json:"burn_after_read"`
+    ReadCount     int        `json:"read_count"`
+}
 ```
 
-## Testing Strategy
+### 5) Storage interface
 
-- Unit tests for all storage implementations
-- HTTP endpoint tests using httptest
-- Mock PasteStore for handler testing
-- Integration tests with real storage backends
-- Test both Lambda and server deployment modes
+```go
+type PasteStore interface {
+    StoreContent(id string, content []byte) error
+    StoreMetadata(id string, meta *Paste) error
+    GetMetadata(id string) (*Paste, error)
+    GetContent(id string) ([]byte, error)
+    Delete(id string) error
+    IncrementReadCount(id string) error
+}
+```
 
+Note: The concrete methods in this repository follow this pattern (filesystem uses files, S3 uses object + metadata JSON files).
 
-## Environment Variables
+### 6) Implementation notes
 
-All main configuration is via these environment variables (all have CLI flag equivalents):
+- Content-Type: Prefer client-provided `Content-Type` header; fall back to filename extension and then content-based detection. Keep `utils/mime.go` small and testable.
+- Filenames: Download endpoints should include a user-friendly extension (via `utils.ExtensionByMime`). Text content should be served inline; binaries as attachments.
+- Burn-after-read: Ensure atomic delete after the first successful read (store-level delete or transactional approach).
+- Slugs: Uppercase alphanumeric by default; configurable length.
 
-| Environment Variable      | CLI Flag         | Description                                 |
-|--------------------------|------------------|---------------------------------------------|
-| NCLIP_PORT               | --port           | HTTP server port (default: 8080)            |
-| NCLIP_URL                | --url            | Base URL for paste links                    |
-| NCLIP_SLUG_LENGTH        | --slug-length    | Length of generated paste IDs (default: 5)  |
-| NCLIP_BUFFER_SIZE        | --buffer-size    | Max upload size in bytes (default: 5MB)     |
-| NCLIP_TTL                | --ttl            | Default paste expiration (default: 24h)     |
-| NCLIP_DATA_DIR           | --data-dir       | Local data directory (default: ./data)      |
-| NCLIP_S3_BUCKET          | --s3-bucket      | S3 bucket for Lambda mode                   |
-| NCLIP_S3_PREFIX          | --s3-prefix      | S3 key prefix (optional)                    |
+### 7) Error handling and logging
 
-**Note:**
-- `GIN_MODE`, `AWS_LAMBDA_FUNCTION_NAME`, and `S3_BUCKET` are used only in deployment workflows (e.g., GitHub Actions, Lambda detection), not for app configuration.
-- NCLIP_MONGO_URL and --mongo-url are no longer supported.
+- Return JSON errors: `{ "error": "message" }`
+- Use appropriate HTTP status codes
+- Prefer structured logs (key/value or JSON); guard verbose debug behind a debug flag or environment variable
 
+### 8) Testing
 
-## Deployment Modes
+- Unit tests for utils, storage, and services
+- Handler tests using httptest and a Mock PasteStore
+- Integration tests (scripts/integration-test.sh) exercise the real binary and filesystem backend
+- CI runs: unit tests, `golangci-lint` (includes `gocyclo`), and integration tests on main/dev branches
 
-1. **Server mode**: Uses filesystem, full HTTP server
-2. **AWS Lambda**: Uses S3, same codebase with Lambda adapter
-3. **Both Lambda and server mode should use the same main.go, and use the AWS_LAMBDA_FUNCTION_NAME variable to determine the mode. (Don't separate 2 main.go for 2 modes )**
+### 9) CI / Linting
 
-Both modes share identical API and behavior.
+- `golangci-lint` is used (configurable via `.golangci.yml`). `gocyclo` is enabled; keep functions under complexity thresholds where practical. Refactor complex helpers into small, testable functions.
 
-## Lambda Deployment with S3
-- The Lambda code should support http v2.0 payload format. (This is the default for new Lambda functions behind an API Gateway HTTP API.)
-- Use AWS Lambda Go SDK
-- Wrap Gin router with Lambda adapter
-- S3 bucket is specified via `NCLIP_S3_BUCKET` env var
-- Ensure the Lambda execution role has permissions for S3 actions: `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`
+### 10) Deployment
+
+- Server mode: standard HTTP server with filesystem storage
+- Lambda mode: S3-backed, same codebase. Use `AWS_LAMBDA_FUNCTION_NAME` or environment-driven adapter to detect Lambda runtime. Wrap Gin with an adapter (aws-lambda-go-api-proxy or similar).
+
+### 11) Security and operational notes
+
+- No authentication required by design; consider adding rate-limiting or abuse protection for public deployments.
+- Ensure S3 permissions are scoped to required actions only.
+
+---
+
+If you want, I can also:
+- Convert integration-test cleanup to a prefix-based approach, or
+- Add a short contributor checklist in this file with exact commands to run locally (build, run server, run integration tests).
+
+If you'd like this file split into separate CONTRIBUTING.md and ARCHITECTURE.md files I can create them as well.
