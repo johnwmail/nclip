@@ -46,11 +46,13 @@ try_post() {
         local _body
         _body=$(echo "$_resp" | sed '$d')
         if [[ "$_status" =~ ^2[0-9][0-9]$ ]]; then
-            eval "$_varname=\"$_body\""
+            # assign to the named variable safely without eval to avoid executing response content
+            printf -v "$_varname" '%s' "$_body"
             return 0
         fi
         if [[ $_attempt -ge $_max ]]; then
-            eval "$_varname=\"$_body\""
+            # assign final response body into the named var safely
+            printf -v "$_varname" '%s' "$_body"
             return 22
         fi
         warn "POST to $_url failed (status=$_status). Retrying ($_attempt/$_max)..."
