@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   # nclip Application
   nclip:
@@ -6,31 +8,56 @@ services:
       dockerfile: Dockerfile
     container_name: nclip-app
     restart: unless-stopped
-    mem_limit: 128mb
+
+    # Security hardening
     user: 1001:1001
     read_only: true
     security_opt:
       - no-new-privileges
     cap_drop:
       - ALL
+
+    # Resource limits
+    mem_limit: 128mb
+    cpus: 0.5
+
     environment:
+      # Data directory (must match volume mount)
       NCLIP_DATA_DIR: /data
+
       # Application Configuration
       #NCLIP_URL: https://demo.nclip.app
       NCLIP_PORT: 8080
       NCLIP_TTL: 24h
-      NCLIP_BUFFER_SIZE: 5242880 # 5MB
+      NCLIP_BUFFER_SIZE: 5242880 # 5MB max upload size
+      NCLIP_SLUG_LENGTH: 5
+
+      # Production settings
       GIN_MODE: release
+
     volumes:
       - data:/data
+
     ports:
       - "8080:8080" # HTTP interface
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
 
+    # Networks
+    networks:
+      - nclip-network
+
+# Named volumes for data persistence
 volumes:
   data:
     driver: local
+
+# Networks
+networks:
+  nclip-network:
+    driver: bridge
