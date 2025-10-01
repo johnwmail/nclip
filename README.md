@@ -88,7 +88,7 @@ open http://localhost:8080
 
 For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and advanced features (custom TTL, slugs, etc.), see:
 
-👉 **[docs/CLIENTS.md](docs/CLIENTS.md)** - Complete client usage guide
+👉 **[Documents/CLIENTS.md](Documents/CLIENTS.md)** - Complete client usage guide
 
 
 <a id="deployment"></a>
@@ -132,7 +132,7 @@ docker run -d -p 8080:8080 --name nclip ghcr.io/johnwmail/nclip:latest
 kubectl apply -f k8s/
 ```
 
-📋 **[Kubernetes Guide](docs/KUBERNETES.md)** - Complete deployment, scaling, and monitoring instructions
+📋 **[Kubernetes Guide](Documents/KUBERNETES.md)** - Complete deployment, scaling, and monitoring instructions
 
 ---
 
@@ -191,7 +191,7 @@ aws lambda create-function \
 }
 ```
 
-📋 **[Lambda Guide](docs/LAMBDA.md)** - Complete AWS Lambda deployment, monitoring, and troubleshooting
+📋 **[Lambda Guide](Documents/LAMBDA.md)** - Complete AWS Lambda deployment, monitoring, and troubleshooting
 
 ---
 
@@ -320,7 +320,7 @@ bash scripts/integration-tests.sh
 <a id="links"></a>
 ## 🔗 Links
 
-- **Documentation**: [docs/](docs/)
+- **Documentation**: [Documents/](Documents/)
 - **GitHub Registry**: `docker pull ghcr.io/johnwmail/nclip`
 - **GitHub**: https://github.com/johnwmail/nclip
 - **Issues**: https://github.com/johnwmail/nclip/issues
