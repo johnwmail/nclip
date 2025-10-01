@@ -99,11 +99,8 @@ func main() {
 		if dataDir == "" {
 			dataDir = "./data"
 		}
-		if err := os.MkdirAll(dataDir, 0o755); err != nil {
-			log.Fatalf("Failed to create data directory %s: %v", dataDir, err)
-		}
-
-		store, err = storage.NewFilesystemStore()
+		// the storage.NewFilesystemStore responsibility to create the data directory belongs to startup code
+		store, err = storage.NewFilesystemStore(dataDir)
 		if err != nil {
 			log.Fatalf("Failed to initialize filesystem storage: %v", err)
 		}

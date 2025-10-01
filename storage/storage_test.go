@@ -247,7 +247,7 @@ func TestFilesystemStore_LocalFS(t *testing.T) {
 	_ = os.Mkdir("./testdata", 0o755)
 	defer os.RemoveAll("./testdata")
 
-	store, err := NewFilesystemStore()
+	store, err := NewFilesystemStore("./testdata")
 	if err != nil {
 		t.Fatalf("Failed to create FilesystemStore: %v", err)
 	}
