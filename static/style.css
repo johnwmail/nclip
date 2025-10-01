@@ -8,6 +8,7 @@
 :root {
     --primary-color: #2563eb;
     --primary-hover: #1d4ed8;
+
     --success-color: #059669;
     --secondary-color: #64748b;
     --background: #ffffff;
@@ -46,7 +47,8 @@ body.main-page {
 
 /* Main page specific container */
 body.main-page .container {
-    min-height: 100vh;  /* Changed from height to min-height */
+    min-height: 100vh;
+    /* Changed from height to min-height */
     display: flex;
     flex-direction: column;
 }
@@ -380,50 +382,53 @@ input[type="file"]:hover {
 @media (max-width: 768px) {
     .container {
         padding: 0.75rem;
-        padding-bottom: 2rem; /* Extra bottom padding for mobile */
+        padding-bottom: 2rem;
+        /* Extra bottom padding for mobile */
     }
-    
+
     /* Ensure mobile scrolling works properly */
     body.main-page {
         height: auto;
         min-height: 100vh;
         overflow: auto;
     }
-    
+
     body.main-page .container {
         height: auto;
         min-height: 100vh;
         flex-direction: column;
-        padding-bottom: 3rem; /* More bottom space on mobile */
+        padding-bottom: 3rem;
+        /* More bottom space on mobile */
     }
-    
+
     .upload-section {
         grid-template-columns: 1fr;
         gap: 1rem;
     }
-    
+
     header h1 {
         font-size: 1.75rem;
     }
-    
+
     .card {
         padding: 1rem;
-        margin-bottom: 1rem; /* Space between cards on mobile */
+        margin-bottom: 1rem;
+        /* Space between cards on mobile */
     }
-    
+
     .form-controls {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .url-display {
         flex-direction: column;
     }
-    
+
     .action-buttons {
         flex-direction: column;
     }
-    
+
     .btn {
         min-width: unset;
     }
@@ -490,6 +495,85 @@ input[type="file"]:hover {
 .burn-notice span {
     color: #dc2626 !important;
     font-size: 0.8rem !important;
+}
+
+/* Prominent banner styles for the view page */
+.alert {
+    border-radius: calc(var(--radius));
+    padding: 0.75rem 1rem;
+    box-shadow: var(--shadow);
+}
+
+.alert.large {
+    padding: 1.25rem 1.5rem;
+}
+
+.alert-title {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.alert-message {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.alert-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.binary-notice.centered {
+    text-align: center;
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.binary-notice.large {
+    padding: 2.25rem;
+}
+
+/* When viewing a missing paste, simplify page and hide details */
+.container.no-paste .paste-info,
+.container.no-paste .action-buttons,
+.container.no-paste .upload-section {
+    display: none !important;
+}
+
+.container.no-paste .alert {
+    border-left: 6px solid rgba(239, 68, 68, 0.9);
+    background: linear-gradient(90deg, rgba(254, 242, 242, 0.95), rgba(255, 255, 255, 0.9));
+}
+
+/* If an alert is present, hide the paste details and secondary action buttons
+   to focus the user on the message. This helps when templates don't inject
+   the 'no-paste' class for any reason. */
+#paste-view-section .alert~.paste-info,
+#paste-view-section .alert~.content-section .action-buttons,
+#paste-view-section .alert~.upload-section {
+    display: none !important;
+}
+
+/* Make the alert banner more prominent */
+.alert {
+    width: 100%;
+    box-shadow: none;
+}
+
+.alert.large {
+    padding: 1.5rem 1.75rem;
+}
+
+.alert-title {
+    font-size: 1.4rem;
+}
+
+.alert-message {
+    font-size: 1.05rem;
 }
 
 .content-section {
@@ -569,6 +653,7 @@ footer {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);

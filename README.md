@@ -12,18 +12,19 @@ A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#✨-features)
-- [Quick Start](#🚀-quick-start)
-- [API Endpoints](#📋-api-endpoints)
-- [Storage Backends](#🗄️-storage-backends)
-- [Configuration](#⚙️-configuration)
-- [Deployment](#☁️-deployment)
-  - [Docker](#🐳-docker-deployment)
-  - [Kubernetes](#☸️-kubernetes-deployment)
-  - [AWS Lambda](#☁️-aws-lambda-deployment)
-- [Monitoring](#📊-monitoring)
-- [Development](#🔧-development)
-- [Links](#🔗-links)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [API Endpoints](#api-endpoints)
+- [Storage Backends](#storage-backends)
+- [Paste Metadata](#paste-metadata)
+- [Configuration](#configuration)
+- [Deployment](#deployment)
+  - [Docker](#docker-deployment)
+  - [Kubernetes](#kubernetes-deployment)
+  - [AWS Lambda](#aws-lambda-deployment)
+- [Monitoring](#monitoring)
+- [Development](#development)
+- [Links](#links)
 
 ## Overview
 
