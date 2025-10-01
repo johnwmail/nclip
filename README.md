@@ -16,7 +16,6 @@ A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 - [Quick Start](#quick-start)
 - [API Endpoints](#api-endpoints)
 - [Storage Backends](#storage-backends)
-- [Paste Metadata](#paste-metadata)
 - [Configuration](#configuration)
 - [Deployment](#deployment)
   - [Docker](#docker-deployment)
@@ -26,6 +25,7 @@ A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 - [Development](#development)
 - [Links](#links)
 
+<a id="overview"></a>
 ## Overview
 
 nclip is a versatile clipboard app that accepts content via:
@@ -35,6 +35,7 @@ nclip is a versatile clipboard app that accepts content via:
 - **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG`
 - **Burn after reading** - Content that self-destructs after being accessed once
 
+<a id="features"></a>
 ## ✨ Features
 
 🚀 **Dual Deployment**: Server mode (local or container) + AWS Lambda
@@ -45,6 +46,7 @@ nclip is a versatile clipboard app that accepts content via:
 🛡️ **Production Ready**: Health checks, structured logging
 🔧 **Configurable**: Environment variables & CLI flags
 
+<a id="quick-start"></a>
 ## 🚀 Quick Start
 
 ### Installation
@@ -89,6 +91,7 @@ For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and
 👉 **[docs/CLIENTS.md](docs/CLIENTS.md)** - Complete client usage guide
 
 
+<a id="api-endpoints"></a>
 ## 📋 API Endpoints
 
 ### Core Endpoints
@@ -117,6 +120,7 @@ export NCLIP_TTL=24h
 ./nclip
 ```
 
+<a id="deployment"></a>
 ## ☁️ Deployment
 
 ### Quick Start Options
@@ -129,6 +133,7 @@ export NCLIP_TTL=24h
 
 ---
 
+<a id="docker-deployment"></a>
 ## 🐳 Docker Deployment
 
 ### Quick Start (Recommended)
@@ -147,6 +152,7 @@ docker-compose up -d
 docker run -d -p 8080:8080 --name nclip ghcr.io/johnwmail/nclip:latest
 ```
 
+<a id="kubernetes-deployment"></a>
 ## ☸️ Kubernetes Deployment
 
 ### Quick Start
@@ -159,6 +165,7 @@ kubectl apply -f k8s/
 
 ---
 
+<a id="aws-lambda-deployment"></a>
 ## ☁️ AWS Lambda Deployment
 
 ### Overview
@@ -217,6 +224,7 @@ aws lambda create-function \
 
 ---
 
+<a id="storage-backends"></a>
 ## 🗄️ Storage Backends
 
 | Deployment | Content Storage | Metadata Storage | TTL Support |
@@ -226,7 +234,7 @@ aws lambda create-function \
 
 **Storage selection is automatic** - no configuration needed. nclip detects the deployment environment and chooses the appropriate storage backend.
 
-## 📊 Paste Metadata (JSON)
+### Paste Metadata (JSON)
 
 Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** include the actual content.
 
@@ -243,6 +251,7 @@ Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** includ
 ```
 
 
+<a id="configuration"></a>
 ## ⚙️ Configuration
 
 nclip supports configuration via environment variables and CLI flags. Environment variables take precedence over CLI flags.
@@ -280,11 +289,13 @@ export NCLIP_PORT=3000
 ./nclip --url https://demo.nclip.app --ttl 48h
 ```
 
+<a id="monitoring"></a>
 ## 📊 Monitoring
 
 - **Health Check**: `GET /health` - Returns 200 OK with system status
 - **Structured Logging**: JSON format with request tracing
 
+<a id="development"></a>
 ## 🔧 Development
 
 ### Requirements
@@ -328,6 +339,7 @@ go run main.go
 bash scripts/integration-tests.sh
 ```
 
+<a id="links"></a>
 ## 🔗 Links
 
 - **Documentation**: [docs/](docs/)
