@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', function () {
             method: 'POST',
             headers: {
                 'Content-Type': 'text/plain',
+                'Accept': 'application/json',
             },
             body: content
         })
@@ -46,8 +47,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 try {
                     data = await response.json();
                 } catch (e) {
-                    // Not JSON (e.g., HTML error page)
-                    throw new Error('Server error: Unexpected response format');
+                    // Fallback: try to read text body to show server message (HTML or plain text)
+                    const txt = await response.text();
+                    const message = txt && txt.length ? txt : 'Unexpected response format';
+                    throw new Error('Server error: ' + message);
                 }
                 if (data.error) {
                     throw new Error(data.error);
@@ -81,15 +84,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
         fetch(endpoint, {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: {
+                'Accept': 'application/json'
+            }
         })
             .then(async response => {
                 let data;
                 try {
                     data = await response.json();
                 } catch (e) {
-                    // Not JSON (e.g., HTML error page)
-                    throw new Error('Server error: Unexpected response format');
+                    // Fallback: try to read text body to show server message (HTML or plain text)
+                    const txt = await response.text();
+                    const message = txt && txt.length ? txt : 'Unexpected response format';
+                    throw new Error('Server error: ' + message);
                 }
                 if (data.error) {
                     throw new Error(data.error);

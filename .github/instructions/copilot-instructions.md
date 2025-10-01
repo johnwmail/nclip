@@ -199,6 +199,15 @@ Note: The concrete methods in this repository follow this pattern (filesystem us
 - Use appropriate HTTP status codes
 - Prefer structured logs (key/value or JSON); guard verbose debug behind a debug flag or environment variable
 
+#### Consistent NotFound behavior (important)
+
+- Non-existing slug and a second access to a burn-after-read paste MUST return the same response semantics.
+- For CLI/API clients (detected via User-Agent like `curl`, `wget`): return HTTP 404 with JSON body: `{ "error": "<meaningful message>" }`.
+- For web browser UI clients: return HTTP 404 and render the HTML `view.html` page with a friendly, prominent message in the UI (e.g. "Paste not available — it may have been deleted or already burned after reading.").
+- The server-side handlers should centralize this behavior (use a helper) so all not-found cases use the same message and status code.
+
+This ensures a consistent developer experience for CLI and a clear UX for browser users.
+
 ### 8) Testing
 
 - Unit tests for utils, storage, and services

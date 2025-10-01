@@ -213,7 +213,11 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	router := gin.New()
 
 	// Add logging middleware
+	// Use a JSON-safe recovery middleware so API endpoints always return
+	// JSON error responses instead of HTML error pages that the web UI
+	// cannot parse.
 	router.Use(gin.Logger())
+	router.Use(jsonRecovery())
 	router.Use(gin.Recovery())
 
 	// Load favicon
@@ -249,6 +253,22 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	})
 
 	return router
+}
+
+// jsonRecovery returns a middleware that recovers from panics and ensures
+// the response is JSON formatted so the web UI can parse error responses.
+func jsonRecovery() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if r := recover(); r != nil {
+				// Log the panic for diagnostics
+				log.Printf("[PANIC] %v", r)
+				c.Header("Content-Type", "application/json; charset=utf-8")
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			}
+		}()
+		c.Next()
+	}
 }
 
 // runHTTPServer starts the HTTP server for container mode

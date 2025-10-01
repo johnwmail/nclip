@@ -9,7 +9,7 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="container{{if or .Error (not .Paste)}} no-paste{{end}}">
         <header>
             <h1>
                 <a href="/"
@@ -27,6 +27,21 @@
 
         <main>
             <div id="paste-view-section">
+                {{/* Show a prominent banner when there's an explicit error or when no paste data is available
+                (covers non-existing slug and second read of burn-after-read). */}}
+                {{/* If there's an error or no paste, show a large friendly banner and a single content area.
+                When a paste exists, show the normal details + content. */}}
+                {{if or .Error (not .Paste)}}
+                <div class="alert alert-error banner" style="margin-bottom:1.5rem;">
+                    <div class="alert-body">
+                        <div class="alert-title banner-heading">Page not found or deleted</div>
+                        <div class="alert-message">The paste you requested is missing or has been deleted.</div>
+                        <div style="margin-top:0.75rem; display:flex; gap:0.75rem; align-items:center;">
+                            <a id="new-paste-btn" class="btn btn-primary" href="/">+ New Paste</a>
+                        </div>
+                    </div>
+                </div>
+                {{else}}
                 <div class="paste-info">
                     <h2>Paste Details</h2>
                     <div class="info-grid">
@@ -60,21 +75,16 @@
                         {{end}}
                     </div>
                 </div>
+
                 <div class="content-section">
                     <div class="action-buttons">
                         <a href="/raw/{{.Paste.ID}}" class="btn btn-secondary" download>Download</a>
                         {{if .IsText}}
                         <button id="copy-content" class="btn btn-secondary">Copy</button>
                         {{end}}
-                        <a href="/" class="btn btn-primary">
-                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4" />
-                            </svg>
-                            New Paste
-                        </a>
+                        <a href="/" class="btn btn-primary">New Paste</a>
                     </div>
-                    <h3 style="margin-top: 2rem;">Content</h3>
+                    <h3 style="margin-top: 1.25rem;">Content</h3>
                     {{if .IsText}}
                     <div class="content-display">
                         <pre id="content-text"><code>{{.Content}}</code></pre>
@@ -82,65 +92,56 @@
                     {{else}}
                     <div class="binary-notice">
                         <p>This is a binary file. <a href="/raw/{{.Paste.ID}}">Download</a> to view.</p>
-                        <div class="code-examples" style="margin-top:1rem;">
-                            <div class="example">
-                                <p>View this paste:</p>
-                                <code>curl -sL {{.BaseURL}}/{{.Paste.ID}}</code>
-                            </div>
-                            <div class="example">
-                                <p>Download raw content:</p>
-                                <code>curl -sL {{.BaseURL}}/raw/{{.Paste.ID}}</code>
-                            </div>
-                        </div>
                     </div>
                     {{end}}
                 </div>
-            </div>
+                {{end}}
 
-            <!-- Upload form, hidden by default -->
-            <div class="card upload-section" id="upload-section" style="display:none; margin-top:2rem;">
-                <h2>
-                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Paste Content
-                </h2>
-                <div class="form-group">
-                    <label for="text-content">Text Content</label>
-                    <textarea id="text-content" placeholder="Paste your text here..."></textarea>
-                    <div class="form-controls">
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" id="burn-text">
-                            <label for="burn-text">Burn after reading</label>
+
+                <!-- Upload form, hidden by default -->
+                <div class="card upload-section" id="upload-section" style="display:none; margin-top:2rem;">
+                    <h2>
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        Paste Content
+                    </h2>
+                    <div class="form-group">
+                        <label for="text-content">Text Content</label>
+                        <textarea id="text-content" placeholder="Paste your text here..."></textarea>
+                        <div class="form-controls">
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" id="burn-text">
+                                <label for="burn-text">Burn after reading</label>
+                            </div>
+                            <button id="upload-text" class="btn btn-primary">
+                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 4v16m8-8H4" />
+                                </svg>
+                                Paste Text
+                            </button>
                         </div>
-                        <button id="upload-text" class="btn btn-primary">
-                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4" />
-                            </svg>
-                            Paste Text
-                        </button>
+                    </div>
+                    <div class="form-group">
+                        <label for="file-input">File Upload</label>
+                        <input type="file" id="file-input">
+                        <div class="form-controls">
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" id="burn-file">
+                                <label for="burn-file">Burn after reading</label>
+                            </div>
+                            <button id="upload-file" class="btn btn-primary">
+                                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Upload File
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="file-input">File Upload</label>
-                    <input type="file" id="file-input">
-                    <div class="form-controls">
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" id="burn-file">
-                            <label for="burn-file">Burn after reading</label>
-                        </div>
-                        <button id="upload-file" class="btn btn-primary">
-                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Upload File
-                        </button>
-                    </div>
-                </div>
-            </div>
         </main>
 
         <footer>
@@ -220,6 +221,7 @@
             }
         }
     </script>
+    <!-- No auto-redirect for missing paste pages (user requested removal) -->
 </body>
 
 </html>

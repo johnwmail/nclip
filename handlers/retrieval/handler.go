@@ -66,28 +66,26 @@ func (h *Handler) View(c *gin.Context) {
 	slug := c.Param("slug")
 
 	if !utils.IsValidSlug(slug) {
-		c.HTML(http.StatusBadRequest, "view.html", gin.H{
-			"Title":      "NCLIP - Error",
-			"Error":      "Invalid slug format",
-			"Version":    h.config.Version,
-			"BuildTime":  h.config.BuildTime,
-			"CommitHash": h.config.CommitHash,
-			"BaseURL":    h.getBaseURL(c),
-		})
+		// Prefer HTML for non-CLI (browser) clients; return JSON for CLI/API clients.
+		if !h.isCli(c) {
+			c.HTML(http.StatusBadRequest, "view.html", gin.H{
+				"Title":      "NCLIP - Error",
+				"Error":      "Invalid slug format",
+				"Version":    h.config.Version,
+				"BuildTime":  h.config.BuildTime,
+				"CommitHash": h.config.CommitHash,
+				"BaseURL":    h.getBaseURL(c),
+			})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
+		}
 		return
 	}
 
 	paste, err := h.service.GetPaste(slug)
 	if err != nil {
 		log.Printf("[ERROR] View: %v", err)
-		c.HTML(http.StatusNotFound, "view.html", gin.H{
-			"Title":      "NCLIP - Not Found",
-			"Error":      "Paste not found or deleted",
-			"Version":    h.config.Version,
-			"BuildTime":  h.config.BuildTime,
-			"CommitHash": h.config.CommitHash,
-			"BaseURL":    h.getBaseURL(c),
-		})
+		h.renderNotFound(c, "Paste not found or deleted")
 		return
 	}
 
@@ -100,14 +98,8 @@ func (h *Handler) View(c *gin.Context) {
 	content, err := h.service.GetPasteContent(slug)
 	if err != nil {
 		log.Printf("[ERROR] View: content not found or deleted for slug %s: %v", slug, err)
-		c.HTML(http.StatusNotFound, "view.html", gin.H{
-			"Title":      "NCLIP - Not Found",
-			"Error":      "Paste content not found or deleted",
-			"Version":    h.config.Version,
-			"BuildTime":  h.config.BuildTime,
-			"CommitHash": h.config.CommitHash,
-			"BaseURL":    h.getBaseURL(c),
-		})
+		// use same 404 response as missing paste to keep behavior consistent
+		h.renderNotFound(c, "Paste not available or deleted")
 		return
 	}
 
@@ -123,7 +115,7 @@ func (h *Handler) View(c *gin.Context) {
 		c.Data(http.StatusOK, paste.ContentType, content)
 		return
 	}
-	if strings.Contains(c.Request.Header.Get("Accept"), "text/html") {
+	if !h.isCli(c) {
 		c.HTML(http.StatusOK, "view.html", gin.H{
 			"Title":      fmt.Sprintf("NCLIP - Paste %s", paste.ID),
 			"Paste":      paste,
@@ -171,14 +163,12 @@ func (h *Handler) Raw(c *gin.Context) {
 		return
 	}
 
-	// If burn-after-read, delete and return 404 if accessed again
+	// If burn-after-read, delete the paste so subsequent accesses return 404.
+	// Serve the content for this request (first read) then delete the stored data.
 	if paste.BurnAfterRead {
 		if err := h.service.DeletePaste(slug); err != nil {
 			fmt.Printf("Failed to delete burn-after-read paste %s: %v\n", slug, err)
 		}
-		// After deletion, return 404 and no content
-		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted (burn-after-read)"})
-		return
 	}
 	c.Header("Content-Type", paste.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", paste.Size))
@@ -203,4 +193,21 @@ func (h *Handler) getBaseURL(c *gin.Context) string {
 		scheme = "https"
 	}
 	return fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+}
+
+// renderNotFound sends a consistent 404 response. CLI/API clients receive JSON,
+// while browser clients receive the HTML view with a friendly message.
+func (h *Handler) renderNotFound(c *gin.Context, message string) {
+	if h.isCli(c) {
+		c.JSON(http.StatusNotFound, gin.H{"error": message})
+	} else {
+		c.HTML(http.StatusNotFound, "view.html", gin.H{
+			"Title":      "NCLIP - Not Found",
+			"Error":      message,
+			"Version":    h.config.Version,
+			"BuildTime":  h.config.BuildTime,
+			"CommitHash": h.config.CommitHash,
+			"BaseURL":    h.getBaseURL(c),
+		})
+	}
 }
