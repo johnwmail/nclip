@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"mime"
 	"net/http"
 	"path/filepath"
@@ -84,33 +85,40 @@ func DetectContentType(filename string, content []byte) string {
 		}
 	}
 
-	// Content-based detection
+	// Fallback to content-based detection using helper
 	if len(content) > 0 {
-		// Check for ZIP file signature (PK\x03\x04)
-		if len(content) >= 4 && content[0] == 'P' && content[1] == 'K' && content[2] == 0x03 && content[3] == 0x04 {
-			return "application/zip"
+		if mt := detectByMagic(content); mt != "" {
+			return mt
 		}
-
-		// Check for other common file signatures
-		// PNG: \x89PNG
-		if len(content) >= 4 && content[0] == 0x89 && content[1] == 'P' && content[2] == 'N' && content[3] == 'G' {
-			return "image/png"
-		}
-		// JPEG: \xFF\xD8\xFF
-		if len(content) >= 3 && content[0] == 0xFF && content[1] == 0xD8 && content[2] == 0xFF {
-			return "image/jpeg"
-		}
-		// GIF: GIF87a or GIF89a
-		if len(content) >= 6 && content[0] == 'G' && content[1] == 'I' && content[2] == 'F' && content[3] == '8' && (content[4] == '7' || content[4] == '9') && content[5] == 'a' {
-			return "image/gif"
-		}
-
-		// Fallback to http.DetectContentType
 		return http.DetectContentType(content)
 	}
 
 	// Default fallback
 	return "application/octet-stream"
+}
+
+// detectByMagic checks common file signatures (magic numbers) and
+// returns a mime type string if recognized, or empty string otherwise.
+func detectByMagic(content []byte) string {
+	// Table-driven signature checks reduce branching and cyclomatic complexity.
+	var signatures = []struct {
+		sig  []byte
+		mime string
+	}{
+		{[]byte{'P', 'K', 0x03, 0x04}, "application/zip"},
+		{[]byte{0x89, 'P', 'N', 'G'}, "image/png"},
+		{[]byte{0xFF, 0xD8, 0xFF}, "image/jpeg"},
+		{[]byte("GIF87a"), "image/gif"},
+		{[]byte("GIF89a"), "image/gif"},
+	}
+
+	for _, s := range signatures {
+		if len(content) >= len(s.sig) && bytes.Equal(content[:len(s.sig)], s.sig) {
+			return s.mime
+		}
+	}
+
+	return ""
 }
 
 // IsTextContent returns true if the content type is text-based

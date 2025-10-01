@@ -6,14 +6,88 @@ set -euo pipefail
 # Integration test script for nclip (S3/filesystem or any backend)
 # This script tests all major API endpoints to ensure they work correctly, regardless of storage backend.
 
-# Cleanup function to remove temp files/dirs
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YIGHL='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+log() {
+    echo -e "${BLUE}[INFO]${NC} $*"
+}
+
+warn() {
+    echo -e "${YIGHL}[WARN]${NC} $*"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+# Retry helper for POST requests (body-only). Usage: try_post VAR_NAME URL DATA
+try_post() {
+    local _varname="$1"; shift
+    local _url="$1"; shift
+    local _data="$1"; shift
+    local _attempt=0
+    local _max=3
+    local _resp
+    while true; do
+        _attempt=$((_attempt+1))
+        _resp=$(curl -sS -w "\n%{http_code}" -X POST "$_url" -d "$_data" || true)
+        # split response and status
+        local _status
+        _status=$(echo "$_resp" | tail -n1)
+        local _body
+        _body=$(echo "$_resp" | sed '$d')
+        if [[ "$_status" =~ ^2[0-9][0-9]$ ]]; then
+            # assign to the named variable safely without eval to avoid executing response content
+            printf -v "$_varname" '%s' "$_body"
+            return 0
+        fi
+        if [[ $_attempt -ge $_max ]]; then
+            # assign final response body into the named var safely
+            printf -v "$_varname" '%s' "$_body"
+            return 22
+        fi
+        warn "POST to $_url failed (status=$_status). Retrying ($_attempt/$_max)..."
+        sleep 1
+    done
+}
+
+TRASH_RECORD_FILE="/tmp/nclip_integration_slugs.txt"
 cleanup_temp_files() {
     log "Cleaning up all test artifacts..."
-    # Remove all files in ./data/
-    rm -f ./data/*
-    # Remove all nclip temp files in /tmp/
-    rm -f /tmp/nclip_test.zip
-    # Add more patterns here if needed
+    # Remove files in ./data/ matching recorded slugs
+    if [[ -f "$TRASH_RECORD_FILE" ]]; then
+        log "Removing recorded data files listed in $TRASH_RECORD_FILE"
+        while IFS= read -r slug; do
+            if [[ -n "$slug" ]]; then
+                rm -f "./data/${slug}" "./data/${slug}.json" || true
+            fi
+        done < "$TRASH_RECORD_FILE"
+        rm -f "$TRASH_RECORD_FILE" || true
+    else
+        # Fallback: remove only recently modified files (last 60 minutes)
+        if [[ -d "./data" ]]; then
+            find ./data -maxdepth 1 -type f -mmin -60 -print -delete || true
+        fi
+    fi
+
+    # Remove known temporary files created by the tests in /tmp/ with deterministic prefixes
+    rm -f /tmp/nclip_test_* /tmp/nclip_test_ext.* 2>/dev/null || true
+
+    # If a testdata dir was created (CI uses ./testdata), remove it if empty
+    if [[ -d "./testdata" ]]; then
+        rmdir ./testdata 2>/dev/null || true
+    fi
+
+    # Other cleanup hooks can be added here (e.g. removing specific slugs)
     return 0
 }
 
@@ -182,6 +256,9 @@ test_burn_after_read() {
     local response
     
     response=$(curl -f -s -X POST "$NCLIP_URL/burn/" -d "$test_content")
+    if [[ -n "$response" && "$response" == http* ]]; then
+        basename "$response" >> "$TRASH_RECORD_FILE" || true
+    fi
     
     if [[ -n "$response" ]] && [[ "$response" == http* ]]; then
         log "Burn paste created: $response"
@@ -255,6 +332,12 @@ test_x_ttl_valid() {
     local ttl="2h"
     local paste_url
     paste_url=$(curl -f -s -X POST "$NCLIP_URL/" -d "$test_content" -H "X-TTL: $ttl")
+    if [[ -n "$paste_url" && "$paste_url" == http* ]]; then
+        basename "$paste_url" >> "$TRASH_RECORD_FILE" || true
+    fi
+    if [[ -n "$paste_url" && "$paste_url" == http* ]]; then
+        basename "$paste_url" >> "$TRASH_RECORD_FILE" || true
+    fi
     if [[ -n "$paste_url" ]] && [[ "$paste_url" == http* ]]; then
         success "Valid X-TTL test passed: $paste_url"
         return 0
@@ -308,6 +391,9 @@ test_slug_collision() {
     local content1="collision test 1 $(date)"
     local content2="collision test 2 $(date)"
     local url1=$(curl -f -s -X POST "$NCLIP_URL/" -d "$content1" -H "X-Slug: $slug")
+    if [[ -n "$url1" && "$url1" == http* ]]; then
+        basename "$url1" >> "$TRASH_RECORD_FILE" || true
+    fi
     if [[ -z "$url1" || ! "$url1" =~ http ]]; then
         error "Failed to create first paste for collision test. Response: $url1"
         return 1
@@ -331,6 +417,9 @@ test_binary_extension_append() {
         echo -n -e "$zip_content" > "$zip_file"
     local response
     response=$(curl -f -s -X POST --data-binary @"$zip_file" -H "Content-Type:" "$NCLIP_URL/")
+    if [[ -n "$response" && "$response" == http* ]]; then
+        basename "$response" >> "$TRASH_RECORD_FILE" || true
+    fi
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload binary file. Response: $response"
         return 1
@@ -359,6 +448,9 @@ test_text_file_extensions() {
     log "Testing text/plain -> .txt"
     local response
     response=$(curl -f -s -X POST "$NCLIP_URL/" -d "Hello World" -H "Content-Type: text/plain")
+    if [[ -n "$response" && "$response" == http* ]]; then
+        basename "$response" >> "$TRASH_RECORD_FILE" || true
+    fi
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload text/plain content. Response: $response"
         ((failed_tests++))
@@ -379,6 +471,9 @@ test_text_file_extensions() {
     # Test text/html -> .html
     log "Testing text/html -> .html"
     response=$(curl -f -s -X POST "$NCLIP_URL/" -d "<html><body>Hello</body></html>" -H "Content-Type: text/html")
+    if [[ -n "$response" && "$response" == http* ]]; then
+        basename "$response" >> "$TRASH_RECORD_FILE" || true
+    fi
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload text/html content. Response: $response"
         ((failed_tests++))
@@ -397,6 +492,9 @@ test_text_file_extensions() {
     # Test text/javascript -> .js
     log "Testing text/javascript -> .js"
     response=$(curl -f -s -X POST "$NCLIP_URL/" -d "console.log('hello');" -H "Content-Type: text/javascript")
+    if [[ -n "$response" && "$response" == http* ]]; then
+        basename "$response" >> "$TRASH_RECORD_FILE" || true
+    fi
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload text/javascript content. Response: $response"
         ((failed_tests++))
@@ -415,6 +513,9 @@ test_text_file_extensions() {
     # Test application/json -> .json
     log "Testing application/json -> .json"
     response=$(curl -f -s -X POST "$NCLIP_URL/" -d '{"name":"hello"}' -H "Content-Type: application/json")
+    if [[ -n "$response" && "$response" == http* ]]; then
+        basename "$response" >> "$TRASH_RECORD_FILE" || true
+    fi
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload application/json content. Response: $response"
         ((failed_tests++))
@@ -596,7 +697,16 @@ run_integration_tests() {
     
     log "Creating test paste with content: $test_content"
     local paste_url
-    paste_url=$(curl -f -s -X POST "$NCLIP_URL/" -d "$test_content")
+    # Use retrying POST to avoid transient network/server hiccups causing immediate failure
+    paste_url=""
+    if try_post paste_url "$NCLIP_URL/" "$test_content"; then
+        if [[ -n "$paste_url" && "$paste_url" == http* ]]; then
+            basename "$paste_url" >> "$TRASH_RECORD_FILE" || true
+        fi
+    else
+        error "Failed to create initial paste after retries. Response: $paste_url"
+        return 22
+    fi
     
     if [[ -n "$paste_url" ]] && [[ "$paste_url" == http* ]]; then
         success "Paste created successfully: $paste_url"

@@ -296,7 +296,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-test-artifacts
+          # include matrix.go-version and run id to avoid name collisions when multiple matrix jobs run in parallel
+          name: integration-test-artifacts-${{ matrix.go-version }}-run${{ github.run_id }}
           path: |
             nclip
             scripts/
