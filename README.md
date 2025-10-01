@@ -12,21 +12,18 @@ A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#-features)
-- [Quick Start](#-quick-start)
-- [API Endpoints](#-api-endpoints)
-- [Client Usage Examples](#-usage-examples)
-- [Storage Architecture](#storage-architecture)
-- [Configuration](#-configuration)
-- [Deployment](#deployment)
-  - [Docker](#-docker-deployment)
-  - [Kubernetes](#kubernetes)
-  - [AWS Lambda](#-aws-lambda-deployment)
-- [Monitoring](#-monitoring)
-- [Development](#-development)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Links](#-links)
+- [Features](#✨-features)
+- [Quick Start](#🚀-quick-start)
+- [API Endpoints](#📋-api-endpoints)
+- [Storage Backends](#🗄️-storage-backends)
+- [Configuration](#⚙️-configuration)
+- [Deployment](#☁️-deployment)
+  - [Docker](#🐳-docker-deployment)
+  - [Kubernetes](#☸️-kubernetes-deployment)
+  - [AWS Lambda](#☁️-aws-lambda-deployment)
+- [Monitoring](#📊-monitoring)
+- [Development](#🔧-development)
+- [Links](#🔗-links)
 
 ## Overview
 
@@ -119,9 +116,7 @@ export NCLIP_TTL=24h
 ./nclip
 ```
 
-## � Deployment
-
-nclip supports multiple deployment methods: Docker, Kubernetes, and AWS Lambda. Choose the deployment that best fits your needs.
+## ☁️ Deployment
 
 ### Quick Start Options
 
@@ -284,7 +279,7 @@ export NCLIP_PORT=3000
 ./nclip --url https://demo.nclip.app --ttl 48h
 ```
 
-## �� Monitoring
+## 📊 Monitoring
 
 - **Health Check**: `GET /health` - Returns 200 OK with system status
 - **Structured Logging**: JSON format with request tracing
@@ -330,79 +325,6 @@ golangci-lint run
 # Run integration tests
 go run main.go
 bash scripts/integration-tests.sh
-```
-
-### Project Structure
-```
-/
-├── main.go              # Unified entry point (server mode + Lambda)
-├── main_test.go         # Integration tests
-├── config/              # Configuration management
-│   ├── config.go        # Configuration loading from env vars and CLI flags
-│   └── config_test.go   # Configuration tests
-├── handlers/            # HTTP request handlers
-│   ├── paste.go         # Main paste upload/retrieval handler
-│   ├── paste_test.go    # Paste handler tests
-│   ├── meta.go          # Metadata API handler
-│   ├── meta_test.go     # Metadata handler tests
-│   ├── system.go        # System endpoints (health, etc.)
-│   ├── system_test.go   # System handler tests
-│   ├── webui.go         # Web UI handler
-│   ├── webui_test.go    # Web UI tests
-│   ├── retrieval/       # Paste retrieval handlers
-│   └── upload/          # Paste upload handlers
-├── internal/            # Private application code
-│   └── services/        # Business logic services
-│       └── paste_service.go # Paste business logic
-├── models/              # Data models and structures
-│   ├── paste.go         # Paste data model
-│   └── paste_test.go    # Paste model tests
-├── storage/             # Storage abstraction layer
-│   ├── interface.go     # PasteStore interface definition
-│   ├── interface_test.go # Interface tests
-│   ├── filesystem.go    # Filesystem storage (server mode)
-│   ├── filesystem_test.go # Filesystem storage tests
-│   ├── s3.go            # S3 storage (Lambda mode)
-│   ├── s3_test.go       # S3 storage tests
-│   ├── s3util.go        # S3 utility functions
-│   ├── s3util_test.go   # S3 utility tests
-│   └── storage_test.go  # Storage integration tests
-├── utils/               # Shared utilities
-│   ├── debug.go         # Debug logging utilities
-│   ├── debug_test.go    # Debug utility tests
-│   ├── mime.go          # MIME type detection
-│   ├── mime_test.go     # MIME detection tests
-│   ├── slug.go          # Slug generation utilities
-│   └── slug_test.go     # Slug generation tests
-├── static/              # Static web assets
-│   ├── index.html       # Main web UI
-│   ├── favicon.ico      # Favicon
-│   ├── style.css        # CSS styles
-│   ├── script.js        # JavaScript functionality
-│   └── view.html        # Paste view template
-├── docs/                # Documentation
-│   ├── CLIENTS.md       # Client usage examples
-│   ├── CONTAINER_CLEANUP.md # Container management
-│   ├── INTEGRATION-TESTS.md # Integration testing
-│   ├── KUBERNETES.md    # Kubernetes deployment
-│   └── LAMBDA.md        # AWS Lambda deployment
-├── k8s/                 # Kubernetes manifests
-│   ├── deployment.yaml  # Deployment configuration
-│   ├── service.yaml     # Service configuration
-│   ├── ingress.yaml     # Ingress configuration
-│   ├── namespace.yaml   # Namespace definition
-│   ├── kustomization.yaml # Kustomize configuration
-│   └── pvc.yaml         # Persistent volume claim
-├── scripts/             # Utility scripts
-│   └── integration-test.sh # Integration test runner
-├── .github/             # GitHub configuration
-│   └── workflows/       # GitHub Actions workflows
-├── Dockerfile           # Docker image definition
-├── docker-compose.yml   # Docker Compose configuration
-├── go.mod               # Go module definition
-├── go.sum               # Go module checksums
-├── .golangci.yml        # Go linting configuration
-└── .gitignore           # Git ignore rules
 ```
 
 ## 🔗 Links

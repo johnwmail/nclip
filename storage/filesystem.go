@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,15 +20,18 @@ type FilesystemStore struct {
 }
 
 // NewFilesystemStore creates a FilesystemStore for the given data directory.
-// If dataDir is empty it defaults to "./data". The caller may create the
-// directory at startup (recommended), and StoreContent remains defensive and
-// will attempt to create the directory before writing.
+// If dataDir is empty it defaults to "./data". The directory is created if it does not exist.
 func NewFilesystemStore(dataDir string) (*FilesystemStore, error) {
 	if dataDir == "" {
 		dataDir = "./data"
 	}
-	// Constructor is side-effect free: main.go should create the data directory at startup.
-	// StoreContent remains defensive and will create the directory if needed at write time.
+	// Check if the dataDir not exists and create it with logging
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		log.Printf("[INFO] Creating data directory: %s", dataDir)
+		if err := os.MkdirAll(dataDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create data directory %s: %w", dataDir, err)
+		}
+	}
 	return &FilesystemStore{
 		dataDir:    dataDir,
 		bufferSize: 4096,
