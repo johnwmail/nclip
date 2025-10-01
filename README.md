@@ -14,18 +14,13 @@ A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 - [Overview](#overview)
 - [Features](#features)
 - [Quick Start](#quick-start)
-- [API Endpoints](#api-endpoints)
-- [Storage Backends](#storage-backends)
-- [Paste Metadata](#paste-metadata)
-- [Configuration](#configuration)
 - [Deployment](#deployment)
-  - [Docker](#docker-deployment)
-  - [Kubernetes](#kubernetes-deployment)
-  - [AWS Lambda](#aws-lambda-deployment)
-- [Monitoring](#monitoring)
+- [Configuration](#configuration)
+- [API Endpoints](#api-endpoints)
 - [Development](#development)
 - [Links](#links)
 
+<a id="overview"></a>
 ## Overview
 
 nclip is a versatile clipboard app that accepts content via:
@@ -35,6 +30,7 @@ nclip is a versatile clipboard app that accepts content via:
 - **Raw access** - Access raw content via `http://localhost:8080/raw/SLUG`
 - **Burn after reading** - Content that self-destructs after being accessed once
 
+<a id="features"></a>
 ## ✨ Features
 
 🚀 **Dual Deployment**: Server mode (local or container) + AWS Lambda
@@ -45,6 +41,7 @@ nclip is a versatile clipboard app that accepts content via:
 🛡️ **Production Ready**: Health checks, structured logging
 🔧 **Configurable**: Environment variables & CLI flags
 
+<a id="quick-start"></a>
 ## 🚀 Quick Start
 
 ### Installation
@@ -63,6 +60,11 @@ cd nclip_linux_amd64
 git clone https://github.com/johnwmail/nclip.git
 cd nclip
 go build -o nclip .
+
+# Custom URL and TTL
+export NCLIP_URL=https://demo.nclip.app
+export NCLIP_TTL=24h
+./nclip
 ```
 
 ### Client Usage Examples
@@ -86,37 +88,10 @@ open http://localhost:8080
 
 For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and advanced features (custom TTL, slugs, etc.), see:
 
-👉 **[docs/CLIENTS.md](docs/CLIENTS.md)** - Complete client usage guide
+👉 **[Documents/CLIENTS.md](Documents/CLIENTS.md)** - Complete client usage guide
 
 
-## 📋 API Endpoints
-
-### Core Endpoints
-- `GET /` — Web UI (upload form, stats)
-- `POST /` — Upload paste (returns URL)
-- `POST /burn/` — Create burn-after-read paste
-- `GET /{slug}` — HTML view of paste
-- `GET /raw/{slug}` — Raw content download
-
-### Metadata API
-- `GET /api/v1/meta/{slug}` — JSON metadata (no content)
-- `GET /json/{slug}` — Alias for `/api/v1/meta/{slug}` (shortcut)
-
-### System Endpoints
-- `GET /health` — Health check (200 OK)
-
-### Configuration
-```bash
-# Custom port and URL
-### Environment Variables
-All main configuration is via these environment variables (all have CLI flag equivalents):
-
-# Environment variables
-export NCLIP_URL=https://demo.nclip.app
-export NCLIP_TTL=24h
-./nclip
-```
-
+<a id="deployment"></a>
 ## ☁️ Deployment
 
 ### Quick Start Options
@@ -129,6 +104,7 @@ export NCLIP_TTL=24h
 
 ---
 
+<a id="docker-deployment"></a>
 ## 🐳 Docker Deployment
 
 ### Quick Start (Recommended)
@@ -147,6 +123,7 @@ docker-compose up -d
 docker run -d -p 8080:8080 --name nclip ghcr.io/johnwmail/nclip:latest
 ```
 
+<a id="kubernetes-deployment"></a>
 ## ☸️ Kubernetes Deployment
 
 ### Quick Start
@@ -155,10 +132,11 @@ docker run -d -p 8080:8080 --name nclip ghcr.io/johnwmail/nclip:latest
 kubectl apply -f k8s/
 ```
 
-📋 **[Kubernetes Guide](docs/KUBERNETES.md)** - Complete deployment, scaling, and monitoring instructions
+📋 **[Kubernetes Guide](Documents/KUBERNETES.md)** - Complete deployment, scaling, and monitoring instructions
 
 ---
 
+<a id="aws-lambda-deployment"></a>
 ## ☁️ AWS Lambda Deployment
 
 ### Overview
@@ -213,36 +191,12 @@ aws lambda create-function \
 }
 ```
 
-📋 **[Lambda Guide](docs/LAMBDA.md)** - Complete AWS Lambda deployment, monitoring, and troubleshooting
+📋 **[Lambda Guide](Documents/LAMBDA.md)** - Complete AWS Lambda deployment, monitoring, and troubleshooting
 
 ---
 
-## 🗄️ Storage Backends
 
-| Deployment | Content Storage | Metadata Storage | TTL Support |
-|------------|----------------|------------------|-------------|
-| **Docker/K8s** | Filesystem | Filesystem | App logic |
-| **AWS Lambda** | S3 | S3 | App logic |
-
-**Storage selection is automatic** - no configuration needed. nclip detects the deployment environment and chooses the appropriate storage backend.
-
-## 📊 Paste Metadata (JSON)
-
-Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** include the actual content.
-
-```json
-{
-  "id": "string",                       // Unique paste ID
-  "created_at": "2025-09-17T12:34:56Z", // ISO8601 timestamp
-  "expires_at": "2025-09-18T12:34:56Z", // ISO8601 (null if no expiry)
-  "size": 12345,                        // Size in bytes
-  "content_type": "text/plain",         // MIME type
-  "burn_after_read": true,              // true if burn-after-read
-  "read_count": 0                       // Number of times read
-}
-```
-
-
+<a id="configuration"></a>
 ## ⚙️ Configuration
 
 nclip supports configuration via environment variables and CLI flags. Environment variables take precedence over CLI flags.
@@ -280,11 +234,40 @@ export NCLIP_PORT=3000
 ./nclip --url https://demo.nclip.app --ttl 48h
 ```
 
-## 📊 Monitoring
+<a id="api-endpoints"></a>
+## 📋 API Endpoints
 
-- **Health Check**: `GET /health` - Returns 200 OK with system status
-- **Structured Logging**: JSON format with request tracing
+### Core Endpoints
+- `GET /` — Web UI (upload form, stats)
+- `POST /` — Upload paste (returns URL)
+- `POST /burn/` — Create burn-after-read paste
+- `GET /{slug}` — HTML view of paste
+- `GET /raw/{slug}` — Raw content download
 
+### Metadata API
+- `GET /api/v1/meta/{slug}` — JSON metadata (no content)
+- `GET /json/{slug}` — Alias for `/api/v1/meta/{slug}` (shortcut)
+
+### System Endpoints
+- `GET /health` — Health check (200 OK)
+
+### Paste Metadata (JSON)
+
+Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** include the actual content.
+
+```json
+{
+  "id": "string",                       // Unique paste ID
+  "created_at": "2025-09-17T12:34:56Z", // ISO8601 timestamp
+  "expires_at": "2025-09-18T12:34:56Z", // ISO8601 (null if no expiry)
+  "size": 12345,                        // Size in bytes
+  "content_type": "text/plain",         // MIME type
+  "burn_after_read": true,              // true if burn-after-read
+  "read_count": 0                       // Number of times read
+}
+```
+
+<a id="development"></a>
 ## 🔧 Development
 
 ### Requirements
@@ -328,9 +311,16 @@ go run main.go
 bash scripts/integration-tests.sh
 ```
 
+<a id="monitoring"></a>
+## 📊 Monitoring
+
+- **Health Check**: `GET /health` - Returns 200 OK with system status
+- **Structured Logging**: JSON format with request tracing
+
+<a id="links"></a>
 ## 🔗 Links
 
-- **Documentation**: [docs/](docs/)
+- **Documentation**: [Documents/](Documents/)
 - **GitHub Registry**: `docker pull ghcr.io/johnwmail/nclip`
 - **GitHub**: https://github.com/johnwmail/nclip
 - **Issues**: https://github.com/johnwmail/nclip/issues
