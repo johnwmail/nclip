@@ -6,11 +6,21 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/johnwmail/nclip/models"
 	"github.com/johnwmail/nclip/utils"
 )
+
+
+// isSafeFilename checks that the provided filename/id is a single name (not a path)
+func isSafeFilename(name string) bool {
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.Contains(name, "..") {
+		return false
+	}
+	return true
+}
 
 // FilesystemStore stores paste metadata and content on the local filesystem.
 type FilesystemStore struct {
@@ -73,6 +83,10 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 	}
 	if paste.IsExpired() {
 		log.Printf("[INFO] FS Get: paste %s is expired", id)
+	if !isSafeFilename(id) {
+		log.Printf("[ERROR] FS Exists: unsafe id: %q", id)
+		return false, fmt.Errorf("invalid paste id")
+	}
 		return nil, os.ErrNotExist
 	}
 	return &paste, nil
@@ -88,6 +102,10 @@ func (fs *FilesystemStore) Exists(id string) (bool, error) {
 	}
 	if err != nil {
 		log.Printf("[ERROR] FS Exists: failed to stat metadata for %s: %v", id, err)
+	if !isSafeFilename(id) {
+		log.Printf("[ERROR] FS Delete: unsafe id: %q", id)
+		return fmt.Errorf("invalid paste id")
+	}
 		return false, err
 	}
 	return true, nil
@@ -98,6 +116,10 @@ func (fs *FilesystemStore) Delete(id string) error {
 	defer fs.mu.Unlock()
 	contentPath := filepath.Join(fs.dataDir, id)
 	metaPath := filepath.Join(fs.dataDir, id+".json")
+	if !isSafeFilename(id) {
+		log.Printf("[ERROR] FS IncrementReadCount: unsafe id: %q", id)
+		return fmt.Errorf("invalid paste id")
+	}
 	_ = os.Remove(contentPath)
 	_ = os.Remove(metaPath)
 	return nil
@@ -124,6 +146,10 @@ func (fs *FilesystemStore) IncrementReadCount(id string) error {
 	}
 	if err := os.WriteFile(metaPath, newMeta, 0o644); err != nil {
 		log.Printf("[ERROR] FS IncrementReadCount: failed to write metadata for %s: %v", id, err)
+	if !isSafeFilename(id) {
+		log.Printf("[ERROR] FS StoreContent: unsafe id: %q", id)
+		return fmt.Errorf("invalid paste id")
+	}
 		return err
 	}
 	return nil
@@ -149,6 +175,10 @@ func (fs *FilesystemStore) StoreContent(id string, content []byte) error {
 
 func min(a, b int) int {
 	if a < b {
+	if !isSafeFilename(id) {
+		log.Printf("[ERROR] FS GetContent: unsafe id: %q", id)
+		return nil, fmt.Errorf("invalid paste id")
+	}
 		return a
 	}
 	return b
