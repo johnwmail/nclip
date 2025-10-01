@@ -14,14 +14,9 @@ A modern, high-performance HTTP clipboard app written in Go with Gin framework.
 - [Overview](#overview)
 - [Features](#features)
 - [Quick Start](#quick-start)
-- [API Endpoints](#api-endpoints)
-- [Storage Backends](#storage-backends)
-- [Configuration](#configuration)
 - [Deployment](#deployment)
-  - [Docker](#docker-deployment)
-  - [Kubernetes](#kubernetes-deployment)
-  - [AWS Lambda](#aws-lambda-deployment)
-- [Monitoring](#monitoring)
+- [Configuration](#configuration)
+- [API Endpoints](#api-endpoints)
 - [Development](#development)
 - [Links](#links)
 
@@ -65,6 +60,11 @@ cd nclip_linux_amd64
 git clone https://github.com/johnwmail/nclip.git
 cd nclip
 go build -o nclip .
+
+# Custom URL and TTL
+export NCLIP_URL=https://demo.nclip.app
+export NCLIP_TTL=24h
+./nclip
 ```
 
 ### Client Usage Examples
@@ -90,35 +90,6 @@ For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and
 
 👉 **[docs/CLIENTS.md](docs/CLIENTS.md)** - Complete client usage guide
 
-
-<a id="api-endpoints"></a>
-## 📋 API Endpoints
-
-### Core Endpoints
-- `GET /` — Web UI (upload form, stats)
-- `POST /` — Upload paste (returns URL)
-- `POST /burn/` — Create burn-after-read paste
-- `GET /{slug}` — HTML view of paste
-- `GET /raw/{slug}` — Raw content download
-
-### Metadata API
-- `GET /api/v1/meta/{slug}` — JSON metadata (no content)
-- `GET /json/{slug}` — Alias for `/api/v1/meta/{slug}` (shortcut)
-
-### System Endpoints
-- `GET /health` — Health check (200 OK)
-
-### Configuration
-```bash
-# Custom port and URL
-### Environment Variables
-All main configuration is via these environment variables (all have CLI flag equivalents):
-
-# Environment variables
-export NCLIP_URL=https://demo.nclip.app
-export NCLIP_TTL=24h
-./nclip
-```
 
 <a id="deployment"></a>
 ## ☁️ Deployment
@@ -224,32 +195,6 @@ aws lambda create-function \
 
 ---
 
-<a id="storage-backends"></a>
-## 🗄️ Storage Backends
-
-| Deployment | Content Storage | Metadata Storage | TTL Support |
-|------------|----------------|------------------|-------------|
-| **Docker/K8s** | Filesystem | Filesystem | App logic |
-| **AWS Lambda** | S3 | S3 | App logic |
-
-**Storage selection is automatic** - no configuration needed. nclip detects the deployment environment and chooses the appropriate storage backend.
-
-### Paste Metadata (JSON)
-
-Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** include the actual content.
-
-```json
-{
-  "id": "string",                       // Unique paste ID
-  "created_at": "2025-09-17T12:34:56Z", // ISO8601 timestamp
-  "expires_at": "2025-09-18T12:34:56Z", // ISO8601 (null if no expiry)
-  "size": 12345,                        // Size in bytes
-  "content_type": "text/plain",         // MIME type
-  "burn_after_read": true,              // true if burn-after-read
-  "read_count": 0                       // Number of times read
-}
-```
-
 
 <a id="configuration"></a>
 ## ⚙️ Configuration
@@ -289,11 +234,38 @@ export NCLIP_PORT=3000
 ./nclip --url https://demo.nclip.app --ttl 48h
 ```
 
-<a id="monitoring"></a>
-## 📊 Monitoring
+<a id="api-endpoints"></a>
+## 📋 API Endpoints
 
-- **Health Check**: `GET /health` - Returns 200 OK with system status
-- **Structured Logging**: JSON format with request tracing
+### Core Endpoints
+- `GET /` — Web UI (upload form, stats)
+- `POST /` — Upload paste (returns URL)
+- `POST /burn/` — Create burn-after-read paste
+- `GET /{slug}` — HTML view of paste
+- `GET /raw/{slug}` — Raw content download
+
+### Metadata API
+- `GET /api/v1/meta/{slug}` — JSON metadata (no content)
+- `GET /json/{slug}` — Alias for `/api/v1/meta/{slug}` (shortcut)
+
+### System Endpoints
+- `GET /health` — Health check (200 OK)
+
+### Paste Metadata (JSON)
+
+Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** include the actual content.
+
+```json
+{
+  "id": "string",                       // Unique paste ID
+  "created_at": "2025-09-17T12:34:56Z", // ISO8601 timestamp
+  "expires_at": "2025-09-18T12:34:56Z", // ISO8601 (null if no expiry)
+  "size": 12345,                        // Size in bytes
+  "content_type": "text/plain",         // MIME type
+  "burn_after_read": true,              // true if burn-after-read
+  "read_count": 0                       // Number of times read
+}
+```
 
 <a id="development"></a>
 ## 🔧 Development
@@ -338,6 +310,12 @@ golangci-lint run
 go run main.go
 bash scripts/integration-tests.sh
 ```
+
+<a id="monitoring"></a>
+## 📊 Monitoring
+
+- **Health Check**: `GET /health` - Returns 200 OK with system status
+- **Structured Logging**: JSON format with request tracing
 
 <a id="links"></a>
 ## 🔗 Links
