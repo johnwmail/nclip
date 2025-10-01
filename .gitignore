@@ -48,4 +48,5 @@ go.work
 bootstrap
 main
 core.*
+.nfs.*
 
