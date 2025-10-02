@@ -18,6 +18,7 @@ on:
     branches: ["*"]
   schedule:
     - cron: "0 2 * * 6" # Weekly on Saturday at 2 AM
+  workflow_dispatch:
 
 permissions:
   # Require writing security events to upload SARIF file to security tab
