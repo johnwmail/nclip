@@ -33,13 +33,13 @@ nclip is a versatile clipboard app that accepts content via:
 <a id="features"></a>
 ## ✨ Features
 
-🚀 **Dual Deployment**: Server mode (local or container) + AWS Lambda
-🎯 **Unified Codebase**: Same code, logic, and UI for both environments
-🗄️ **Multi-Storage Backend**: Filesystem for server mode, S3 for Lambda
-🐳 **Container Ready**: Docker & Kubernetes deployment
-⏰ **Auto-Expiration**: TTL support with configurable defaults
-🛡️ **Production Ready**: Health checks, structured logging
-🔧 **Configurable**: Environment variables & CLI flags
+- 🚀 **Dual Deployment**: Server mode (local or container) + AWS Lambda
+- 🎯 **Unified Codebase**: Same code, logic, and UI for both environments
+- 🗄️ **Multi-Storage Backend**: Filesystem for server mode, S3 for Lambda
+- 🐳 **Container Ready**: Docker & Kubernetes deployment
+- ⏰ **Auto-Expiration**: TTL support with configurable defaults
+- 🛡️ **Production Ready**: Health checks, structured logging
+- 🔧 **Configurable**: Environment variables & CLI flags
 
 <a id="quick-start"></a>
 ## 🚀 Quick Start
