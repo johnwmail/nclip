@@ -96,6 +96,8 @@ The codebase has specific requirements for 404 handling:
 - `TRASH_RECORD_FILE="/tmp/nclip_integration_slugs.txt"` to track created slugs
 - Cleanup function removes only recorded slugs or recently modified files (`-mmin -60`)
 - Never use broad cleanup like `rm -rf ./data/*` - it may delete unrelated data
+- Ensuring the environment is clean before and after every test run
+This requirement ensures reproducible, reliable tests and prevents leftover artifacts from affecting subsequent runs or deployments.
 
 ### Buffer Size Testing
 Buffer size limits are tested at multiple levels:
@@ -104,6 +106,7 @@ Buffer size limits are tested at multiple levels:
 - Both test that oversized uploads are rejected with 400 status and appropriate error messages
 
 ### Build Commands
+- Test: Please passed `go fmt ./...` and `go vet ./...` and `go test ./...` and `golangci-lint run` before building
 - Development: `go run .` 
 - Docker: Multi-stage build with version injection via `--build-arg`
 - Integration tests: `./scripts/integration-test.sh` (requires running server)
