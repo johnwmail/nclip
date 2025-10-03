@@ -51,35 +51,40 @@ func (h *Handler) parseTTL(c *gin.Context) (time.Time, error) {
 func (h *Handler) readUploadContent(c *gin.Context) ([]byte, string, string, error) {
 	limit := h.config.BufferSize
 	contentTypeHeader := c.Request.Header.Get("Content-Type")
-	isMultipart := contentTypeHeader != "" && strings.HasPrefix(contentTypeHeader, "multipart/form-data")
+	if contentTypeHeader != "" && strings.HasPrefix(contentTypeHeader, "multipart/form-data") {
+		return h.readMultipartUpload(c, limit)
+	}
+	return h.readDirectUpload(c, limit)
+}
 
-	if isMultipart {
-		file, header, err := c.Request.FormFile("file")
-		if err != nil {
-			return nil, "", "", fmt.Errorf("no file provided")
-		}
-		defer func() { _ = file.Close() }()
+func (h *Handler) readMultipartUpload(c *gin.Context, limit int64) ([]byte, string, string, error) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		return nil, "", "", fmt.Errorf("no file provided")
+	}
+	defer func() { _ = file.Close() }()
 
-		filename := header.Filename
-		if header.Size > 0 && header.Size > limit {
-			return nil, filename, "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", header.Size, limit)
-		}
-
-		content, exceeded, err := h.readLimitedContent(file)
-		if err != nil {
-			return nil, filename, "", fmt.Errorf("failed to read file")
-		}
-		if exceeded {
-			return nil, filename, "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
-		}
-
-		contentType := utils.DetectContentType(filename, content)
-		if len(content) == 0 {
-			return nil, filename, contentType, fmt.Errorf("empty content")
-		}
-		return content, filename, contentType, nil
+	filename := header.Filename
+	if header.Size > 0 && header.Size > limit {
+		return nil, filename, "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", header.Size, limit)
 	}
 
+	content, exceeded, err := h.readLimitedContent(file)
+	if err != nil {
+		return nil, filename, "", fmt.Errorf("failed to read file")
+	}
+	if exceeded {
+		return nil, filename, "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
+	}
+
+	contentType := utils.DetectContentType(filename, content)
+	if len(content) == 0 {
+		return nil, filename, contentType, fmt.Errorf("empty content")
+	}
+	return content, filename, contentType, nil
+}
+
+func (h *Handler) readDirectUpload(c *gin.Context, limit int64) ([]byte, string, string, error) {
 	if contentLength := c.Request.ContentLength; contentLength > 0 && contentLength > limit {
 		return nil, "", "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", contentLength, limit)
 	}
