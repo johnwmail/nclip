@@ -713,8 +713,8 @@ test_buffer_size_limit() {
     log "Testing multipart file upload size limit..."
     local temp_file
     temp_file=$(mktemp)
-    dd if=/dev/zero bs=1M count=6 2>/dev/null | tr '\0' 'X' > "$temp_file"
-    
+    dd if=/dev/zero bs=1M count=5 2>/dev/null | tr '\0' 'X' > "$temp_file"
+    echo -n "A" >> "$temp_file"  # Add 1 extra byte to exceed 5MB
     response=$(curl -s --max-time 30 -w "\n%{http_code}" -X POST "$NCLIP_URL/" -F "file=@$temp_file" 2>/dev/null || true)
     status=$(echo "$response" | tail -n1)
     response=$(echo "$response" | sed '$d')
