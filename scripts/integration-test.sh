@@ -676,14 +676,14 @@ test_buffer_size_limit() {
     log "Testing buffer size limit enforcement..."
     
     # Create content larger than default buffer size (5MB)
-    # Use 6MB to ensure it exceeds the limit
-    log "Attempting to upload 6MB content (exceeds 5MB limit)..."
+    # Create 5MB then append 1 byte to ensure it exceeds the limit
+    log "Attempting to upload 5MB+1 byte content (exceeds 5MB limit)..."
     
     # Test direct POST upload
     local status
     local response
-    # Create a temporary file with 6MB of content directly
     local temp_file
+    # Create a temporary file with 5MB of content, then append 1 byte
     temp_file=$(mktemp)
     dd if=/dev/zero bs=1M count=5 2>/dev/null | tr '\0' 'X' > "$temp_file"
     echo -n 'X' >> "$temp_file"
@@ -711,7 +711,6 @@ test_buffer_size_limit() {
     
     # Test multipart file upload (if supported)
     log "Testing multipart file upload size limit..."
-    local temp_file
     temp_file=$(mktemp)
     dd if=/dev/zero bs=1M count=5 2>/dev/null | tr '\0' 'X' > "$temp_file"
     echo -n "A" >> "$temp_file"  # Add 1 extra byte to exceed 5MB
