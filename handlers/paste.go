@@ -61,11 +61,15 @@ func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, string
 
 	contentType := ""
 	ctHeader := c.ContentType()
-	log.Printf("[DEBUG] ContentType header: %s", ctHeader)
+	if h.config.Debug {
+		log.Printf("[DEBUG] ContentType header: %s", ctHeader)
+	}
 	if ctHeader != "" {
 		if parsedType, _, err := mime.ParseMediaType(ctHeader); err == nil {
 			contentType = parsedType
-			log.Printf("[DEBUG] Parsed contentType: %s", contentType)
+			if h.config.Debug {
+				log.Printf("[DEBUG] Parsed contentType: %s", contentType)
+			}
 		} else {
 			contentType = ctHeader
 		}
