@@ -21,32 +21,40 @@ import (
 func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, string, error) {
 	limit := h.config.BufferSize
 	contentTypeHeader := c.Request.Header.Get("Content-Type")
-	isMultipart := contentTypeHeader != "" && strings.HasPrefix(contentTypeHeader, "multipart/form-data")
+	if contentTypeHeader != "" && strings.HasPrefix(contentTypeHeader, "multipart/form-data") {
+		return h.readMultipartUpload(c, limit)
+	}
+	return h.readDirectUpload(c, limit)
+}
 
-	if isMultipart {
-		file, header, err := c.Request.FormFile("file")
-		if err != nil {
-			return nil, "", "", fmt.Errorf("no file provided")
-		}
-		defer func() { _ = file.Close() }()
+func (h *PasteHandler) readMultipartUpload(c *gin.Context, limit int64) ([]byte, string, string, error) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		return nil, "", "", fmt.Errorf("no file provided")
+	}
+	defer func() { _ = file.Close() }()
 
-		filename := header.Filename
-		if header.Size > 0 && header.Size > limit {
-			return nil, filename, "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", header.Size, limit)
-		}
-
-		content, exceeded, err := h.readLimitedContent(file)
-		if err != nil {
-			return nil, filename, "", fmt.Errorf("failed to read file")
-		}
-		if exceeded {
-			return nil, filename, "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
-		}
-
-		contentType := utils.DetectContentType(filename, content)
-		return content, filename, contentType, nil
+	filename := header.Filename
+	if header.Size > 0 && header.Size > limit {
+		return nil, filename, "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", header.Size, limit)
 	}
 
+	content, exceeded, err := h.readLimitedContent(file)
+	if err != nil {
+		return nil, filename, "", fmt.Errorf("failed to read file")
+	}
+	if exceeded {
+		return nil, filename, "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
+	}
+
+	contentType := utils.DetectContentType(filename, content)
+	if len(content) == 0 {
+		return nil, filename, contentType, fmt.Errorf("empty content")
+	}
+	return content, filename, contentType, nil
+}
+
+func (h *PasteHandler) readDirectUpload(c *gin.Context, limit int64) ([]byte, string, string, error) {
 	if contentLength := c.Request.ContentLength; contentLength > 0 && contentLength > limit {
 		return nil, "", "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", contentLength, limit)
 	}
@@ -61,13 +69,13 @@ func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, string
 
 	contentType := ""
 	ctHeader := c.ContentType()
-	if h.config.Debug {
+	if utils.IsDebugEnabled() {
 		log.Printf("[DEBUG] ContentType header: %s", ctHeader)
 	}
 	if ctHeader != "" {
 		if parsedType, _, err := mime.ParseMediaType(ctHeader); err == nil {
 			contentType = parsedType
-			if h.config.Debug {
+			if utils.IsDebugEnabled() {
 				log.Printf("[DEBUG] Parsed contentType: %s", contentType)
 			}
 		} else {
@@ -78,6 +86,9 @@ func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, string
 		contentType = utils.DetectContentType("", content)
 	}
 
+	if len(content) == 0 {
+		return nil, "", contentType, fmt.Errorf("empty content")
+	}
 	return content, "", contentType, nil
 }
 
