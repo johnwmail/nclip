@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -195,4 +198,89 @@ func TestPasteHandler_isHTTPS(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBufferSizeLimit(t *testing.T) {
+	cfg := &config.Config{
+		URL:        "http://localhost:8080",
+		SlugLength: 5,
+		DefaultTTL: 3600,
+		BufferSize: 1024, // Set small buffer size for testing
+		Version:    "test",
+		BuildTime:  "test-time",
+		CommitHash: "test-hash",
+	}
+	store := &takenStore{}
+	handler := NewPasteHandler(store, cfg)
+
+	// Test content larger than buffer size
+	largeContent := make([]byte, 2048) // 2KB, larger than 1KB limit
+	for i := range largeContent {
+		largeContent[i] = byte(i % 256)
+	}
+
+	// Test direct POST upload
+	t.Run("direct_post_large_content", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewReader(largeContent))
+		c.Request.Header.Set("Content-Type", "text/plain")
+
+		handler.Upload(c)
+
+		if w.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("expected 413 Payload Too Large for large content, got %d", w.Code)
+		}
+
+		var response map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Errorf("failed to parse response JSON: %v", err)
+		}
+
+		if response["error"] == "" {
+			t.Errorf("expected error message in response")
+		}
+
+		if !strings.Contains(response["error"], "content too large") {
+			t.Errorf("expected 'content too large' error, got: %s", response["error"])
+		}
+	})
+
+	// Test multipart upload with large file
+	t.Run("multipart_large_file", func(t *testing.T) {
+		// Create multipart form data
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		part, err := writer.CreateFormFile("file", "large.txt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		part.Write(largeContent)
+		writer.Close()
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+
+		handler.Upload(c)
+
+		if w.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("expected 413 Payload Too Large for large file, got %d", w.Code)
+		}
+
+		var response map[string]string
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Errorf("failed to parse response JSON: %v", err)
+		}
+
+		if response["error"] == "" {
+			t.Errorf("expected error message in response")
+		}
+
+		if !strings.Contains(response["error"], "content too large") {
+			t.Errorf("expected 'content too large' error, got: %s", response["error"])
+		}
+	})
 }

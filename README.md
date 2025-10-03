@@ -191,6 +191,8 @@ aws lambda create-function \
 }
 ```
 
+⚠️ **Buffer Size Note**: AWS Lambda has a 6MB total payload limit (including headers). See buffer size configuration details in the Lambda guide below.
+
 📋 **[Lambda Guide](Documents/LAMBDA.md)** - Complete AWS Lambda deployment, monitoring, and troubleshooting
 
 ---

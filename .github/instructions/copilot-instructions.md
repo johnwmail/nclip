@@ -50,8 +50,38 @@ Also checks if existing slugs are expired before considering them collisions.
 2. Detect from filename extension (if filename provided)  
 3. Fall back to content-based detection via `utils/mime.go`
 
-### Burn-After-Read Implementation
-Critical: Burn happens on **any content access** (`GET /{slug}` or `GET /raw/{slug}`), not just metadata access. Uses atomic read-then-delete pattern.
+### Buffer Size Limit Implementation
+**CRITICAL**: Buffer size limits must be properly enforced to prevent silent truncation. The correct pattern handles multipart vs direct uploads differently:
+
+```go
+// Check if this is a multipart upload
+isMultipart := strings.HasPrefix(c.ContentType(), "multipart/form-data")
+
+// For direct POST requests, check Content-Length early (accurate for content size)
+// Skip for multipart since Content-Length includes boundaries and headers
+if !isMultipart {
+    if contentLength := c.Request.ContentLength; contentLength > 0 && contentLength > bufferSize {
+        return error
+    }
+}
+
+// Read with io.LimitReader
+content, err := io.ReadAll(io.LimitReader(reader, bufferSize))
+
+// Always check for truncation by attempting to read one more byte
+var oneByte [1]byte
+n, _ := reader.Read(oneByte[:])
+if n > 0 {
+    return error // Content was truncated
+}
+```
+
+This prevents silent truncation while being accurate for both direct POST and multipart file uploads.
+
+### Platform-Specific Buffer Size Limits ⚠️
+**CRITICAL**: When deploying Nclip, consider platform-specific limits beyond the application-level `NCLIP_BUFFER_SIZE`. See deployment-specific documentation for details:
+- **Lambda deployments**: Refer to `Documents/LAMBDA.md` for AWS Lambda 6MB payload limits
+- **API Gateway/CloudFront**: Check AWS service limits for your architecture
 
 ### Error Response Consistency 
 The codebase has specific requirements for 404 handling:
@@ -66,6 +96,12 @@ The codebase has specific requirements for 404 handling:
 - `TRASH_RECORD_FILE="/tmp/nclip_integration_slugs.txt"` to track created slugs
 - Cleanup function removes only recorded slugs or recently modified files (`-mmin -60`)
 - Never use broad cleanup like `rm -rf ./data/*` - it may delete unrelated data
+
+### Buffer Size Testing
+Buffer size limits are tested at multiple levels:
+- **Unit tests**: `TestBufferSizeLimit` in `handlers/paste_test.go` tests both direct POST and multipart uploads
+- **Integration tests**: `test_buffer_size_limit()` in `scripts/integration-test.sh` tests end-to-end with real HTTP requests
+- Both test that oversized uploads are rejected with 400 status and appropriate error messages
 
 ### Build Commands
 - Development: `go run .` 

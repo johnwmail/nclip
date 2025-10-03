@@ -207,6 +207,23 @@ aws lambda create-function-url-config \
 | `NCLIP_URL` | Base URL for links | Auto-detected | No |
 | `NCLIP_TTL` | Default paste TTL | `24h` | No |
 
+### ⚠️ Buffer Size Limits in Lambda
+
+**Critical Lambda Constraint:** AWS Lambda has a hard 6MB limit on total request payload size, which includes:
+- HTTP headers (Content-Type, User-Agent, X-TTL, etc.)
+- Request body (the actual paste content)
+- Framework and proxy overhead
+
+**Recommendation:** Set `NCLIP_BUFFER_SIZE` to **5MB or less** to ensure compatibility with Lambda's 6MB total payload limit. The default 5MB setting is optimized for Lambda deployments.
+
+**Example calculation:**
+- Headers: ~2-10KB
+- Gin framework overhead: ~5-10KB  
+- Content: Up to 5MB
+- **Total:** Must stay under 6MB
+
+If using API Gateway in front of Lambda, note that API Gateway accepts up to 10MB but truncates requests to 5MB when forwarding to Lambda functions.
+
 ### Lambda Configuration
 
 **Memory:** 128 MB (minimum recommended)

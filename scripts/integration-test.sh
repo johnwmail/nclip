@@ -671,6 +671,73 @@ EOF
 }
 
 
+# Test buffer size limit enforcement
+test_buffer_size_limit() {
+    log "Testing buffer size limit enforcement..."
+    
+    # Create content larger than default buffer size (5MB)
+    # Use 6MB to ensure it exceeds the limit
+    log "Attempting to upload 6MB content (exceeds 5MB limit)..."
+    
+    # Test direct POST upload
+    local status
+    local response
+    # Create a temporary file with 6MB of content directly
+    local temp_file
+    temp_file=$(mktemp)
+    dd if=/dev/zero bs=1M count=5 2>/dev/null | tr '\0' 'X' > "$temp_file"
+    echo -n 'X' >> "$temp_file"
+    local file_size
+    file_size=$(stat -c%s "$temp_file" 2>/dev/null || wc -c < "$temp_file")
+    log "Created test file with size: $file_size bytes"
+    
+    response=$(curl -s --max-time 30 -w "\n%{http_code}" -X POST "$NCLIP_URL/" --data-binary "@$temp_file" 2>/dev/null || true)
+    status=$(echo "$response" | tail -n1)
+    response=$(echo "$response" | sed '$d')
+    
+    rm -f "$temp_file"
+    
+    if [[ "$status" == "413" ]]; then
+        if [[ "$response" == *"content too large"* || "$response" == *"too large"* ]]; then
+            success "Buffer size limit correctly enforced for direct POST: $status - $response"
+        else
+            error "Buffer size limit returned 413 but unexpected message: $response"
+            return 1
+        fi
+    else
+        error "Buffer size limit not enforced for direct POST. Expected 413, got $status. Response: $response"
+        return 1
+    fi
+    
+    # Test multipart file upload (if supported)
+    log "Testing multipart file upload size limit..."
+    local temp_file
+    temp_file=$(mktemp)
+    dd if=/dev/zero bs=1M count=6 2>/dev/null | tr '\0' 'X' > "$temp_file"
+    
+    response=$(curl -s --max-time 30 -w "\n%{http_code}" -X POST "$NCLIP_URL/" -F "file=@$temp_file" 2>/dev/null || true)
+    status=$(echo "$response" | tail -n1)
+    response=$(echo "$response" | sed '$d')
+    
+    rm -f "$temp_file"
+    
+    if [[ "$status" == "413" ]]; then
+        if [[ "$response" == *"content too large"* || "$response" == *"too large"* ]]; then
+            success "Buffer size limit correctly enforced for multipart upload: $status - $response"
+        else
+            error "Buffer size limit returned 413 but unexpected message: $response"
+            return 1
+        fi
+    else
+        error "Buffer size limit not enforced for multipart upload. Expected 413, got $status. Response: $response"
+        return 1
+    fi
+    
+    success "Buffer size limit tests passed"
+    return 0
+}
+
+
 # Main test function
 run_integration_tests() {
     log "Starting nclip integration tests..."
@@ -795,6 +862,12 @@ run_integration_tests() {
 
     # Manual expired paste test
     if ! test_expired_paste_manual; then
+        ((failed_tests++))
+    fi
+    echo
+
+    # Test buffer size limit
+    if ! test_buffer_size_limit; then
         ((failed_tests++))
     fi
     echo

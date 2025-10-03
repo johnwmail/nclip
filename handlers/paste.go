@@ -17,7 +17,94 @@ import (
 	"github.com/johnwmail/nclip/utils"
 )
 
-// Helper: generateUniqueSlug tries to generate a unique slug using batch logic
+// Helper: readUploadContent extracts content, filename, and content-type from request
+func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, string, error) {
+	limit := h.config.BufferSize
+	contentTypeHeader := c.Request.Header.Get("Content-Type")
+	isMultipart := contentTypeHeader != "" && strings.HasPrefix(contentTypeHeader, "multipart/form-data")
+
+	if isMultipart {
+		file, header, err := c.Request.FormFile("file")
+		if err != nil {
+			return nil, "", "", fmt.Errorf("no file provided")
+		}
+		defer func() { _ = file.Close() }()
+
+		filename := header.Filename
+		if header.Size > 0 && header.Size > limit {
+			return nil, filename, "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", header.Size, limit)
+		}
+
+		content, exceeded, err := h.readLimitedContent(file)
+		if err != nil {
+			return nil, filename, "", fmt.Errorf("failed to read file")
+		}
+		if exceeded {
+			return nil, filename, "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
+		}
+
+		contentType := utils.DetectContentType(filename, content)
+		return content, filename, contentType, nil
+	}
+
+	if contentLength := c.Request.ContentLength; contentLength > 0 && contentLength > limit {
+		return nil, "", "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", contentLength, limit)
+	}
+
+	content, exceeded, err := h.readLimitedContent(c.Request.Body)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("failed to read content")
+	}
+	if exceeded {
+		return nil, "", "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
+	}
+
+	contentType := ""
+	ctHeader := c.ContentType()
+	log.Printf("[DEBUG] ContentType header: %s", ctHeader)
+	if ctHeader != "" {
+		if parsedType, _, err := mime.ParseMediaType(ctHeader); err == nil {
+			contentType = parsedType
+			log.Printf("[DEBUG] Parsed contentType: %s", contentType)
+		} else {
+			contentType = ctHeader
+		}
+	}
+	if contentType == "" {
+		contentType = utils.DetectContentType("", content)
+	}
+
+	return content, "", contentType, nil
+}
+
+func (h *PasteHandler) readLimitedContent(r io.Reader) ([]byte, bool, error) {
+	if r == nil {
+		return nil, false, fmt.Errorf("nil reader")
+	}
+
+	limit := h.config.BufferSize
+	if limit <= 0 {
+		return nil, false, fmt.Errorf("invalid buffer size configuration: %d", limit)
+	}
+
+	buf, err := io.ReadAll(io.LimitReader(r, limit))
+	if err != nil {
+		return nil, false, err
+	}
+	if int64(len(buf)) < limit {
+		return buf, false, nil
+	}
+
+	var extra [1]byte
+	n, err := r.Read(extra[:])
+	if n > 0 {
+		return nil, true, nil
+	}
+	if err != nil && err != io.EOF {
+		return nil, false, err
+	}
+	return buf, false, nil
+}
 func (h *PasteHandler) generateUniqueSlug() (string, error) {
 	batchSize := 5
 	lengths := []int{5, 6, 7}
@@ -78,30 +165,41 @@ type PasteHandler struct {
 }
 
 // Helper: readUploadContent extracts content, filename, and content-type from request
+// DUPLICATE FUNCTION - REMOVED
+/*
 func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, string, error) {
 	var content []byte
 	var filename string
 	var contentType string
 	var err error
 
-	if c.Request.Header.Get("Content-Type") != "" &&
-		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+	// For direct POST requests, check Content-Length to reject obviously large uploads early
+	// Skip this check for multipart uploads since Content-Length includes multipart overhead
+	isMultipart := c.Request.Header.Get("Content-Type") != "" && strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data")
+	log.Printf("[DEBUG] ContentLength: %d, isMultipart: %v", c.Request.ContentLength, isMultipart)
+	if !isMultipart {
+		if contentLength := c.Request.ContentLength; contentLength > 0 && contentLength > h.config.BufferSize {
+			return nil, "", "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", contentLength, h.config.BufferSize)
+		}
+	}
+
+	if isMultipart {
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
 			return nil, "", "", fmt.Errorf("no file provided")
 		}
 		defer func() { _ = file.Close() }()
 		filename = header.Filename
-		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
+		content, err = io.ReadAll(&countingReader{r: file, limit: h.config.BufferSize})
 		if err != nil {
-			return nil, filename, "", fmt.Errorf("failed to read file")
+			return nil, filename, "", err
 		}
 		// For multipart uploads, detect content type from file content
 		contentType = utils.DetectContentType(filename, content)
 	} else {
-		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
+		content, err = io.ReadAll(&countingReader{r: c.Request.Body, limit: h.config.BufferSize})
 		if err != nil {
-			return nil, "", "", fmt.Errorf("failed to read content")
+			return nil, "", "", err
 		}
 		// For direct POST, use the Content-Type header if provided
 		contentTypeHeader := c.ContentType()
@@ -126,8 +224,47 @@ func (h *PasteHandler) readUploadContent(c *gin.Context) ([]byte, string, string
 	}
 	return content, filename, contentType, nil
 }
+*/
 
-// Helper: selectOrGenerateSlug chooses or generates a unique slug
+// respondUploadError handles upload error responses with appropriate status codes
+func (h *PasteHandler) respondUploadError(c *gin.Context, err error) {
+	c.Header("Content-Type", "application/json; charset=utf-8")
+	// Use 413 Payload Too Large for size limit violations
+	if strings.Contains(err.Error(), "content too large") {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": err.Error()})
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+}
+
+// storeContentAndMetadata stores both content and metadata for a paste
+func (h *PasteHandler) storeContentAndMetadata(slug string, content []byte, paste *models.Paste) error {
+	if err := h.store.StoreContent(slug, content); err != nil {
+		return fmt.Errorf("failed to store content: %w", err)
+	}
+	if err := h.store.Store(paste); err != nil {
+		return fmt.Errorf("failed to store metadata: %w", err)
+	}
+	return nil
+}
+
+// respondWithPasteURL generates and returns the appropriate response for a paste URL
+func (h *PasteHandler) respondWithPasteURL(c *gin.Context, slug string, burnAfterRead bool) {
+	pasteURL := h.generatePasteURL(c, slug)
+
+	// Return URL as plain text for cli tools compatibility
+	if h.isCli(c) || c.Request.Header.Get("Accept") == "text/plain" {
+		c.String(http.StatusOK, pasteURL+"\n")
+		return
+	}
+
+	// Return JSON for other clients
+	c.JSON(http.StatusOK, gin.H{
+		"url":             pasteURL,
+		"slug":            slug,
+		"burn_after_read": burnAfterRead,
+	})
+}
 func (h *PasteHandler) selectOrGenerateSlug(c *gin.Context) (string, error) {
 	batchSize := 5
 	lengths := []int{5, 6, 7}
@@ -301,7 +438,12 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
 		c.Header("Content-Type", "application/json; charset=utf-8")
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		// Use 413 Payload Too Large for size limit violations
+		if strings.Contains(err.Error(), "content too large") {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
 		return
 	}
 	// Check for custom slug header
@@ -364,33 +506,21 @@ func (h *PasteHandler) Upload(c *gin.Context) {
 
 // UploadBurn handles burn-after-read paste upload via POST /burn/
 func (h *PasteHandler) UploadBurn(c *gin.Context) {
-	var content []byte
-	var filename string
-	var err error
-
-	// Extract content
-	if c.Request.Header.Get("Content-Type") != "" && strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-		file, header, err := c.Request.FormFile("file")
-		if err != nil {
-			respondError(c, http.StatusBadRequest, "No file provided")
-			return
-		}
-		defer func() { _ = file.Close() }()
-		filename = header.Filename
-		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
-		if err != nil {
-			respondError(c, http.StatusInternalServerError, "Failed to read file")
-			return
-		}
-	} else {
-		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
-		if err != nil {
-			respondError(c, http.StatusInternalServerError, "Failed to read content")
-			return
-		}
+	content, filename, _, err := h.readUploadContent(c)
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
+		h.respondUploadError(c, err)
+		return
 	}
-	if len(content) == 0 {
-		respondError(c, http.StatusBadRequest, "Empty content")
+
+	// Detect content type (burn-after-read doesn't use custom content type from header)
+	contentType := utils.DetectContentType(filename, content)
+
+	// Parse TTL for burn-after-read
+	expiresAt, err := h.parseBurnTTL(c)
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
+		respondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -402,17 +532,7 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 		return
 	}
 
-	// Detect content type
-	contentType := utils.DetectContentType(filename, content)
-
-	// Parse TTL
-	expiresAt, err := h.parseBurnTTL(c)
-	if err != nil {
-		log.Printf("[ERROR] %v", err)
-		respondError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
+	// Create and store paste
 	paste := &models.Paste{
 		ID:            slug,
 		CreatedAt:     time.Now(),
@@ -423,31 +543,13 @@ func (h *PasteHandler) UploadBurn(c *gin.Context) {
 		ReadCount:     0,
 	}
 
-	// Store content and metadata
-	if err := h.store.StoreContent(slug, content); err != nil {
-		respondError(c, http.StatusInternalServerError, "Failed to store content")
-		return
-	}
-	if err := h.store.Store(paste); err != nil {
-		respondError(c, http.StatusInternalServerError, "Failed to store metadata")
+	if err := h.storeContentAndMetadata(slug, content, paste); err != nil {
+		respondError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Generate URL
-	pasteURL := h.generatePasteURL(c, slug)
-
-	// Return URL as plain text for cli tools compatibility
-	if h.isCli(c) || c.Request.Header.Get("Accept") == "text/plain" {
-		c.String(http.StatusOK, pasteURL+"\n")
-		return
-	}
-
-	// Return JSON for other clients
-	c.JSON(http.StatusOK, gin.H{
-		"url":             pasteURL,
-		"slug":            slug,
-		"burn_after_read": true,
-	})
+	// Generate response
+	h.respondWithPasteURL(c, slug, true)
 }
 
 // View handles viewing a paste via GET /:slug

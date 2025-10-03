@@ -49,45 +49,93 @@ func (h *Handler) parseTTL(c *gin.Context) (time.Time, error) {
 
 // readUploadContent extracts content, filename, and content-type from request
 func (h *Handler) readUploadContent(c *gin.Context) ([]byte, string, string, error) {
-	var content []byte
-	var filename string
-	var contentType string
-	var err error
+	limit := h.config.BufferSize
+	contentTypeHeader := c.Request.Header.Get("Content-Type")
+	isMultipart := contentTypeHeader != "" && strings.HasPrefix(contentTypeHeader, "multipart/form-data")
 
-	if c.Request.Header.Get("Content-Type") != "" &&
-		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+	if isMultipart {
 		file, header, err := c.Request.FormFile("file")
 		if err != nil {
 			return nil, "", "", fmt.Errorf("no file provided")
 		}
 		defer func() { _ = file.Close() }()
-		filename = header.Filename
-		content, err = io.ReadAll(io.LimitReader(file, h.config.BufferSize))
+
+		filename := header.Filename
+		if header.Size > 0 && header.Size > limit {
+			return nil, filename, "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", header.Size, limit)
+		}
+
+		content, exceeded, err := h.readLimitedContent(file)
 		if err != nil {
 			return nil, filename, "", fmt.Errorf("failed to read file")
 		}
-		// For multipart uploads, detect content type from file content
-		contentType = utils.DetectContentType(filename, content)
-	} else {
-		content, err = io.ReadAll(io.LimitReader(c.Request.Body, h.config.BufferSize))
-		if err != nil {
-			return nil, "", "", fmt.Errorf("failed to read content")
+		if exceeded {
+			return nil, filename, "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
 		}
-		// For direct POST, use the Content-Type header if provided
-		contentTypeHeader := c.ContentType()
-		if contentTypeHeader != "" {
-			// Parse the media type to extract just the MIME type (without parameters)
-			if parsedType, _, err := mime.ParseMediaType(contentTypeHeader); err == nil {
-				contentType = parsedType
-			} else {
-				contentType = contentTypeHeader
-			}
+
+		contentType := utils.DetectContentType(filename, content)
+		if len(content) == 0 {
+			return nil, filename, contentType, fmt.Errorf("empty content")
 		}
+		return content, filename, contentType, nil
+	}
+
+	if contentLength := c.Request.ContentLength; contentLength > 0 && contentLength > limit {
+		return nil, "", "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", contentLength, limit)
+	}
+
+	content, exceeded, err := h.readLimitedContent(c.Request.Body)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("failed to read content")
+	}
+	if exceeded {
+		return nil, "", "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
+	}
+
+	contentType := ""
+	if ct := c.ContentType(); ct != "" {
+		if parsedType, _, err := mime.ParseMediaType(ct); err == nil {
+			contentType = parsedType
+		} else {
+			contentType = ct
+		}
+	}
+	if contentType == "" {
+		contentType = utils.DetectContentType("", content)
 	}
 	if len(content) == 0 {
-		return nil, filename, contentType, fmt.Errorf("empty content")
+		return nil, "", contentType, fmt.Errorf("empty content")
 	}
-	return content, filename, contentType, nil
+	return content, "", contentType, nil
+}
+
+func (h *Handler) readLimitedContent(r io.Reader) ([]byte, bool, error) {
+	if r == nil {
+		return nil, false, fmt.Errorf("nil reader")
+	}
+
+	limit := h.config.BufferSize
+	if limit <= 0 {
+		return nil, false, fmt.Errorf("invalid buffer size configuration: %d", limit)
+	}
+
+	buf, err := io.ReadAll(io.LimitReader(r, limit))
+	if err != nil {
+		return nil, false, err
+	}
+	if int64(len(buf)) < limit {
+		return buf, false, nil
+	}
+
+	var extra [1]byte
+	n, err := r.Read(extra[:])
+	if n > 0 {
+		return nil, true, nil
+	}
+	if err != nil && err != io.EOF {
+		return nil, false, err
+	}
+	return buf, false, nil
 }
 
 // storePasteAndRespond stores paste and responds to client
@@ -172,7 +220,11 @@ func (h *Handler) Upload(c *gin.Context) {
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
 		c.Header("Content-Type", "application/json; charset=utf-8")
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "content too large") {
+			status = http.StatusRequestEntityTooLarge
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 
