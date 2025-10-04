@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -213,11 +215,12 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	router := gin.New()
 
 	// Add logging middleware
-	// Use a JSON-safe recovery middleware so API endpoints always return
-	// JSON error responses instead of HTML error pages that the web UI
-	// cannot parse.
+	// Use a JSON-safe recovery middleware and canonicalErrors middleware so
+	// API endpoints always return JSON error responses instead of HTML error
+	// pages that the web UI cannot parse.
 	router.Use(gin.Logger())
 	router.Use(jsonRecovery())
+	router.Use(canonicalErrors())
 	router.Use(gin.Recovery())
 
 	// Load favicon
@@ -269,6 +272,80 @@ func jsonRecovery() gin.HandlerFunc {
 		}()
 		c.Next()
 	}
+}
+
+// canonicalErrors ensures that if a handler did not write a body but the
+// response status is an error (>=400), a small JSON error body is written.
+// This helps intermediaries and CDNs forward a predictable JSON payload.
+func canonicalErrors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Wrap the ResponseWriter so we can buffer the body and inspect it
+		origWriter := c.Writer
+		bcw := &bodyCaptureWriter{ResponseWriter: origWriter}
+		c.Writer = bcw
+
+		c.Next()
+
+		status := bcw.Status()
+		// Read buffered body and content-type
+		buf := bcw.body.Bytes()
+		ct := bcw.Header().Get("Content-Type")
+
+		if status >= 400 {
+			// Determine a suitable message to expose
+			var msg string
+
+			// If there is JSON body, try extracting its message/error
+			if len(buf) > 0 && strings.Contains(ct, "application/json") {
+				var parsed map[string]interface{}
+				if err := json.Unmarshal(buf, &parsed); err == nil {
+					if e, ok := parsed["error"].(string); ok {
+						msg = e
+					} else if m, ok := parsed["message"].(string); ok {
+						msg = m
+					}
+				}
+			}
+
+			// If not found, use raw body text if present
+			if msg == "" {
+				if len(buf) > 0 {
+					msg = string(bytes.TrimSpace(buf))
+				} else if len(c.Errors) > 0 {
+					msg = c.Errors.Last().Error()
+				} else {
+					msg = http.StatusText(status)
+				}
+			}
+
+			// Write canonical JSON to the original writer
+			origWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
+			origWriter.WriteHeader(status)
+			out, _ := json.Marshal(gin.H{"error": msg})
+			origWriter.Write(out)
+			return
+		}
+
+		// Non-error: forward buffered content as-is
+		if len(buf) > 0 {
+			// Ensure headers/status are flushed
+			origWriter.WriteHeader(status)
+			origWriter.Write(buf)
+		}
+	}
+}
+
+// bodyCaptureWriter buffers response body writes so middleware can inspect
+// and optionally rewrite the output before sending to the client.
+type bodyCaptureWriter struct {
+	gin.ResponseWriter
+	body bytes.Buffer
+}
+
+// Write implements io.Writer; buffer the bytes but do not write to the
+// underlying writer until the middleware decides to forward them.
+func (w *bodyCaptureWriter) Write(b []byte) (int, error) {
+	return w.body.Write(b)
 }
 
 // runHTTPServer starts the HTTP server for container mode

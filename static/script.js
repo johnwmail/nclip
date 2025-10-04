@@ -43,18 +43,12 @@ document.addEventListener('DOMContentLoaded', function () {
             body: content
         })
             .then(async response => {
-                let data;
-                try {
-                    data = await response.json();
-                } catch (e) {
-                    // Fallback: try to read text body to show server message (HTML or plain text)
-                    const txt = await response.text();
-                    const message = txt && txt.length ? txt : 'Unexpected response format';
-                    throw new Error('Server error: ' + message);
+                if (!response.ok) {
+                    const msg = await extractErrorMessage(response);
+                    throw new Error(msg);
                 }
-                if (data.error) {
-                    throw new Error(data.error);
-                }
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
                 showResult(data.url, data.slug);
             })
             .catch(error => {
@@ -65,6 +59,43 @@ document.addEventListener('DOMContentLoaded', function () {
                 uploadTextBtn.textContent = 'Paste Text';
             });
     });
+
+    // Helper: extract a safe error message from a Response object
+    // Tries JSON first, then falls back to text, and always returns a string.
+    async function extractErrorMessage(response) {
+        const ct = response.headers.get('content-type') || '';
+        try {
+            // If content-type claims JSON, attempt parse
+            if (ct.includes('application/json')) {
+                const txt = await response.text();
+                if (!txt) return `HTTP ${response.status} ${response.statusText}`;
+                try {
+                    const parsed = JSON.parse(txt);
+                    if (parsed && typeof parsed === 'object') {
+                        if (typeof parsed.error === 'string') return parsed.error;
+                        if (typeof parsed.message === 'string') return parsed.message;
+                        if (Array.isArray(parsed.errors) && parsed.errors.length) {
+                            const first = parsed.errors[0];
+                            if (typeof first === 'string') return first;
+                            if (first && first.message) return first.message;
+                        }
+                    }
+                    // fallback to raw text if structure not matched
+                    return txt;
+                } catch (e) {
+                    // not valid JSON
+                    return txt || `HTTP ${response.status} ${response.statusText}`;
+                }
+            }
+
+            // Not JSON or no content-type: try text
+            const text = await response.text();
+            if (text && text.length) return text;
+            return `HTTP ${response.status} ${response.statusText}`;
+        } catch (e) {
+            return `HTTP ${response.status} ${response.statusText}`;
+        }
+    }
 
     // File upload
     uploadFileBtn.addEventListener('click', function () {
@@ -90,18 +121,12 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         })
             .then(async response => {
-                let data;
-                try {
-                    data = await response.json();
-                } catch (e) {
-                    // Fallback: try to read text body to show server message (HTML or plain text)
-                    const txt = await response.text();
-                    const message = txt && txt.length ? txt : 'Unexpected response format';
-                    throw new Error('Server error: ' + message);
+                if (!response.ok) {
+                    const msg = await extractErrorMessage(response);
+                    throw new Error(msg);
                 }
-                if (data.error) {
-                    throw new Error(data.error);
-                }
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
                 showResult(data.url, data.slug);
             })
             .catch(error => {
