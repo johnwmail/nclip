@@ -111,6 +111,10 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	webuiHandler := handlers.NewWebUIHandler(cfg)
 
 	router := gin.New()
+	// Add middleware to match production setup
+	router.Use(gin.Logger())
+	router.Use(jsonRecovery())
+	router.Use(canonicalErrors())
 	router.LoadHTMLGlob("static/*.html")
 	router.Static("/static", "./static")
 
@@ -389,5 +393,135 @@ func TestInvalidSlug(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestCanonicalErrorHandling verifies that the canonicalErrors middleware
+// ensures error responses are always in canonical JSON format
+func TestCanonicalErrorHandling(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	tests := []struct {
+		name           string
+		method         string
+		path           string
+		body           string
+		headers        map[string]string
+		expectedStatus int
+		checkJSON      bool
+		checkError     bool
+	}{
+		{
+			name:           "invalid slug returns JSON",
+			method:         "GET",
+			path:           "/invalid!",
+			expectedStatus: http.StatusBadRequest,
+			checkJSON:      true,
+			checkError:     true,
+		},
+		{
+			name:           "short slug returns JSON",
+			method:         "GET",
+			path:           "/AB",
+			expectedStatus: http.StatusBadRequest,
+			checkJSON:      true,
+			checkError:     true,
+		},
+		{
+			name:           "empty upload returns JSON error",
+			method:         "POST",
+			path:           "/",
+			body:           "",
+			headers:        map[string]string{"Content-Type": "text/plain"},
+			expectedStatus: http.StatusBadRequest,
+			checkJSON:      true,
+			checkError:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			var req *http.Request
+			if tt.body != "" {
+				req, _ = http.NewRequest(tt.method, tt.path, bytes.NewBufferString(tt.body))
+			} else {
+				req, _ = http.NewRequest(tt.method, tt.path, nil)
+			}
+
+			// Set headers
+			for k, v := range tt.headers {
+				req.Header.Set(k, v)
+			}
+
+			router.ServeHTTP(w, req)
+
+			// Check status code
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			// Check content type is JSON
+			if tt.checkJSON {
+				contentType := w.Header().Get("Content-Type")
+				if !bytes.Contains([]byte(contentType), []byte("application/json")) {
+					t.Errorf("Expected JSON content type, got %s", contentType)
+				}
+
+				// Parse response as JSON
+				var response map[string]interface{}
+				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+					t.Errorf("Failed to parse response as JSON: %v. Body: %s", err, w.Body.String())
+					return
+				}
+
+				// Check for error field
+				if tt.checkError {
+					if _, ok := response["error"]; !ok {
+						t.Errorf("Expected 'error' field in JSON response, got: %v", response)
+					}
+					// Ensure error is a string
+					if errorMsg, ok := response["error"].(string); ok {
+						if errorMsg == "" {
+							t.Errorf("Expected non-empty error message")
+						}
+					} else {
+						t.Errorf("Expected 'error' field to be a string, got: %T", response["error"])
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestCanonicalErrorPreservesValidJSON verifies that valid JSON error responses
+// are preserved and formatted correctly
+func TestCanonicalErrorPreservesValidJSON(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// Test with a request that should return JSON error (invalid slug format)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/bad-slug!", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+
+	// Verify response is valid JSON
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response as JSON: %v. Body: %s", err, w.Body.String())
+	}
+
+	// Verify it has an error field
+	if _, ok := response["error"]; !ok {
+		t.Errorf("Expected 'error' field in response")
+	}
+
+	// Verify content-type header
+	ct := w.Header().Get("Content-Type")
+	if !bytes.Contains([]byte(ct), []byte("application/json")) {
+		t.Errorf("Expected JSON content-type, got: %s", ct)
 	}
 }
