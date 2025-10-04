@@ -322,7 +322,9 @@ func canonicalErrors() gin.HandlerFunc {
 			origWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
 			origWriter.WriteHeader(status)
 			out, _ := json.Marshal(gin.H{"error": msg})
-			origWriter.Write(out)
+			if _, err := origWriter.Write(out); err != nil {
+				log.Printf("[ERROR] canonicalErrors: failed to write error response: %v", err)
+			}
 			return
 		}
 
@@ -330,7 +332,9 @@ func canonicalErrors() gin.HandlerFunc {
 		if len(buf) > 0 {
 			// Ensure headers/status are flushed
 			origWriter.WriteHeader(status)
-			origWriter.Write(buf)
+			if _, err := origWriter.Write(buf); err != nil {
+				log.Printf("[ERROR] canonicalErrors: failed to write response body: %v", err)
+			}
 		}
 	}
 }
