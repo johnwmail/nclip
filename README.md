@@ -214,6 +214,52 @@ nclip supports configuration via environment variables and CLI flags. Environmen
 | `NCLIP_TTL` | `--ttl` | `24h` | Default paste expiration time |
 | `NCLIP_S3_BUCKET` | `--s3-bucket` | `""` | S3 bucket name for Lambda mode |
 | `NCLIP_S3_PREFIX` | `--s3-prefix` | `""` | S3 key prefix for Lambda mode |
+| `NCLIP_UPLOAD_AUTH` | `--upload-auth` | `false` | Require API key for upload endpoints |
+| `NCLIP_API_KEYS` | `--api-keys` | `""` | Comma-separated API keys for upload authentication |
+
+### API Key Authentication
+
+Optionally require API keys for upload endpoints to prevent unauthorized usage. This is disabled by default.
+
+**Enable Authentication:**
+```bash
+export NCLIP_UPLOAD_AUTH=true
+export NCLIP_API_KEYS="secret-key-1,secret-key-2,secret-key-3"
+./nclip
+```
+
+**Upload with API Key (curl):**
+```bash
+# Using Authorization: Bearer header
+echo "protected content" | curl -sL --data-binary @- \
+  -H "Authorization: Bearer secret-key-1" \
+  http://localhost:8080
+
+# Using X-Api-Key header
+echo "protected content" | curl -sL --data-binary @- \
+  -H "X-Api-Key: secret-key-1" \
+  http://localhost:8080
+```
+
+**Upload with API Key (PowerShell):**
+```powershell
+# Using Authorization: Bearer header
+$headers = @{ "Authorization" = "Bearer secret-key-1" }
+"protected content" | Invoke-RestMethod -Uri http://localhost:8080 -Method Post -Headers $headers
+
+# Using X-Api-Key header
+$headers = @{ "X-Api-Key" = "secret-key-1" }
+"protected content" | Invoke-RestMethod -Uri http://localhost:8080 -Method Post -Headers $headers
+```
+
+**Web UI:**
+When API key authentication is enabled, the web UI includes an optional "API Key" input field. Simply paste your API key into this field before uploading content.
+
+**Important Notes:**
+- When `NCLIP_UPLOAD_AUTH=true`, all POST requests to `/` and `/burn/` require authentication
+- GET requests (viewing/downloading pastes) do **not** require authentication
+- When deployed behind CDNs (CloudFront/Cloudflare), ensure the distribution forwards `Authorization` or `X-Api-Key` headers to the origin
+- Multiple API keys can be configured (comma-separated) for different users or applications
 
 ### Examples
 
