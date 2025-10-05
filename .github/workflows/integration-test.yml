@@ -38,7 +38,6 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
-
       # NOTE: Temporarily disabling Go module cache restore to avoid intermittent
       # tar extraction "File exists" errors observed on runners. This is a
       # short-term workaround while we iterate. The cache steps can be restored
