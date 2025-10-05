@@ -19,8 +19,8 @@ test_x_ttl_invalid() {
     if [[ "$status" == "400" ]]; then success "Invalid X-TTL test (30m) passed: server rejected short TTL"; else error "Invalid X-TTL test (30m) failed: expected 400, got $status"; return 1; fi
     status=$(cpost -s -o /dev/null -w "%{http_code}" -X POST "$NCLIP_URL/" -d "$test_content" -H "X-TTL: 8d")
     if [[ "$status" == "400" ]]; then success "Invalid X-TTL test (8d) passed: server rejected long TTL"; else error "Invalid X-TTL test (8d) failed: expected 400, got $status"; return 1; fi
-    status=$(cpost -s -o /dev/null -w "%{http_code}" -X POST "$NCLIP_URL/" -d "$test_content" -H "X-TTL: Time_invaild")
-    if [[ "$status" == "400" ]]; then success "Invalid X-TTL test (Time_invaild) passed: server rejected non-time string"; return 0; else error "Invalid X-TTL test (Time_invaild) failed: expected 400, got $status"; return 1; fi
+    status=$(cpost -s -o /dev/null -w "%{http_code}" -X POST "$NCLIP_URL/" -d "$test_content" -H "X-TTL: Time_invalid")
+    if [[ "$status" == "400" ]]; then success "Invalid X-TTL test (Time_invalid) passed: server rejected non-time string"; return 0; else error "Invalid X-TTL test (Time_invalid) failed: expected 400, got $status"; return 1; fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
