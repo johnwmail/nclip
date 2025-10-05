@@ -391,3 +391,209 @@ func TestInvalidSlug(t *testing.T) {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
+
+// TestAPIKeyAuth tests the API key authentication middleware
+func TestAPIKeyAuth(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		apiKeys        string
+		authHeader     string
+		apiKeyHeader   string
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:           "valid Bearer token",
+			apiKeys:        "key1,key2,key3",
+			authHeader:     "Bearer key2",
+			apiKeyHeader:   "",
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:           "valid X-Api-Key header",
+			apiKeys:        "secret123,secret456",
+			authHeader:     "",
+			apiKeyHeader:   "secret123",
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:           "invalid Bearer token",
+			apiKeys:        "key1,key2",
+			authHeader:     "Bearer wrongkey",
+			apiKeyHeader:   "",
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  "unauthorized",
+		},
+		{
+			name:           "invalid X-Api-Key",
+			apiKeys:        "key1,key2",
+			authHeader:     "",
+			apiKeyHeader:   "badkey",
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  "unauthorized",
+		},
+		{
+			name:           "missing auth headers",
+			apiKeys:        "key1,key2",
+			authHeader:     "",
+			apiKeyHeader:   "",
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  "missing api key",
+		},
+		{
+			name:           "Bearer token with extra spaces",
+			apiKeys:        "mykey",
+			authHeader:     "Bearer   mykey  ",
+			apiKeyHeader:   "",
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:           "X-Api-Key with extra spaces",
+			apiKeys:        "mykey",
+			authHeader:     "",
+			apiKeyHeader:   "  mykey  ",
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:           "Bearer takes precedence over X-Api-Key",
+			apiKeys:        "key1,key2",
+			authHeader:     "Bearer key1",
+			apiKeyHeader:   "wrongkey",
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:           "case-insensitive Bearer prefix",
+			apiKeys:        "mykey",
+			authHeader:     "bearer mykey",
+			apiKeyHeader:   "",
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:           "malformed Authorization header",
+			apiKeys:        "key1",
+			authHeader:     "InvalidFormat key1",
+			apiKeyHeader:   "",
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  "missing api key",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create config with API keys
+			cfg := &config.Config{
+				APIKeys: tt.apiKeys,
+			}
+
+			// Create test router with auth middleware
+			router := gin.New()
+			authMiddleware := apiKeyAuth(cfg)
+			router.POST("/test", authMiddleware, func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{"message": "success"})
+			})
+
+			// Create request
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequest("POST", "/test", bytes.NewBufferString("test"))
+			
+			// Set headers
+			if tt.authHeader != "" {
+				req.Header.Set("Authorization", tt.authHeader)
+			}
+			if tt.apiKeyHeader != "" {
+				req.Header.Set("X-Api-Key", tt.apiKeyHeader)
+			}
+
+			// Execute request
+			router.ServeHTTP(w, req)
+
+			// Check status code
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			// Check error message if unauthorized
+			if tt.expectedStatus == http.StatusUnauthorized {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				if response["error"] != tt.expectedError {
+					t.Errorf("Expected error '%s', got '%v'", tt.expectedError, response["error"])
+				}
+			}
+		})
+	}
+}
+
+// TestAPIKeyAuthEmptyKeys tests behavior when no API keys are configured
+func TestAPIKeyAuthEmptyKeys(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{
+		APIKeys: "",
+	}
+
+	router := gin.New()
+	authMiddleware := apiKeyAuth(cfg)
+	router.POST("/test", authMiddleware, func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/test", bytes.NewBufferString("test"))
+	req.Header.Set("Authorization", "Bearer anykey")
+
+	router.ServeHTTP(w, req)
+
+	// Should fail because no keys are configured
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected status 401, got %d", w.Code)
+	}
+}
+
+// TestAPIKeyAuthWhitespaceInConfig tests handling of whitespace in API keys
+func TestAPIKeyAuthWhitespaceInConfig(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{
+		APIKeys: " key1 , key2 , key3 ",
+	}
+
+	router := gin.New()
+	authMiddleware := apiKeyAuth(cfg)
+	router.POST("/test", authMiddleware, func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	tests := []struct {
+		key            string
+		expectedStatus int
+	}{
+		{"key1", http.StatusOK},
+		{"key2", http.StatusOK},
+		{"key3", http.StatusOK},
+		{" key1 ", http.StatusOK}, // Spaces are trimmed from request headers
+		{"wrongkey", http.StatusUnauthorized},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequest("POST", "/test", bytes.NewBufferString("test"))
+			req.Header.Set("X-Api-Key", tt.key)
+
+			router.ServeHTTP(w, req)
+
+			if w.Code != tt.expectedStatus {
+				t.Errorf("For key '%s', expected status %d, got %d", tt.key, tt.expectedStatus, w.Code)
+			}
+		})
+	}
+}
