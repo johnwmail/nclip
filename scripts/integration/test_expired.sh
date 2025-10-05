@@ -22,7 +22,9 @@ test_expired_paste_manual() {
     now=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
     local expired
     expired=$(date -u -d "-1 day" +%Y-%m-%dT%H:%M:%S.%NZ)
-    local file="./data/${slug}.json"
+    local dir="./data"
+    mkdir -p "$dir"
+    local file="$dir/${slug}.json"
     cat > "$file" <<EOF
 {
   "id": "$slug",

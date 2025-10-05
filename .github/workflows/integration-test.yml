@@ -2,7 +2,7 @@ name: Integration Test
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "feature/upload-auth"]
   pull_request:
     branches: ["main", "dev"]
   workflow_dispatch:
@@ -22,7 +22,10 @@ jobs:
   integration-test:
     name: Integration Test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
+    # Allow this job to run on main, dev, pull_request events, and temporarily
+    # on the feature branch so we can iterate quickly. Remove the feature
+    # branch trigger once CI is stable.
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/feature/upload-auth' || github.event_name == 'pull_request'
 
     strategy:
       matrix:
@@ -38,24 +41,10 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Prepare fresh Go caches
-        id: go-cache-paths
-        run: |
-          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
-          echo "Current working directory: $(pwd)"
-          echo "Go version: $(go version)"
-          echo "Go env: $(go env GOROOT GOPATH GOMODCACHE GOCACHE)"
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ steps.go-cache-paths.outputs.go-build }}
-            ${{ steps.go-cache-paths.outputs.go-mod }}
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
+      # NOTE: Temporarily disabling Go module cache restore to avoid intermittent
+      # tar extraction "File exists" errors observed on runners. This is a
+      # short-term workaround while we iterate. The cache steps can be restored
+      # later once CI is stable.
 
       - name: Download dependencies
         run: go mod download
@@ -93,10 +82,28 @@ jobs:
             echo "NCLIP_UPLOAD_AUTH=false" >> $GITHUB_ENV
             export NCLIP_UPLOAD_AUTH=false
           fi
-          ./nclip &
-          NCLIP_PID=$!
-          echo "NCLIP_PID=$NCLIP_PID" >> $GITHUB_ENV
-          echo "nclip started with PID: $NCLIP_PID"
+          # start server with logs redirected and persist pid so later steps can stop it
+          nohup ./nclip > nclip.log 2>&1 &
+          echo $! > server.pid
+          echo "SERVER_PID=$(cat server.pid)" >> $GITHUB_ENV
+          chmod +r nclip.log || true
+          echo "nclip started with PID: $(cat server.pid)"
+
+      - name: Wait for nclip /health
+        run: |
+          set -euo pipefail
+          URL="http://127.0.0.1:${NCLIP_PORT:-8080}/health"
+          for i in $(seq 1 60); do
+            if curl -sSf "$URL" >/dev/null 2>&1; then
+              echo "nclip ready"
+              exit 0
+            fi
+            echo "waiting for nclip... ($i/60)"
+            sleep 1
+          done
+          echo "nclip did not become ready; printing nclip.log"
+          sed -n '1,200p' nclip.log || true
+          exit 1
 
       - name: Run integration tests
         env:
@@ -112,11 +119,12 @@ jobs:
       - name: Stop nclip server
         if: always()
         run: |
-          if [ -n "${NCLIP_PID:-}" ]; then
-            echo "Stopping nclip server (PID: $NCLIP_PID)"
-            kill $NCLIP_PID || true
+          if [ -f server.pid ]; then
+            PID=$(cat server.pid)
+            echo "Stopping nclip server (PID: $PID)"
+            kill $PID || true
             sleep 2
-            kill -9 $NCLIP_PID 2>/dev/null || true
+            kill -9 $PID 2>/dev/null || true
           fi
 
       - name: Upload integration test artifacts
@@ -127,4 +135,6 @@ jobs:
           path: |
             nclip
             scripts/
+            nclip.log
+            server.pid
           retention-days: 7
