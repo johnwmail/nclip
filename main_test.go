@@ -503,7 +503,7 @@ func TestAPIKeyAuth(t *testing.T) {
 			// Create request
 			w := httptest.NewRecorder()
 			req, _ := http.NewRequest("POST", "/test", bytes.NewBufferString("test"))
-			
+
 			// Set headers
 			if tt.authHeader != "" {
 				req.Header.Set("Authorization", tt.authHeader)
@@ -595,5 +595,42 @@ func TestAPIKeyAuthWhitespaceInConfig(t *testing.T) {
 				t.Errorf("For key '%s', expected status %d, got %d", tt.key, tt.expectedStatus, w.Code)
 			}
 		})
+	}
+}
+
+// TestUploadAuthEnforced verifies that when cfg.UploadAuth is true,
+// the router applies the apiKeyAuth middleware to upload endpoints.
+func TestUploadAuthEnforced(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{
+		APIKeys:    "testkey",
+		UploadAuth: true,
+		Port:       8080,
+		SlugLength: 5,
+		BufferSize: 5 * 1024 * 1024,
+		DefaultTTL: 24 * time.Hour,
+	}
+
+	store := NewMockStore()
+
+	// Use the real setupRouter so middleware wiring is exercised
+	router := setupRouter(store, cfg)
+
+	// POST without any auth should be rejected
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/", bytes.NewBufferString("hello"))
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 when UploadAuth enabled and no key provided, got %d (body: %s)", w.Code, w.Body.String())
+	}
+
+	// POST with valid Authorization: Bearer header should succeed
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("POST", "/", bytes.NewBufferString("hello"))
+	req2.Header.Set("Authorization", "Bearer testkey")
+	router.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("Expected 200 when valid key provided, got %d (body: %s)", w2.Code, w2.Body.String())
 	}
 }
