@@ -18,12 +18,12 @@ TRASH_RECORD_FILE="/tmp/nclip_integration_slugs.txt"
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YIGHL='\033[1;33m'
+YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 log() { echo -e "${BLUE}[INFO]${NC} $*"; }
-warn() { echo -e "${YIGHL}[WARN]${NC} $*"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; }
 success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
 
