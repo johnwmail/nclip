@@ -27,6 +27,7 @@ jobs:
     strategy:
       matrix:
         go-version: ["1.23", "1.24", "1.25"]
+        upload-auth: ["true", "false"]
 
     steps:
       - name: Checkout code
@@ -69,6 +70,20 @@ jobs:
         run: |
           mkdir -p ./testdata
           echo "Starting nclip server (filesystem backend only)..."
+          # When upload-auth is true, the job should set API keys so tests can auth
+          if [ "${{ matrix.upload-auth }}" = "true" ]; then
+            TEST_KEY=$(openssl rand -hex 12)
+            echo "NCLIP_UPLOAD_AUTH=true" >> $GITHUB_ENV
+            echo "NCLIP_API_KEYS=$TEST_KEY" >> $GITHUB_ENV
+            echo "NCLIP_TEST_API_KEY=$TEST_KEY" >> $GITHUB_ENV
+            export NCLIP_UPLOAD_AUTH=true
+            export NCLIP_API_KEYS=$TEST_KEY
+            export NCLIP_TEST_API_KEY=$TEST_KEY
+            echo "Generated test API key for upload auth"
+          else
+            echo "NCLIP_UPLOAD_AUTH=false" >> $GITHUB_ENV
+            export NCLIP_UPLOAD_AUTH=false
+          fi
           ./nclip &
           NCLIP_PID=$!
           echo "NCLIP_PID=$NCLIP_PID" >> $GITHUB_ENV
@@ -77,8 +92,12 @@ jobs:
       - name: Run integration tests
         env:
           NCLIP_URL: http://localhost:8080
+          NCLIP_UPLOAD_AUTH: ${{ matrix.upload-auth }}
         run: |
-          echo "Running integration tests..."
+          echo "Running integration tests (upload-auth=${{ matrix.upload-auth }})..."
+          # Export any NCLIP_* values injected into the environment by the previous step
+          if [ -n "${NCLIP_API_KEYS:-}" ]; then export NCLIP_API_KEYS="$NCLIP_API_KEYS"; fi
+          if [ -n "${NCLIP_TEST_API_KEY:-}" ]; then export NCLIP_TEST_API_KEY="$NCLIP_TEST_API_KEY"; fi
           bash scripts/integration-test.sh
 
       - name: Stop nclip server
