@@ -27,7 +27,7 @@ jobs:
     strategy:
       matrix:
         go-version: ["1.23", "1.24", "1.25"]
-        upload-auth: ["true", "false"]
+        upload_auth: ["true", "false"]
 
     steps:
       - name: Checkout code
@@ -38,12 +38,21 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
+      - name: Prepare fresh Go caches
+        id: go-cache-paths
+        run: |
+          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+          echo "Current working directory: $(pwd)"
+          echo "Go version: $(go version)"
+          echo "Go env: $(go env GOROOT GOPATH GOMODCACHE GOCACHE)"
+
       - name: Cache Go modules
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
+            ${{ steps.go-cache-paths.outputs.go-build }}
+            ${{ steps.go-cache-paths.outputs.go-mod }}
           key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.go-version }}-
@@ -70,8 +79,8 @@ jobs:
         run: |
           mkdir -p ./testdata
           echo "Starting nclip server (filesystem backend only)..."
-          # When upload-auth is true, the job should set API keys so tests can auth
-          if [ "${{ matrix.upload-auth }}" = "true" ]; then
+          # When upload_auth is true, the job should set API keys so tests can auth
+          if [ "${{ matrix.upload_auth }}" = "true" ]; then
             TEST_KEY=$(openssl rand -hex 12)
             echo "NCLIP_UPLOAD_AUTH=true" >> $GITHUB_ENV
             echo "NCLIP_API_KEYS=$TEST_KEY" >> $GITHUB_ENV
@@ -92,9 +101,9 @@ jobs:
       - name: Run integration tests
         env:
           NCLIP_URL: http://localhost:8080
-          NCLIP_UPLOAD_AUTH: ${{ matrix.upload-auth }}
+          NCLIP_UPLOAD_AUTH: ${{ matrix.upload_auth }}
         run: |
-          echo "Running integration tests (upload-auth=${{ matrix.upload-auth }})..."
+          echo "Running integration tests (upload_auth=${{ matrix.upload_auth }})..."
           # Export any NCLIP_* values injected into the environment by the previous step
           if [ -n "${NCLIP_API_KEYS:-}" ]; then export NCLIP_API_KEYS="$NCLIP_API_KEYS"; fi
           if [ -n "${NCLIP_TEST_API_KEY:-}" ]; then export NCLIP_TEST_API_KEY="$NCLIP_TEST_API_KEY"; fi
