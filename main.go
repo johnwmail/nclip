@@ -236,8 +236,14 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	router.GET("/", webuiHandler.Index)
 
 	// Core API routes
-	router.POST("/", uploadHandler.Upload)
-	router.POST("/burn/", uploadHandler.UploadBurn)
+	if cfg.UploadAuth {
+		auth := apiKeyAuth(cfg)
+		router.POST("/", auth, uploadHandler.Upload)
+		router.POST("/burn/", auth, uploadHandler.UploadBurn)
+	} else {
+		router.POST("/", uploadHandler.Upload)
+		router.POST("/burn/", uploadHandler.UploadBurn)
+	}
 	router.GET("/:slug", retrievalHandler.View)
 	router.GET("/raw/:slug", retrievalHandler.Raw)
 
@@ -336,6 +342,49 @@ func canonicalErrors() gin.HandlerFunc {
 				log.Printf("[ERROR] canonicalErrors: failed to write response body: %v", err)
 			}
 		}
+	}
+}
+
+// apiKeyAuth returns a middleware that validates API keys supplied via
+// Authorization: Bearer <key> or X-Api-Key: <key> headers. It reads keys
+// from cfg.APIKeys (comma-separated) and denies unauthorized requests with
+// HTTP 401.
+func apiKeyAuth(cfg *config.Config) gin.HandlerFunc {
+	// Build a map of allowed keys for fast lookup
+	allowed := map[string]struct{}{}
+	for _, k := range strings.Split(cfg.APIKeys, ",") {
+		kk := strings.TrimSpace(k)
+		if kk != "" {
+			allowed[kk] = struct{}{}
+		}
+	}
+
+	return func(c *gin.Context) {
+		// Extract key from Authorization: Bearer <key>
+		var key string
+		if auth := c.GetHeader("Authorization"); auth != "" {
+			if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+				key = strings.TrimSpace(auth[7:])
+			}
+		}
+		// If not found, try X-Api-Key
+		if key == "" {
+			key = strings.TrimSpace(c.GetHeader("X-Api-Key"))
+		}
+
+		if key == "" {
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing api key"})
+			return
+		}
+
+		if _, ok := allowed[key]; !ok {
+			// constant-time compare could be added, but we are checking map membership
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		c.Next()
 	}
 }
 

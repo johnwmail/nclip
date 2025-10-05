@@ -37,9 +37,14 @@ try_post() {
     local _attempt=0
     local _max=3
     local _resp
+    local auth_header=""
+    if [[ -n "${NCLIP_TEST_API_KEY:-}" ]]; then
+        auth_header=( -H "X-Api-Key: ${NCLIP_TEST_API_KEY}" )
+    fi
+
     while true; do
         _attempt=$((_attempt+1))
-        _resp=$(curl -sS -w "\n%{http_code}" -X POST "$_url" -d "$_data" || true)
+    _resp=$(curl -sS -w "\n%{http_code}" -X POST "$_url" "${auth_header[@]}" -d "$_data" || true)
         # split response and status
         local _status
         _status=$(echo "$_resp" | tail -n1)

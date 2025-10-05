@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const usageExamplesContainer = document.querySelector('.code-examples');
     const initialUsageHTML = usageExamplesContainer ? usageExamplesContainer.innerHTML : '';
 
+    // API key input (optional)
+    const apiKeyInput = document.getElementById('api-key-input');
+
     // Text upload
     uploadTextBtn.addEventListener('click', function () {
         const content = textContent.value.trim();
@@ -34,12 +37,18 @@ document.addEventListener('DOMContentLoaded', function () {
         uploadTextBtn.disabled = true;
         uploadTextBtn.textContent = 'Uploading...';
 
+        const headers = {
+            'Content-Type': 'text/plain',
+            'Accept': 'application/json',
+        };
+        const key = apiKeyInput ? apiKeyInput.value.trim() : '';
+        if (key) {
+            headers['Authorization'] = 'Bearer ' + key;
+        }
+
         fetch(endpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain',
-                'Accept': 'application/json',
-            },
+            headers: headers,
             body: content
         })
             .then(async response => {
@@ -113,12 +122,14 @@ document.addEventListener('DOMContentLoaded', function () {
         uploadFileBtn.disabled = true;
         uploadFileBtn.textContent = 'Uploading...';
 
+        const headers = { 'Accept': 'application/json' };
+        const key = apiKeyInput ? apiKeyInput.value.trim() : '';
+        if (key) headers['Authorization'] = 'Bearer ' + key;
+
         fetch(endpoint, {
             method: 'POST',
             body: formData,
-            headers: {
-                'Accept': 'application/json'
-            }
+            headers: headers
         })
             .then(async response => {
                 if (!response.ok) {

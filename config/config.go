@@ -16,9 +16,13 @@ type Config struct {
 	DefaultTTL time.Duration `json:"default_ttl"`
 	S3Bucket   string        `json:"s3_bucket"`
 	S3Prefix   string        `json:"s3_prefix"`
-	Version    string        `json:"version"`
-	BuildTime  string        `json:"build_time"`
-	CommitHash string        `json:"commit_hash"`
+	// UploadAuth enables API key authentication on upload endpoints
+	UploadAuth bool `json:"upload_auth"`
+	// APIKeys is a comma-separated list of valid API keys
+	APIKeys    string `json:"api_keys"`
+	Version    string `json:"version"`
+	BuildTime  string `json:"build_time"`
+	CommitHash string `json:"commit_hash"`
 }
 
 // LoadConfig loads configuration from environment variables and CLI flags
@@ -41,6 +45,8 @@ func LoadConfig() *Config {
 	flag.DurationVar(&config.DefaultTTL, "ttl", config.DefaultTTL, "Default paste expiration time")
 	flag.StringVar(&config.S3Bucket, "s3-bucket", config.S3Bucket, "S3 bucket for Lambda mode")
 	flag.StringVar(&config.S3Prefix, "s3-prefix", config.S3Prefix, "S3 key prefix for Lambda mode")
+	flag.BoolVar(&config.UploadAuth, "upload-auth", config.UploadAuth, "Require API key for upload endpoints")
+	flag.StringVar(&config.APIKeys, "api-keys", config.APIKeys, "Comma-separated API keys for upload authentication")
 	flag.Parse()
 
 	// Override with environment variables if present
@@ -74,6 +80,16 @@ func LoadConfig() *Config {
 
 	if val := os.Getenv("NCLIP_S3_PREFIX"); val != "" {
 		config.S3Prefix = val
+	}
+
+	if val := os.Getenv("NCLIP_UPLOAD_AUTH"); val != "" {
+		if b, err := strconv.ParseBool(val); err == nil {
+			config.UploadAuth = b
+		}
+	}
+
+	if val := os.Getenv("NCLIP_API_KEYS"); val != "" {
+		config.APIKeys = val
 	}
 
 	return config
