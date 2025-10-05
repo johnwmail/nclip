@@ -105,6 +105,13 @@ Buffer size limits are tested at multiple levels:
 - **Integration tests**: `test_buffer_size_limit()` in `scripts/integration-test.sh` tests end-to-end with real HTTP requests
 - Both test that oversized uploads are rejected with 400 status and appropriate error messages
 
+### Upload-auth testing
+Upload-auth is a runtime toggle that requires clients to present an API key to upload content. Important points for tests and CI:
+- `NCLIP_UPLOAD_AUTH` (true/false) enables or disables upload API key enforcement.
+- `NCLIP_API_KEYS` contains the comma-separated allowed keys the server accepts. In CI the integration job generates a random key and writes it here.
+- `NCLIP_TEST_API_KEY` (or `NCLIP_TEST_API_KEY_BEARER`) is used by the integration script to authenticate requests when `NCLIP_UPLOAD_AUTH=true`.
+- Integration tests assert unauthenticated uploads return 401 when auth is enabled and verify authenticated uploads succeed using the generated test key.
+
 ### Build Commands
 - Test: Please passed `go fmt ./...` and `go vet ./...` and `go test ./...` and `golangci-lint run` before building
 - Development: `go run .` 
