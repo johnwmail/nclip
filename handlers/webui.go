@@ -33,19 +33,21 @@ func (h *WebUIHandler) Index(c *gin.Context) {
 		baseURL = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
 	}
 
-	// Pass version info to template
+	// Pass version info and upload-auth flag to template
 	c.HTML(http.StatusOK, "index.html", struct {
 		Title      string
 		Config     struct{ URL string }
 		Version    string
 		BuildTime  string
 		CommitHash string
+		UploadAuth bool
 	}{
 		Title:      "NCLIP - HTTP Clipboard",
 		Config:     struct{ URL string }{URL: baseURL},
 		Version:    h.config.Version,
 		BuildTime:  h.config.BuildTime,
 		CommitHash: h.config.CommitHash,
+		UploadAuth: h.config.UploadAuth,
 	})
 }
 

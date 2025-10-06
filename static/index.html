@@ -44,12 +44,14 @@
                 <div class="form-group">
                     <label for="text-content">Text Content</label>
                     <textarea id="text-content" placeholder="Paste your text here..."></textarea>
-                    <!-- Optional API Key for uploads (for CLI or authenticated uploads) -->
+                    {{ if .UploadAuth }}
+                    <!-- API Key for uploads (server requires it) -->
                     <div class="api-key-wrapper" style="margin-top:0.5rem;">
-                        <label for="api-key-input">API Key (optional)</label>
+                        <label for="api-key-input">API Key</label>
                         <input type="text" id="api-key-input" placeholder="Paste API key for uploads"
                             style="width:100%;" />
                     </div>
+                    {{ end }}
                     <div class="form-controls">
                         <div class="checkbox-wrapper">
                             <input type="checkbox" id="burn-text">
@@ -142,6 +144,20 @@
                     Command Line Usage
                 </h2>
                 <div class="code-examples">
+                    {{ if .UploadAuth }}
+                    <div class="example">
+                        <p>Upload text (with API key):</p>
+                        <code>echo "hello world" | curl -sL --data-binary @- -H "Authorization: Bearer &lt;YOUR_KEY&gt;" {{.Config.URL}}</code>
+                    </div>
+                    <div class="example">
+                        <p>Upload text (X-Api-Key header):</p>
+                        <code>echo "hello world" | curl -sL --data-binary @- -H "X-Api-Key: &lt;YOUR_KEY&gt;" {{.Config.URL}}</code>
+                    </div>
+                    <div class="example">
+                        <p>Upload file (with API key):</p>
+                        <code>curl -sL -F "file=@/path/to/file" -H "X-Api-Key: &lt;YOUR_KEY&gt;" {{.Config.URL}}</code>
+                    </div>
+                    {{ else }}
                     <div class="example">
                         <p>Upload text:</p>
                         <code>echo "hello world" | curl -sL --data-binary @- {{.Config.URL}}</code>
@@ -154,6 +170,7 @@
                         <p>Burn after reading:</p>
                         <code>echo "secret" | curl -sL --data-binary @- {{.Config.URL}}/burn/</code>
                     </div>
+                    {{ end }}
                 </div>
             </div>
         </main>
