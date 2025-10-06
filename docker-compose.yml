@@ -35,6 +35,11 @@ services:
       # Production settings
       GIN_MODE: release
 
+    # Optional: enable upload authentication (API keys)
+    # Use Docker secrets or external secret management in production.
+    #NCLIP_UPLOAD_AUTH: "true"
+    #NCLIP_API_KEYS: "secret-key-1,secret-key-2"
+
     volumes:
       - data:/data
 
