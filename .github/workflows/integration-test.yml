@@ -2,7 +2,7 @@ name: Integration Test
 
 on:
   push:
-    branches: ["main", "dev", "feature/upload-auth"]
+    branches: ["main", "dev"]
   pull_request:
     branches: ["main", "dev"]
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
     # Allow this job to run on main, dev, pull_request events, and temporarily
     # on the feature branch so we can iterate quickly. Remove the feature
     # branch trigger once CI is stable.
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/feature/upload-auth' || github.event_name == 'pull_request'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
 
     strategy:
       matrix:
