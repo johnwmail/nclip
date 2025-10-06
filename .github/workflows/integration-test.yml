@@ -22,9 +22,6 @@ jobs:
   integration-test:
     name: Integration Test
     runs-on: ubuntu-latest
-    # Allow this job to run on main, dev, pull_request events, and temporarily
-    # on the feature branch so we can iterate quickly. Remove the feature
-    # branch trigger once CI is stable.
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
 
     strategy:
