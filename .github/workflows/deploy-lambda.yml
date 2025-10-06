@@ -134,7 +134,14 @@ jobs:
           publish: true
           role: ${{ secrets.LAMBDA_EXECUTION_ROLE }}
           s3-bucket: "${{ vars.S3_BUCKET }}"
-          environment: '{"NCLIP_S3_BUCKET":"${{ vars.S3_BUCKET }}","NCLIP_S3_PREFIX":"${{ vars.S3_PREFIX }}","NCLIP_BUFFER_SIZE":"${{ vars.NCLIP_BUFFER_SIZE }}","GIN_MODE":"${{ vars.GIN_MODE }}"}'
+          environment: '{
+            "NCLIP_S3_BUCKET":"${{ vars.S3_BUCKET }}",
+            "NCLIP_S3_PREFIX":"${{ vars.S3_PREFIX }}",
+            "NCLIP_BUFFER_SIZE":"${{ vars.NCLIP_BUFFER_SIZE }}",
+            "NCLIP_UPLOAD_AUTH":"${{ vars.NCLIP_UPLOAD_AUTH }}",
+            "NCLIP_API_KEYS":"${{ secrets.NCLIP_API_KEYS }}",
+            "GIN_MODE":"${{ vars.GIN_MODE }}"
+          }'
 
       - name: Post-deploy info
         run: |
