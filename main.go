@@ -66,6 +66,21 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	// Print the NCLIP_UPLOAD_AUTH settings at startup
+	log.Printf("Upload Authentication Enabled: %v", cfg.UploadAuth)
+	if cfg.UploadAuth {
+		// Print the number of configured API keys without exposing them
+		// Count and log the number of non-empty API keys (do not print the keys themselves)
+		keys := strings.Split(cfg.APIKeys, ",")
+		numKeys := 0
+		for _, k := range keys {
+			if strings.TrimSpace(k) != "" {
+				numKeys++
+			}
+		}
+		log.Printf("Configured API Keys: %d", numKeys)
+	}
+
 	// Aggressive logging: print all environment variables
 	if utils.IsDebugEnabled() {
 		log.Printf("[DEBUG] ENVIRONMENT VARIABLES:")

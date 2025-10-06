@@ -34,6 +34,30 @@ echo "Expiring soon" | curl -sL --data-binary @- -H "X-TTL: 2h" http://localhost
 echo "My custom slug" | curl -sL --data-binary @- -H "X-SLUG: MYPASTE" http://localhost:8080
 ```
 
+### API Key / Upload Auth Examples
+
+If `NCLIP_UPLOAD_AUTH=true` is set on the server, upload endpoints require an API key. You can provide the key either via the `Authorization: Bearer <key>` header or the `X-Api-Key: <key>` header.
+
+```bash
+# Using Authorization: Bearer header
+echo "protected content" | curl -sL --data-binary @- \
+  -H "Authorization: Bearer my-secret-key" \
+  http://localhost:8080
+
+# Using X-Api-Key header
+echo "protected content" | curl -sL --data-binary @- \
+  -H "X-Api-Key: my-secret-key" \
+  http://localhost:8080
+```
+
+For multipart/form uploads, include the header the same way:
+
+```bash
+curl -sL -F "file=@myfile.txt" -H "X-Api-Key: my-secret-key" http://localhost:8080
+```
+
+Web UI note: when upload auth is enabled the web UI includes an "API Key" input field. Paste your key there before uploading. Browsers will not automatically attach API keys for you.
+
 ---
 
 ### 2. Wget (Linux/macOS/Windows)

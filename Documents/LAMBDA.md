@@ -207,6 +207,25 @@ aws lambda create-function-url-config \
 | `NCLIP_URL` | Base URL for links | Auto-detected | No |
 | `NCLIP_TTL` | Default paste TTL | `24h` | No |
 
+### Upload Auth (API Keys) on Lambda
+
+nclip supports `NCLIP_UPLOAD_AUTH` when running on Lambda. Enable it by setting `NCLIP_UPLOAD_AUTH=true` and providing `NCLIP_API_KEYS` as a comma-separated list of keys.
+
+Important considerations for Lambda/API Gateway:
+
+- Lambda enforces a 6MB total request size (headers + body). Authentication headers (e.g., `Authorization` or `X-Api-Key`) count toward this limit. Keep `NCLIP_BUFFER_SIZE` at 5MB or lower.
+- When using API Gateway, ensure it forwards `Authorization` or `X-Api-Key` headers to the Lambda function (some integrations may strip headers).
+- Store keys securely (environment variables, AWS Secrets Manager) and avoid hard-coding them in code or repo.
+
+Example environment variables (Lambda configuration):
+
+```
+NCLIP_UPLOAD_AUTH=true
+NCLIP_API_KEYS=prod-key-1,prod-key-2
+NCLIP_BUFFER_SIZE=5242880
+```
+
+
 ### ⚠️ Buffer Size Limits in Lambda
 
 **Critical Lambda Constraint:** AWS Lambda has a hard 6MB limit on total request payload size, which includes:

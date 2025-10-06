@@ -261,6 +261,28 @@ When API key authentication is enabled, the web UI includes an optional "API Key
 - When deployed behind CDNs (CloudFront/Cloudflare), ensure the distribution forwards `Authorization` or `X-Api-Key` headers to the origin
 - Multiple API keys can be configured (comma-separated) for different users or applications
 
+### Upload Auth (API Key) — additional guidance
+
+When `NCLIP_UPLOAD_AUTH` is enabled, nclip enforces API key authentication for all upload endpoints (POST / and POST /burn/). This is intended to protect public-facing instances from abuse.
+
+- Env var: `NCLIP_UPLOAD_AUTH=true` to enable
+- Keys: `NCLIP_API_KEYS` should contain one or more comma-separated keys (for example: `key1,key2`).
+
+Best practices and notes:
+
+- Use secrets/parameters manager (Docker secrets, Kubernetes Secrets, or environment management) to avoid committing API keys into repo or images.
+- For containers behind CDNs or proxies, make sure the proxy forwards either the `Authorization: Bearer <key>` header or the `X-Api-Key: <key>` header.
+- Web UI: the UI will include an "API Key" input. Browsers will not send this automatically — paste or inject via browser extension if needed.
+- Testing: for CI/integration tests you can set a single test key and pass it as `NCLIP_TEST_API_KEY` (used by integration scripts). This variable is optional and only used by the test harness.
+
+Example (bash):
+
+```
+export NCLIP_UPLOAD_AUTH=true
+export NCLIP_API_KEYS="secret-key-1,secret-key-2"
+./nclip
+```
+
 ### Examples
 
 **Using Environment Variables:**

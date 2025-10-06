@@ -26,11 +26,16 @@ services:
       NCLIP_DATA_DIR: /data
 
       # Application Configuration
-      #NCLIP_URL: https://demo.nclip.app
+      # NCLIP_URL: https://demo.nclip.app
       NCLIP_PORT: 8080
       NCLIP_TTL: 24h
       NCLIP_BUFFER_SIZE: 5242880 # 5MB max upload size
       NCLIP_SLUG_LENGTH: 5
+
+      # Optional: enable upload authentication (API keys)
+      # Use Docker secrets or external secret management in production.
+      # NCLIP_UPLOAD_AUTH: "true"
+      # NCLIP_API_KEYS: "secret-key-1,secret-key-2"
 
       # Production settings
       GIN_MODE: release

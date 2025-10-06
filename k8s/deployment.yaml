@@ -22,8 +22,8 @@ spec:
           env:
             - name: NCLIP_DATA_DIR
               value: "/data"
-            #- name: NCLIP_URL
-            #  value: "https://demo.nclip.app"
+            # - name: NCLIP_URL
+            #   value: "https://demo.nclip.app"
             - name: NCLIP_PORT
               value: "8080"
             - name: NCLIP_TTL
@@ -32,6 +32,14 @@ spec:
               value: "5242880" # 5MB
             - name: GIN_MODE
               value: "release"
+            # Optional: enable upload auth and reference API keys from a Kubernetes Secret
+            # - name: NCLIP_UPLOAD_AUTH
+            #   value: "true"
+            # - name: NCLIP_API_KEYS
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: nclip-api-keys
+            #       key: api-keys
           volumeMounts:
             - name: data
               mountPath: /data

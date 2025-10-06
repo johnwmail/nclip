@@ -78,6 +78,36 @@ env:
   value: "24h"
 ```
 
+### Upload Auth (API Keys) in Kubernetes
+
+To enable upload authentication use `NCLIP_UPLOAD_AUTH=true` and provide the API keys via a Kubernetes Secret. Store keys as a single comma-separated string in the secret.
+
+Example: create a secret containing API keys:
+
+```bash
+kubectl create secret generic nclip-api-keys \
+  --from-literal=api-keys="secret1,secret2" -n nclip
+```
+
+Then reference it in your `deployment.yaml`:
+
+```yaml
+env:
+  - name: NCLIP_UPLOAD_AUTH
+    value: "true"
+  - name: NCLIP_API_KEYS
+    valueFrom:
+      secretKeyRef:
+        name: nclip-api-keys
+        key: api-keys
+```
+
+Notes:
+
+- Rotate keys by updating the secret and restarting pods (or use rolling update).
+- Do not put keys directly in manifests or repo. Use sealed secrets or external secret managers for production.
+
+
 ### Resource Limits
 
 Set appropriate resource requests and limits for production:
