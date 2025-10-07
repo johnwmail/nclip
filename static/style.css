@@ -130,6 +130,9 @@ body.main-page main {
     .upload-section .api-key-row {
         grid-column: 1 / -1;
         width: 100%;
+        /* prevent the .form-group's height:100% from making this row tall */
+        height: auto;
+        margin-bottom: 0.5rem;
     }
 }
 
@@ -142,6 +145,9 @@ body.main-page main {
         margin-right: -1.5rem;
         padding-left: 1.5rem;
         padding-right: 1.5rem;
+        /* keep the row from adding extra vertical space */
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
     }
 
     .card.upload-section .api-key-row input[type="text"] {
