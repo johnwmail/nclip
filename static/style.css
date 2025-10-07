@@ -116,10 +116,7 @@ body.main-page main {
 .upload-section {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    /* reduce vertical spacing so rows line up and avoid visible empty strips */
-    /* remove the vertical row gap to eliminate the thin blank strip under the left column */
-    gap: 0 1rem;
-    /* row-gap column-gap */
+    gap: 2rem;
     align-items: start;
 }
 
@@ -129,7 +126,7 @@ body.main-page main {
 }
 
 /* Collapse truly empty direct children to prevent stray blank rows */
-.upload-section>*:empty {
+.upload-section > *:empty {
     display: none;
     margin: 0;
     padding: 0;
@@ -184,40 +181,6 @@ body.main-page main {
     }
 }
 
-/* Final authoritative alignment for API key input to exactly match combined column width */
-@media (min-width: 768px) {
-    .card.upload-section .api-key-row {
-        grid-column: 1 / -1;
-        margin: 0;
-        padding-left: 1.5rem;
-        /* match .card padding */
-        padding-right: 1.5rem;
-        /* match .card padding */
-    }
-
-    .card.upload-section .api-key-row input[type="text"] {
-        display: block;
-        width: 100%;
-        box-sizing: border-box;
-        padding-left: 0.5rem;
-        /* keep the input's internal text padding */
-        padding-right: 0.5rem;
-    }
-}
-
-/* Expand the API key input to fill the full inner card width (including card padding)
-   on desktop so there is no empty space on left/right. This uses negative margins
-   to visually span into the card padding while remaining responsive. */
-@media (min-width: 768px) {
-    .card.upload-section .api-key-row input[type="text"] {
-        width: calc(100% + 3rem); /* card padding left+right = 1.5rem + 1.5rem */
-        margin-left: -1.5rem;
-        margin-right: -1.5rem;
-        max-width: none;
-        box-sizing: border-box;
-    }
-}
-
 /* Form Elements */
 .form-group {
     margin-bottom: 1rem;
@@ -225,11 +188,6 @@ body.main-page main {
     flex-direction: column;
     /* do not stretch to 100% of the grid row: let content size naturally */
     height: auto;
-}
-
-/* Reduce bottom margin for form groups inside the upload grid to avoid small gaps */
-.upload-section .form-group {
-    margin-bottom: 0.25rem;
 }
 
 .form-group .form-controls {
@@ -295,8 +253,7 @@ input[type="file"]:hover {
     display: flex;
     gap: 1rem;
     align-items: center;
-    /* tighten controls spacing so the button row doesn't push a large gap */
-    margin-top: 0.25rem;
+    margin-top: 1rem;
     flex-wrap: wrap;
 }
 
