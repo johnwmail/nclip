@@ -169,6 +169,24 @@ body.main-page main {
     }
 }
 
+@media (min-width: 768px) {
+    /* Make label and input share the same horizontal inset so they align with column content */
+    .card.upload-section .api-key-row label {
+        margin: 0;
+        padding-left: 1.5rem; /* align with card inner padding */
+        padding-right: 1.5rem;
+        box-sizing: border-box;
+    }
+
+    .card.upload-section .api-key-row input[type="text"] {
+        margin: 0;
+        padding-left: 1.5rem; /* align input text with label */
+        padding-right: 1.5rem;
+        width: calc(100% - 3rem);
+        box-sizing: border-box;
+    }
+}
+
 /* Force the API key input to extend fully to the card edges (larger width) */
 @media (min-width: 768px) {
     .card.upload-section .api-key-row input[type="text"] {
