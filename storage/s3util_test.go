@@ -10,6 +10,10 @@ func TestApplyS3Prefix(t *testing.T) {
 		{"prefix/", "bar", "prefix/bar"},
 		{"prefix/", "", "prefix/"},
 		{"", "", ""},
+		// New cases: prefix without trailing slash
+		{"prefix", "bar", "prefix/bar"},
+		{"prefix", "", "prefix/"},
+		{"prefix", "baz/qux", "prefix/baz/qux"},
 	}
 	for _, c := range cases {
 		got := applyS3Prefix(c.prefix, c.name)
