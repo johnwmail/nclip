@@ -79,16 +79,13 @@
                         </button>
                     </div>
                 </div>
-            </div>
-
-            {{ if .UploadAuth }}
-            <div class="card api-key-section">
-                <div class="form-group">
+                {{ if .UploadAuth }}
+                <div class="form-group api-key-row" style="margin-top:0.75rem;">
                     <label for="api-key-input">API Key</label>
                     <input type="text" id="api-key-input" placeholder="Paste API key for uploads" style="width:100%;" />
                 </div>
+                {{ end }}
             </div>
-            {{ end }}
 
             <div class="card result-section" id="result-section">
                 <div class="success-message">
