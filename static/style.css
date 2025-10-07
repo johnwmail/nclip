@@ -786,25 +786,29 @@ footer {
     }
 
     .card.upload-section .api-key-row {
-        /* keep the card inset so label and input align with other controls */
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
+        /* remove row inset so label+input can expand into card padding */
+        padding-left: 0;
+        padding-right: 0;
         margin: 0;
     }
 
     .card.upload-section .api-key-row label {
+        display: block;
         margin: 0 0 0.5rem 0;
         padding: 0;
-        /* label uses the row inset from .api-key-row */
-        display: block;
+        /* shift label left into the card padding so it lines up with the expanded input */
+        margin-left: -1.5rem;
+        margin-right: -1.5rem;
         box-sizing: border-box;
     }
 
     .card.upload-section .api-key-row input[type="text"] {
         display: block;
         margin: 0;
-        /* use full width inside the api-key-row inset so it aligns with label */
-        width: 100%;
+        /* expand the input into the card padding (1.5rem each side) so it fills the area */
+        width: calc(100% + 3rem);
+        margin-left: -1.5rem;
+        margin-right: -1.5rem;
         box-sizing: border-box;
         padding-left: 0.5rem;
         padding-right: 0.5rem;
