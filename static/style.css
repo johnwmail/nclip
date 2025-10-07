@@ -184,6 +184,24 @@ body.main-page main {
     }
 }
 
+/* Final authoritative alignment for API key input to exactly match combined column width */
+@media (min-width: 768px) {
+    .card.upload-section .api-key-row {
+        grid-column: 1 / -1;
+        margin: 0;
+        padding-left: 1.5rem; /* match .card padding */
+        padding-right: 1.5rem; /* match .card padding */
+    }
+
+    .card.upload-section .api-key-row input[type="text"] {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding-left: 0.5rem; /* keep the input's internal text padding */
+        padding-right: 0.5rem;
+    }
+}
+
 /* Form Elements */
 .form-group {
     margin-bottom: 1rem;
