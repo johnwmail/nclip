@@ -157,6 +157,17 @@ body.main-page main {
     }
 }
 
+/* Force the API key input to extend fully to the card edges (larger width) */
+@media (min-width: 768px) {
+    .card.upload-section .api-key-row input[type="text"] {
+        /* include the negated left/right margins so the input spans the full inner card width */
+        width: calc(100% + 3rem);
+        margin-left: -1.5rem;
+        margin-right: -1.5rem;
+        max-width: none;
+    }
+}
+
 /* Form Elements */
 .form-group {
     margin-bottom: 1rem;
