@@ -133,7 +133,8 @@ body.main-page main {
         /* prevent the .form-group's height:100% from making this row tall */
         height: auto;
         margin-bottom: 0.5rem;
-        margin-top: 0; /* remove any inline margin-top or inherited spacing */
+        margin-top: 0;
+        /* remove any inline margin-top or inherited spacing */
     }
 }
 
