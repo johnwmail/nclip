@@ -133,6 +133,24 @@ body.main-page main {
     }
 }
 
+/* Make the api-key input align exactly with the left/right edges of the card's inner content
+   by negating the card padding and re-applying it inside the row. This keeps pixel alignment
+   with the textarea and file input which sit in the grid columns. */
+@media (min-width: 768px) {
+    .card.upload-section .api-key-row {
+        margin-left: -1.5rem;
+        margin-right: -1.5rem;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    .card.upload-section .api-key-row input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        display: block;
+    }
+}
+
 /* Form Elements */
 .form-group {
     margin-bottom: 1rem;
