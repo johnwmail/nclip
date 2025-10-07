@@ -117,8 +117,8 @@ body.main-page main {
     display: grid;
     grid-template-columns: 1fr 1fr;
     /* reduce vertical spacing so rows line up and avoid visible empty strips */
-    /* tighten row gap to remove the thin blank strip under the left column (seen in DevTools) */
-    gap: 0.5rem 1rem;
+    /* remove the vertical row gap to eliminate the thin blank strip under the left column */
+    gap: 0 1rem; /* row-gap column-gap */
     align-items: start;
 }
 
