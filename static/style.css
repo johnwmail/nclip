@@ -133,6 +133,7 @@ body.main-page main {
         /* prevent the .form-group's height:100% from making this row tall */
         height: auto;
         margin-bottom: 0.5rem;
+        margin-top: 0; /* remove any inline margin-top or inherited spacing */
     }
 }
 
@@ -141,13 +142,16 @@ body.main-page main {
    with the textarea and file input which sit in the grid columns. */
 @media (min-width: 768px) {
     .card.upload-section .api-key-row {
-        margin-left: -1.5rem;
-        margin-right: -1.5rem;
+        /* keep the row aligned with other form columns (no negative margins) */
+        margin-left: 0;
+        margin-right: 0;
         padding-left: 1.5rem;
         padding-right: 1.5rem;
-        /* keep the row from adding extra vertical space */
-        padding-top: 0.25rem;
-        padding-bottom: 0.25rem;
+        /* remove extra vertical spacing to eliminate newline-like gap */
+        padding-top: 0;
+        padding-bottom: 0;
+        margin-top: 0;
+        margin-bottom: 0.25rem;
     }
 
     .card.upload-section .api-key-row input[type="text"] {
@@ -160,12 +164,12 @@ body.main-page main {
 /* Force the API key input to extend fully to the card edges (larger width) */
 @media (min-width: 768px) {
     .card.upload-section .api-key-row input[type="text"] {
-        /* include the negated left/right margins so the input spans the full inner card width
-           make the input even wider to match the requested large target */
-        width: calc(100% + 6rem);
-        margin-left: -3rem;
-        margin-right: -3rem;
+        /* Normal full width inside the row so it lines up with other inputs */
+        width: 100%;
+        margin-left: 0;
+        margin-right: 0;
         max-width: none;
+        box-sizing: border-box;
     }
 }
 
