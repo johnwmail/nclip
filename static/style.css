@@ -494,9 +494,17 @@ input[type="file"]:hover {
 
     .card {
         padding: 1rem;
-        margin-bottom: 1rem;
+        /* margin-bottom: 1rem;  */
         /* Space between cards on mobile */
     }
+
+    /* Remove bottom margin for specific cards on mobile to match desktop */
+    /*
+    .card.upload-section,
+    .card.usage-section {
+        margin-bottom: 0;
+    }
+    */
 
     .form-controls {
         flex-direction: column;
