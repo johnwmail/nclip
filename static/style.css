@@ -94,10 +94,8 @@ header {
         border: 1px solid var(--border);
         margin-left: 0;
         margin-right: 0;
-        padding-left: 0;
-        padding-right: 0;
-        padding-top: 0;
-        padding-bottom: 0;
+        padding: 1rem;
+        /* 16px horizontal & vertical padding */
         margin-top: 0;
         margin-bottom: 0.25rem;
         /* remove extra vertical spacing to eliminate newline-like gap */
@@ -821,4 +819,9 @@ header {
     flex-direction: column !important;
     align-items: center !important;
     text-align: center !important;
+}
+
+/* Make upload card padding match usage card (16px) */
+.card.upload-section {
+    padding: 1rem;
 }
