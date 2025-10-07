@@ -117,7 +117,8 @@ body.main-page main {
     display: grid;
     grid-template-columns: 1fr 1fr;
     /* reduce vertical spacing so rows line up and avoid visible empty strips */
-    gap: 1rem;
+    /* tighten row gap to remove the thin blank strip under the left column (seen in DevTools) */
+    gap: 0.5rem 1rem;
     align-items: start;
 }
 
@@ -255,7 +256,7 @@ input[type="file"]:hover {
     gap: 1rem;
     align-items: center;
     /* tighten controls spacing so the button row doesn't push a large gap */
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
     flex-wrap: wrap;
 }
 
