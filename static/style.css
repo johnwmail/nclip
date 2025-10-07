@@ -160,10 +160,11 @@ body.main-page main {
 /* Force the API key input to extend fully to the card edges (larger width) */
 @media (min-width: 768px) {
     .card.upload-section .api-key-row input[type="text"] {
-        /* include the negated left/right margins so the input spans the full inner card width */
-        width: calc(100% + 3rem);
-        margin-left: -1.5rem;
-        margin-right: -1.5rem;
+        /* include the negated left/right margins so the input spans the full inner card width
+           make the input even wider to match the requested large target */
+        width: calc(100% + 6rem);
+        margin-left: -3rem;
+        margin-right: -3rem;
         max-width: none;
     }
 }
