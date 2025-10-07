@@ -125,6 +125,13 @@ body.main-page main {
     margin-bottom: 0.5rem;
 }
 
+/* Collapse truly empty direct children to prevent stray blank rows */
+.upload-section > *:empty {
+    display: none;
+    margin: 0;
+    padding: 0;
+}
+
 /* Ensure api key row spans full width (both columns) so it matches textarea + file input combined width */
 @media (min-width: 768px) {
     .upload-section .api-key-row {
