@@ -118,7 +118,8 @@ body.main-page main {
     grid-template-columns: 1fr 1fr;
     /* reduce vertical spacing so rows line up and avoid visible empty strips */
     /* remove the vertical row gap to eliminate the thin blank strip under the left column */
-    gap: 0 1rem; /* row-gap column-gap */
+    gap: 0 1rem;
+    /* row-gap column-gap */
     align-items: start;
 }
 
@@ -190,6 +191,11 @@ body.main-page main {
     flex-direction: column;
     /* do not stretch to 100% of the grid row: let content size naturally */
     height: auto;
+}
+
+/* Reduce bottom margin for form groups inside the upload grid to avoid small gaps */
+.upload-section .form-group {
+    margin-bottom: 0.25rem;
 }
 
 .form-group .form-controls {
