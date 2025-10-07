@@ -44,14 +44,7 @@
                 <div class="form-group">
                     <label for="text-content">Text Content</label>
                     <textarea id="text-content" placeholder="Paste your text here..."></textarea>
-                    {{ if .UploadAuth }}
-                    <!-- API Key for uploads (server requires it) -->
-                    <div class="api-key-wrapper" style="margin-top:0.5rem;">
-                        <label for="api-key-input">API Key</label>
-                        <input type="text" id="api-key-input" placeholder="Paste API key for uploads"
-                            style="width:100%;" />
-                    </div>
-                    {{ end }}
+                    <!-- API key moved below file upload controls -->
                     <div class="form-controls">
                         <div class="checkbox-wrapper">
                             <input type="checkbox" id="burn-text">
@@ -71,6 +64,7 @@
                 <div class="form-group">
                     <label for="file-input">File Upload</label>
                     <input type="file" id="file-input">
+                    <!-- API key unified below -->
                     <div class="form-controls">
                         <div class="checkbox-wrapper">
                             <input type="checkbox" id="burn-file">
@@ -86,6 +80,15 @@
                     </div>
                 </div>
             </div>
+
+            {{ if .UploadAuth }}
+            <div class="card api-key-section">
+                <div class="form-group">
+                    <label for="api-key-input">API Key</label>
+                    <input type="text" id="api-key-input" placeholder="Paste API key for uploads" style="width:100%;" />
+                </div>
+            </div>
+            {{ end }}
 
             <div class="card result-section" id="result-section">
                 <div class="success-message">

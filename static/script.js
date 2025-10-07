@@ -20,8 +20,25 @@ document.addEventListener('DOMContentLoaded', function () {
     const usageExamplesContainer = document.querySelector('.code-examples');
     const initialUsageHTML = usageExamplesContainer ? usageExamplesContainer.innerHTML : '';
 
-    // API key input (optional)
+    // API key inputs (optional)
     const apiKeyInput = document.getElementById('api-key-input');
+    const apiKeyInputMobile = document.getElementById('api-key-input-mobile');
+
+    // Helper to get the API key value. Prefer mobile input if visible.
+    function getApiKey() {
+        try {
+            if (apiKeyInputMobile) {
+                // Check if mobile input is visible
+                const style = window.getComputedStyle(apiKeyInputMobile);
+                if (style && style.display !== 'none') {
+                    return apiKeyInputMobile.value.trim();
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+        return apiKeyInput ? apiKeyInput.value.trim() : '';
+    }
 
     // Text upload
     uploadTextBtn.addEventListener('click', function () {
@@ -41,10 +58,8 @@ document.addEventListener('DOMContentLoaded', function () {
             'Content-Type': 'text/plain',
             'Accept': 'application/json',
         };
-        const key = apiKeyInput ? apiKeyInput.value.trim() : '';
-        if (key) {
-            headers['Authorization'] = 'Bearer ' + key;
-        }
+        const key = getApiKey();
+        if (key) headers['Authorization'] = 'Bearer ' + key;
 
         fetch(endpoint, {
             method: 'POST',
@@ -123,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function () {
         uploadFileBtn.textContent = 'Uploading...';
 
         const headers = { 'Accept': 'application/json' };
-        const key = apiKeyInput ? apiKeyInput.value.trim() : '';
+        const key = getApiKey();
         if (key) headers['Authorization'] = 'Bearer ' + key;
 
         fetch(endpoint, {
