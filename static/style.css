@@ -781,19 +781,21 @@ footer {
 ------------------------------ */
 @media (min-width: 768px) {
     .upload-section {
-        gap: 0 1rem; /* row-gap column-gap */
+        gap: 0 1rem;
+        /* row-gap column-gap */
     }
 
     .card.upload-section .api-key-row {
-        /* Use the card's inner padding as the inset for label & input */
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
+        /* remove row inset so label+input can expand into the card padding */
+        padding-left: 0;
+        padding-right: 0;
         margin: 0;
     }
 
     .card.upload-section .api-key-row label {
         margin: 0 0 0.5rem 0;
-        padding: 0; /* label uses the row inset from .api-key-row */
+        padding: 0;
+        /* label uses the row inset from .api-key-row */
         display: block;
         box-sizing: border-box;
     }
@@ -801,10 +803,12 @@ footer {
     .card.upload-section .api-key-row input[type="text"] {
         display: block;
         margin: 0;
-        /* fill the row's inner width while accounting for the 1.5rem left+right inset */
-        width: calc(100% - 3rem);
+        /* expand the input into the card padding (1.5rem each side) */
+        width: calc(100% + 3rem);
+        margin-left: -1.5rem;
+        margin-right: -1.5rem;
         box-sizing: border-box;
-        padding-left: 0.5rem; /* keep internal input padding */
+        padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
 
