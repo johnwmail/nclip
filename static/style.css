@@ -125,6 +125,14 @@ body.main-page main {
     margin-bottom: 0.5rem;
 }
 
+/* Ensure api key row spans full width (both columns) so it matches textarea + file input combined width */
+@media (min-width: 768px) {
+    .upload-section .api-key-row {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+}
+
 /* Form Elements */
 .form-group {
     margin-bottom: 1rem;
