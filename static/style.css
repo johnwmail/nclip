@@ -116,7 +116,8 @@ body.main-page main {
 .upload-section {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2rem;
+    /* reduce vertical spacing so rows line up and avoid visible empty strips */
+    gap: 1rem;
     align-items: start;
 }
 
@@ -126,7 +127,7 @@ body.main-page main {
 }
 
 /* Collapse truly empty direct children to prevent stray blank rows */
-.upload-section > *:empty {
+.upload-section>*:empty {
     display: none;
     margin: 0;
     padding: 0;
@@ -253,7 +254,8 @@ input[type="file"]:hover {
     display: flex;
     gap: 1rem;
     align-items: center;
-    margin-top: 1rem;
+    /* tighten controls spacing so the button row doesn't push a large gap */
+    margin-top: 0.5rem;
     flex-wrap: wrap;
 }
 
