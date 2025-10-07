@@ -186,7 +186,8 @@ body.main-page main {
     margin-bottom: 1rem;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    /* do not stretch to 100% of the grid row: let content size naturally */
+    height: auto;
 }
 
 .form-group .form-controls {
