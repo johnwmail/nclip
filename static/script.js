@@ -221,47 +221,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Always reload the main page to ensure a pristine, server-rendered state
         event.preventDefault();
         window.location.assign('/');
-        return;
-
-        // Legacy fallback (kept for reference, unreachable due to return above)
-        // Hide result section
-        resultSection.style.display = 'none';
-
-        // Show upload section again
-        const uploadSection = document.querySelector('.upload-section');
-        if (uploadSection) {
-            uploadSection.style.display = 'block';
-        }
-
-        // Reset all form fields
-        textContent.value = '';
-        fileInput.value = '';
-        burnTextCheckbox.checked = false;
-        burnFileCheckbox.checked = false;
-
-        // Remove any file selection
-        if (fileInput) {
-            fileInput.value = '';
-        }
-
-        // Restore original usage examples exactly as initial render
-        if (usageExamplesContainer) {
-            usageExamplesContainer.innerHTML = initialUsageHTML;
-        }
-
-        // Show all usage examples (in case any were hidden)
-        const examples = document.querySelectorAll('.example');
-        examples.forEach(e => e.style.display = 'block');
-
-        // Show the usage section if it was hidden
-        if (usageSection) usageSection.style.display = 'block';
-
-        // Scroll to top for a clean experience
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-        // Focus on the text area
-        textContent.focus();
     });
+
 
     // Update usage examples to show how to read the created paste
     function updateUsageExamples(url, slug) {
@@ -283,9 +244,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
-
-    // Restore original usage examples for new paste
-    function restoreOriginalUsageExamples() { /* no-op: handled by initialUsageHTML restore */ }
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function (e) {
