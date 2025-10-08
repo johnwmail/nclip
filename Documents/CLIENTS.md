@@ -143,6 +143,8 @@ _nclip() {
   if [ -t 0 ]; then
     if [ $# -eq 1 ] && [ -f "$1" ]; then
       curl --data-binary @"$1" "$_URL"
+    elif [ $# -eq 1 ] && [ ${#1} -eq 5 ] && [[ "$1" =~ ^[A-HJ-NP-Z2-9]{5}$ ]]; then
+      curl -sL "$_URL/$1"
     else
       echo -en "$*" | curl --data-binary @- "$_URL"
     fi
