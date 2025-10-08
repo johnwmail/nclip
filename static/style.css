@@ -445,20 +445,14 @@ input[type="file"]:hover {
 .example code {
     display: block;
     background: var(--background);
-    padding: 0.5rem;
-    border-radius: 4px;
-    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, monospace;
-    font-size: 0.75rem;
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    word-break: break-all;
     padding: 0.75rem;
     border-radius: calc(var(--radius) - 2px);
     font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, monospace;
     font-size: 0.8rem;
     color: var(--text-primary);
-    overflow-x: auto;
     border: 1px solid var(--border);
+    word-break: break-all;
+    overflow-x: auto;
 }
 
 /* Responsive Design */
