@@ -99,6 +99,19 @@ func (s *S3Store) Get(id string) (*models.Paste, error) {
 	}
 	if paste.IsExpired() {
 		log.Printf("[INFO] S3 Get: paste %s is expired", id)
+		// Attempt to delete expired objects (best-effort)
+		if _, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+			Bucket: aws.String(s.bucket),
+			Key:    aws.String(applyS3Prefix(s.prefix, id)),
+		}); err != nil {
+			log.Printf("[WARN] S3 Get: failed to delete expired content for %s: %v", id, err)
+		}
+		if _, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+			Bucket: aws.String(s.bucket),
+			Key:    aws.String(applyS3Prefix(s.prefix, id+".json")),
+		}); err != nil {
+			log.Printf("[WARN] S3 Get: failed to delete expired metadata for %s: %v", id, err)
+		}
 		return nil, fmt.Errorf("paste expired")
 	}
 	return &paste, nil

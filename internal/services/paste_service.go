@@ -148,6 +148,12 @@ func (s *PasteService) GetPaste(slug string) (*models.Paste, error) {
 		return nil, fmt.Errorf("paste not found")
 	}
 	if paste.IsExpired() {
+		// Delete expired paste from store so subsequent accesses behave like not found
+		if err := s.store.Delete(slug); err != nil {
+			// Log deletion error but continue to return expired error to caller
+			// Avoid importing log package here; return wrapped error instead
+			return nil, fmt.Errorf("paste expired (failed to delete expired paste: %w)", err)
+		}
 		return nil, fmt.Errorf("paste expired")
 	}
 

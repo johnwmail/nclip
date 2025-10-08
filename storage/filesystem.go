@@ -86,6 +86,14 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 			log.Printf("[ERROR] FS Get: unsafe id: %q", id)
 			return nil, fmt.Errorf("invalid paste id")
 		}
+		// Delete expired paste files directly (we already hold the mutex) so subsequent accesses are clean
+		contentPath := filepath.Join(fs.dataDir, id)
+		metaPath := filepath.Join(fs.dataDir, id+".json")
+		_ = os.Remove(contentPath)
+		if err := os.Remove(metaPath); err != nil {
+			// If remove fails, log and continue returning not found
+			log.Printf("[WARN] FS Get: failed to remove expired metadata for %s: %v", id, err)
+		}
 		return nil, os.ErrNotExist
 	}
 	return &paste, nil
