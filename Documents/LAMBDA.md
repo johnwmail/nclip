@@ -63,7 +63,7 @@ Create an IAM role with the following permissions:
                 "s3:GetObject",
                 "s3:PutObject",
                 "s3:DeleteObject",
-                "s3:HeadObject"
+                "s3:ListBucket"
             ],
             "Resource": [
                 "arn:aws:s3:::YOUR_BUCKET_NAME",
@@ -79,6 +79,7 @@ Create an IAM role with the following permissions:
 - `s3:GetObject` - Read paste content and metadata
 - `s3:PutObject` - Create new pastes
 - `s3:DeleteObject` - Clean up expired pastes
+- `s3:ListBucket` - List objects for slug uniqueness checks
 
 ### GitHub Actions Permissions
 
