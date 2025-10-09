@@ -199,6 +199,7 @@ func (h *Handler) viewCLI(c *gin.Context, slug string, paste *models.Paste) {
 // viewBrowser handles HTML view rendering; uses MaxRenderSize to determine full vs preview
 func (h *Handler) viewBrowser(c *gin.Context, slug string, paste *models.Paste) {
 	var content []byte
+	isPreview := false
 	// If size <= MaxRenderSize render full, otherwise show preview
 	if paste.Size <= h.config.MaxRenderSize {
 		full, err := h.service.GetPasteContent(slug)
@@ -209,6 +210,7 @@ func (h *Handler) viewBrowser(c *gin.Context, slug string, paste *models.Paste) 
 		}
 		content = full
 	} else {
+		isPreview = true
 		if utils.IsTextContent(paste.ContentType) {
 			// preview path
 			if paste.BurnAfterRead {
@@ -267,6 +269,7 @@ func (h *Handler) viewBrowser(c *gin.Context, slug string, paste *models.Paste) 
 		"Title":      fmt.Sprintf("NCLIP - Paste %s", paste.ID),
 		"Paste":      paste,
 		"IsText":     utils.IsTextContent(paste.ContentType),
+		"IsPreview":  isPreview,
 		"Content":    string(content),
 		"Version":    h.config.Version,
 		"BuildTime":  h.config.BuildTime,

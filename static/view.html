@@ -84,7 +84,7 @@
                         {{end}}
                         <a href="/" class="btn btn-primary">New Paste</a>
                     </div>
-                    <h3 style="margin-top: 1.25rem;">Content</h3>
+                    <h3 style="margin-top: 1.25rem;">{{if .IsPreview}}Content Preview{{else}}Content{{end}}</h3>
                     {{if .IsText}}
                     <div class="content-display">
                         <pre id="content-text"><code>{{.Content}}</code></pre>
