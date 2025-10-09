@@ -49,6 +49,17 @@ test_expired_paste_manual() {
     local meta_file="$dir/${slug}.json"
     local content_file="$dir/${slug}"
 
+    # Verify metadata file before we overwrite it
+    if [[ -f "$meta_file" ]]; then
+        echo "Metadata file exists before overwrite: $meta_file"
+        echo "--- BEGIN META FILE ($meta_file) ---"
+        cat "$meta_file" || true
+        echo "--- END META FILE ---"
+    else
+        error "Metadata file not exists before overwrite it: $meta_file"
+        return 1
+    fi
+
     # Overwrite the metadata to make it expired (server will read this and delete)
     cat > "$meta_file" <<EOF
 {
