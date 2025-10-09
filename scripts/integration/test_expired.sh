@@ -76,6 +76,11 @@ EOF
         error "Unexpected HTTP status for expired paste GET: $status"
         # show directory contents to aid debugging
         ls -la "$dir" || true
+        if [[ -f "$meta_file" ]]; then
+            echo "--- BEGIN META FILE ($meta_file) ---"
+            cat "$meta_file" || true
+            echo "--- END META FILE ---"
+        fi
         rm -f "$meta_file" "$content_file" || true
         return 1
     fi
@@ -83,6 +88,9 @@ EOF
     # Verify metadata file was removed
     if [[ -e "$meta_file" ]]; then
         error "Metadata file still exists after expired GET: $meta_file"
+        echo "--- BEGIN META FILE ($meta_file) ---"
+        cat "$meta_file" || true
+        echo "--- END META FILE ---"
         ls -la "$meta_file" || true
         rm -f "$meta_file" "$content_file" || true
         return 1
