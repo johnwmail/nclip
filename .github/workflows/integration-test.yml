@@ -60,10 +60,10 @@ jobs:
       - name: Start nclip server (filesystem backend)
         env:
           NCLIP_PORT: 8080
-          NCLIP_DATA_DIR: ./testdata
+          NCLIP_DATA_DIR: ./data
           GIN_MODE: release
         run: |
-          mkdir -p ./testdata
+          mkdir -p "${NCLIP_DATA_DIR}"
           echo "Starting nclip server (filesystem backend only)..."
           # When upload_auth is true, the job should set API keys so tests can auth
           if [ "${{ matrix.upload_auth }}" = "true" ]; then
@@ -106,6 +106,7 @@ jobs:
         env:
           NCLIP_URL: http://localhost:8080
           NCLIP_UPLOAD_AUTH: ${{ matrix.upload_auth }}
+          NCLIP_DATA_DIR: ./data
         run: |
           echo "Running integration tests (upload_auth=${{ matrix.upload_auth }})..."
           # Export any NCLIP_* values injected into the environment by the previous step
