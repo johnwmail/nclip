@@ -84,7 +84,17 @@
                         {{end}}
                         <a href="/" class="btn btn-primary">New Paste</a>
                     </div>
-                    <h3 style="margin-top: 1.25rem;">{{if .IsPreview}}Content Preview{{else}}Content{{end}}</h3>
+                    <h3 style="margin-top: 1.25rem;">
+                        {{if .IsPreview}}
+                        Content Preview (Truncated) — <a href="/raw/{{.Paste.ID}}"
+                            style="font-size: 0.85em; color: #666; text-decoration: none; font-weight: normal; border-bottom: 1px dashed #999;"
+                            onmouseover="this.style.color='#333'; this.style.borderBottom='1px solid #333'"
+                            onmouseout="this.style.color='#666'; this.style.borderBottom='1px dashed #999'">Raw Data
+                            View</a>
+                        {{else}}
+                        Content
+                        {{end}}
+                    </h3>
                     {{if .IsText}}
                     <div class="content-display">
                         <pre id="content-text"><code>{{.Content}}</code></pre>
