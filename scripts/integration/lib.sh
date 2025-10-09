@@ -56,11 +56,18 @@ cleanup_temp_files() {
     return 0
 }
 
-# Retry helper for POST requests (body-only). Usage: try_post VAR_NAME URL DATA
+# Retry helper for POST requests. Usage:
+# try_post VAR_NAME URL DATA [extra curl args...]
+# - If DATA starts with '@', the rest is treated as a filename and sent with --data-binary @file
+# - Any additional args are passed through to curl (e.g. -H "Content-Type: text/plain").
 try_post() {
     local _varname="$1"; shift
     local _url="$1"; shift
     local _data="$1"; shift
+    local _extra=()
+    if [[ $# -gt 0 ]]; then
+        _extra=("$@")
+    fi
     local _attempt=0
     local _max=3
     local _resp
@@ -73,7 +80,14 @@ try_post() {
 
     while true; do
         _attempt=$((_attempt+1))
-        _resp=$(curl -sS -w "\n%{http_code}" -X POST "${_url}" "${auth_header[@]}" -d "${_data}" 2>/dev/null || true)
+        if [[ "${_data}" == @* ]]; then
+            # send file with --data-binary @file
+            local _file="${_data#@}"
+            _resp=$(curl -sS -w "\n%{http_code}" -X POST "${auth_header[@]}" "${_extra[@]}" --data-binary @"${_file}" "${_url}" 2>/dev/null || true)
+        else
+            _resp=$(curl -sS -w "\n%{http_code}" -X POST "${auth_header[@]}" "${_extra[@]}" -d "${_data}" "${_url}" 2>/dev/null || true)
+        fi
+
         # split response and status
         local _status
         _status=$(echo "${_resp}" | tail -n1)

@@ -9,7 +9,7 @@ test_small_content_full_render() {
     log "Uploading small text with explicit text/plain Content-Type"
     local paste_url
     # Use try_post so auth headers are included when set and retries are handled
-    try_post paste_url "$NCLIP_URL/" "--data-binary=$test_content -H 'Content-Type: text/plain'"
+    try_post paste_url "$NCLIP_URL/" "$test_content" -H "Content-Type: text/plain"
     
     if [[ -z "$paste_url" || "$paste_url" != http* ]]; then
         error "Failed to create paste for small content test. Response: $paste_url"
@@ -52,7 +52,7 @@ test_large_content_preview() {
     log "Uploading large file (300KB) with explicit text/plain Content-Type"
     local paste_url
     # Use try_post to include auth and retry; provide data as @file and content-type
-    try_post paste_url "$NCLIP_URL/" "--data-binary=@$temp_file -H 'Content-Type: text/plain'"
+    try_post paste_url "$NCLIP_URL/" "@${temp_file}" -H "Content-Type: text/plain"
     
     if [[ -z "$paste_url" || "$paste_url" != http* ]]; then
         error "Failed to create paste for large content test. Response: $paste_url"
@@ -109,7 +109,7 @@ test_raw_always_full() {
     
     log "Uploading large file for raw test with explicit text/plain Content-Type"
     local paste_url
-    try_post paste_url "$NCLIP_URL/" "--data-binary=@$temp_file -H 'Content-Type: text/plain'"
+    try_post paste_url "$NCLIP_URL/" "@${temp_file}" -H "Content-Type: text/plain"
     
     if [[ -z "$paste_url" || "$paste_url" != http* ]]; then
         error "Failed to create paste for raw test. Response: $paste_url"
