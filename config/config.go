@@ -44,6 +44,7 @@ func LoadConfig() *Config {
 	flag.StringVar(&config.URL, "url", config.URL, "Base URL for paste links")
 	flag.IntVar(&config.SlugLength, "slug-length", config.SlugLength, "Length of generated slugs")
 	flag.Int64Var(&config.BufferSize, "buffer-size", config.BufferSize, "Maximum upload size in bytes")
+	flag.Int64Var(&config.MaxRenderSize, "max-render-size", config.MaxRenderSize, "Maximum size (bytes) to render inline in the HTML view")
 	flag.DurationVar(&config.DefaultTTL, "ttl", config.DefaultTTL, "Default paste expiration time")
 	flag.StringVar(&config.S3Bucket, "s3-bucket", config.S3Bucket, "S3 bucket for Lambda mode")
 	flag.StringVar(&config.S3Prefix, "s3-prefix", config.S3Prefix, "S3 key prefix for Lambda mode")
