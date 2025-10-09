@@ -44,7 +44,7 @@ nclip is a versatile clipboard app that accepts content via:
 New configuration options:
 
 - NCLIP_MAX_RENDER_SIZE: Maximum size (bytes) to render inline in the HTML view. Defaults to 262144 (256 KiB).
-- NCLIP_PREVIEW_LENGTH: (removed) Preview length is now controlled by NCLIP_MAX_RENDER_SIZE only.
+
 
 Example: control preview behavior
 
