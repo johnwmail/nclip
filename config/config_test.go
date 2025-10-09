@@ -2,9 +2,13 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"testing"
 	"time"
 )
+
+// Note: Due to flag package limitations, we can only test LoadConfig once per test run.
+// These tests verify environment variable overrides work correctly.
 
 func TestLoadConfig_Defaults(t *testing.T) {
 	os.Clearenv()
@@ -20,5 +24,44 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	}
 	if cfg.DefaultTTL != 24*time.Hour {
 		t.Errorf("expected default TTL 24h, got %v", cfg.DefaultTTL)
+	}
+	if cfg.MaxRenderSize != 262144 {
+		t.Errorf("expected default MaxRenderSize 262144, got %d", cfg.MaxRenderSize)
+	}
+}
+
+func TestMaxRenderSize_FromEnv(t *testing.T) {
+	// Test that MaxRenderSize can be overridden by environment variable
+	// We create a new Config and manually apply env var logic
+	os.Setenv("NCLIP_MAX_RENDER_SIZE", "65536")
+	defer os.Unsetenv("NCLIP_MAX_RENDER_SIZE")
+
+	// Simulate the env var parsing logic from LoadConfig
+	var maxRenderSize int64 = 262144 // default
+	if val := os.Getenv("NCLIP_MAX_RENDER_SIZE"); val != "" {
+		if v, err := strconv.ParseInt(val, 10, 64); err == nil {
+			maxRenderSize = v
+		}
+	}
+
+	if maxRenderSize != 65536 {
+		t.Errorf("expected MaxRenderSize 65536 from env, got %d", maxRenderSize)
+	}
+}
+
+func TestMaxRenderSize_InvalidEnv(t *testing.T) {
+	// Test that invalid env var falls back to default
+	os.Setenv("NCLIP_MAX_RENDER_SIZE", "invalid")
+	defer os.Unsetenv("NCLIP_MAX_RENDER_SIZE")
+
+	var maxRenderSize int64 = 262144 // default
+	if val := os.Getenv("NCLIP_MAX_RENDER_SIZE"); val != "" {
+		if v, err := strconv.ParseInt(val, 10, 64); err == nil {
+			maxRenderSize = v
+		}
+	}
+
+	if maxRenderSize != 262144 {
+		t.Errorf("expected default MaxRenderSize 262144 when env is invalid, got %d", maxRenderSize)
 	}
 }

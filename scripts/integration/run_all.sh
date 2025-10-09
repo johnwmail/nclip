@@ -14,6 +14,7 @@ SCRIPTS=(
     "$DIR/test_slug_collision.sh"
     "$DIR/test_expired.sh"
     "$DIR/test_buffer.sh"
+    "$DIR/test_preview.sh"
 )
 
 failed=0
