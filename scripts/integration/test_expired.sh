@@ -28,19 +28,18 @@ test_expired_paste_manual() {
     slug=${paste_url##*/}
 
     # Use date to emit RFC3339-like timestamps in UTC with Z suffix.
-    # We include seconds and nanoseconds where supported; if nanoseconds are not available
-    # the timestamp will still be acceptable to Go's time parser.
+    # Set both created_at and expires_at to 7 days ago so expiry is well in the past.
     local now
-    if date -u +%Y-%m-%dT%H:%M:%S.%NZ >/dev/null 2>&1; then
-        now=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
+    if date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ >/dev/null 2>&1; then
+        now=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ)
     else
-        now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        now=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%SZ)
     fi
     local expired
-    if date -u -d "-1 day" +%Y-%m-%dT%H:%M:%S.%NZ >/dev/null 2>&1; then
-        expired=$(date -u -d "-1 day" +%Y-%m-%dT%H:%M:%S.%NZ)
+    if date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ >/dev/null 2>&1; then
+        expired=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ)
     else
-        expired=$(date -u -d "-1 day" +%Y-%m-%dT%H:%M:%SZ)
+        expired=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%SZ)
     fi
 
     # Allow overriding data dir for CI/debugging
