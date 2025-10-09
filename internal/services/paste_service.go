@@ -142,19 +142,20 @@ func (s *PasteService) CreatePaste(req CreatePasteRequest) (*CreatePasteResponse
 func (s *PasteService) GetPaste(slug string) (*models.Paste, error) {
 	paste, err := s.store.Get(slug)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve paste: %w", err)
+		// Return the wrapped error directly to preserve ErrExpired
+		return nil, err
 	}
 	if paste == nil {
 		return nil, fmt.Errorf("paste not found")
 	}
+	// Storage layer already handles expiration, but keep this as safety check
 	if paste.IsExpired() {
 		// Delete expired paste from store so subsequent accesses behave like not found
 		if err := s.store.Delete(slug); err != nil {
 			// Log deletion error but continue to return expired error to caller
-			// Avoid importing log package here; return wrapped error instead
-			return nil, fmt.Errorf("paste expired (failed to delete expired paste: %w)", err)
+			return nil, storage.ErrExpired
 		}
-		return nil, fmt.Errorf("paste expired")
+		return nil, storage.ErrExpired
 	}
 
 	return paste, nil

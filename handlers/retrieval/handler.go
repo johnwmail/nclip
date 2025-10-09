@@ -1,6 +1,7 @@
 package retrieval
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -84,6 +85,13 @@ func (h *Handler) View(c *gin.Context) {
 
 	paste, err := h.service.GetPaste(slug)
 	if err != nil {
+		// Check if paste expired and was deleted
+		if errors.Is(err, storage.ErrExpired) {
+			log.Printf("[ERROR] View: paste expired and deleted for slug %s", slug)
+			h.renderGone(c, "Paste expired and has been deleted")
+			return
+		}
+		// Other errors (paste not found, etc.)
 		log.Printf("[ERROR] View: %v", err)
 		h.renderNotFound(c, "Paste not found or deleted")
 		return
@@ -145,6 +153,13 @@ func (h *Handler) Raw(c *gin.Context) {
 
 	paste, err := h.service.GetPaste(slug)
 	if err != nil {
+		// Check if paste expired and was deleted
+		if errors.Is(err, storage.ErrExpired) {
+			log.Printf("[ERROR] Raw: paste expired and deleted for slug %s", slug)
+			c.JSON(http.StatusGone, gin.H{"error": "Paste expired and has been deleted"})
+			return
+		}
+		// Other errors (paste not found, etc.)
 		log.Printf("[ERROR] Raw: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted"})
 		return
@@ -203,6 +218,23 @@ func (h *Handler) renderNotFound(c *gin.Context, message string) {
 	} else {
 		c.HTML(http.StatusNotFound, "view.html", gin.H{
 			"Title":      "NCLIP - Not Found",
+			"Error":      message,
+			"Version":    h.config.Version,
+			"BuildTime":  h.config.BuildTime,
+			"CommitHash": h.config.CommitHash,
+			"BaseURL":    h.getBaseURL(c),
+		})
+	}
+}
+
+// renderGone sends a consistent 410 response for expired pastes. CLI/API clients receive JSON,
+// while browser clients receive the HTML view with a friendly message.
+func (h *Handler) renderGone(c *gin.Context, message string) {
+	if h.isCli(c) {
+		c.JSON(http.StatusGone, gin.H{"error": message})
+	} else {
+		c.HTML(http.StatusGone, "view.html", gin.H{
+			"Title":      "NCLIP - Gone",
 			"Error":      message,
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,

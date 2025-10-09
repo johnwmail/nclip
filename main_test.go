@@ -15,6 +15,7 @@ import (
 	"github.com/johnwmail/nclip/handlers/upload"
 	"github.com/johnwmail/nclip/internal/services"
 	"github.com/johnwmail/nclip/models"
+	"github.com/johnwmail/nclip/storage"
 )
 
 // MockStore implements PasteStore for testing
@@ -64,7 +65,8 @@ func (m *MockStore) Get(id string) (*models.Paste, error) {
 	// Check if expired
 	if paste.IsExpired() {
 		delete(m.pastes, id)
-		return nil, nil
+		delete(m.content, id)
+		return nil, storage.ErrExpired
 	}
 	return paste, nil
 }
@@ -632,5 +634,74 @@ func TestUploadAuthEnforced(t *testing.T) {
 	router.ServeHTTP(w2, req2)
 	if w2.Code != http.StatusOK {
 		t.Fatalf("Expected 200 when valid key provided, got %d (body: %s)", w2.Code, w2.Body.String())
+	}
+}
+
+// TestExpiredPasteReturns410 verifies that accessing an expired paste returns HTTP 410 Gone
+func TestExpiredPasteReturns410(t *testing.T) {
+	router, store := setupTestRouter()
+
+	// Create an expired paste for View endpoint test
+	expiredTime1 := time.Now().Add(-1 * time.Hour)
+	paste1 := &models.Paste{
+		ID:          "EXP2R",
+		CreatedAt:   time.Now().Add(-2 * time.Hour),
+		ExpiresAt:   &expiredTime1,
+		Size:        12,
+		ContentType: "text/plain",
+		Content:     []byte("expired test"),
+	}
+	store.Store(paste1)
+
+	// Test GET /:slug endpoint
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/EXP2R", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusGone {
+		t.Errorf("Expected status 410 Gone for expired paste on GET, got %d", w.Code)
+	}
+
+	// Verify that the paste and content were deleted from the mock store
+	_, exists := store.pastes["EXP2R"]
+	if exists {
+		t.Error("Expected expired paste to be deleted from store, but it still exists")
+	}
+
+	_, contentExists := store.content["EXP2R"]
+	if contentExists {
+		t.Error("Expected expired paste content to be deleted from store, but it still exists")
+	}
+
+	// Create a second expired paste for Raw endpoint test
+	expiredTime2 := time.Now().Add(-1 * time.Hour)
+	paste2 := &models.Paste{
+		ID:          "EXP3R",
+		CreatedAt:   time.Now().Add(-2 * time.Hour),
+		ExpiresAt:   &expiredTime2,
+		Size:        12,
+		ContentType: "text/plain",
+		Content:     []byte("expired raw"),
+	}
+	store.Store(paste2)
+
+	// Test GET /raw/:slug endpoint
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("GET", "/raw/EXP3R", nil)
+	router.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusGone {
+		t.Errorf("Expected status 410 Gone for expired paste on GET /raw, got %d", w2.Code)
+	}
+
+	// Verify that the paste and content were deleted
+	_, exists2 := store.pastes["EXP3R"]
+	if exists2 {
+		t.Error("Expected expired paste to be deleted from store, but it still exists")
+	}
+
+	_, contentExists2 := store.content["EXP3R"]
+	if contentExists2 {
+		t.Error("Expected expired paste content to be deleted from store, but it still exists")
 	}
 }

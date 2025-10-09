@@ -1,6 +1,13 @@
 package storage
 
-import "github.com/johnwmail/nclip/models"
+import (
+	"errors"
+
+	"github.com/johnwmail/nclip/models"
+)
+
+// ErrExpired is returned when a paste has expired and been deleted
+var ErrExpired = errors.New("paste expired")
 
 // PasteStore defines the interface for paste storage backends
 type PasteStore interface {

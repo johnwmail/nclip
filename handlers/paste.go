@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -593,7 +594,21 @@ func (h *PasteHandler) View(c *gin.Context) {
 	}
 
 	paste, err := h.store.Get(slug)
-	if err != nil || paste == nil {
+	if err != nil {
+		// Check if paste expired and was deleted
+		if errors.Is(err, storage.ErrExpired) {
+			log.Printf("[ERROR] View: paste expired and deleted for slug %s", slug)
+			c.HTML(http.StatusGone, "view.html", gin.H{
+				"Title":      "NCLIP - Gone",
+				"Error":      "Paste expired and has been deleted",
+				"Version":    h.config.Version,
+				"BuildTime":  h.config.BuildTime,
+				"CommitHash": h.config.CommitHash,
+				"BaseURL":    baseURL,
+			})
+			return
+		}
+		// Other errors (paste not found, etc.)
 		log.Printf("[ERROR] View: paste not found, deleted, or expired for slug %s: %v", slug, err)
 		c.HTML(http.StatusNotFound, "view.html", gin.H{
 			"Title":      "NCLIP - Not Found",
@@ -605,13 +620,11 @@ func (h *PasteHandler) View(c *gin.Context) {
 		})
 		return
 	}
-
-	// Check expiration
-	if paste.IsExpired() {
-		log.Printf("[ERROR] View: paste expired for slug %s", slug)
+	if paste == nil {
+		log.Printf("[ERROR] View: paste not found, deleted, or expired for slug %s: %v", slug, err)
 		c.HTML(http.StatusNotFound, "view.html", gin.H{
 			"Title":      "NCLIP - Not Found",
-			"Error":      "Paste not found or deleted (expired)",
+			"Error":      "Paste not found or deleted",
 			"Version":    h.config.Version,
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
@@ -682,16 +695,21 @@ func (h *PasteHandler) Raw(c *gin.Context) {
 	}
 
 	paste, err := h.store.Get(slug)
-	if err != nil || paste == nil {
+	if err != nil {
+		// Check if paste expired and was deleted
+		if errors.Is(err, storage.ErrExpired) {
+			log.Printf("[ERROR] Raw: paste expired and deleted for slug %s", slug)
+			c.JSON(http.StatusGone, gin.H{"error": "Paste expired and has been deleted"})
+			return
+		}
+		// Other errors (paste not found, etc.)
 		log.Printf("[ERROR] Raw: paste not found, deleted, or expired for slug %s: %v", slug, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted"})
 		return
 	}
-
-	// Check expiration
-	if paste.IsExpired() {
-		log.Printf("[ERROR] Raw: paste expired for slug %s", slug)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted (expired)"})
+	if paste == nil {
+		log.Printf("[ERROR] Raw: paste not found, deleted, or expired for slug %s: %v", slug, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found or deleted"})
 		return
 	}
 
