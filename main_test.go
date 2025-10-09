@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -36,6 +39,19 @@ func NewMockStore() *MockStore {
 // StoreContent saves the raw content for a paste
 func (m *MockStore) StoreContent(id string, content []byte) error {
 	m.content[id] = content
+	// Also write the content to disk inside NCLIP_DATA_DIR so handlers that
+	// perform rename/mv inside that directory succeed during tests.
+	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return err
+	}
+	contentPath := filepath.Join(dataDir, id)
+	if err := os.WriteFile(contentPath, content, 0o644); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -48,11 +64,50 @@ func (m *MockStore) GetContent(id string) ([]byte, error) {
 	return c, nil
 }
 
+// GetContentPrefix reads up to n bytes of content for tests and also from the
+// on-disk copy so handlers that do rename/mv in data dir can read preview.
+func (m *MockStore) GetContentPrefix(id string, n int64) ([]byte, error) {
+	if c, ok := m.content[id]; ok {
+		if int64(len(c)) <= n {
+			return c, nil
+		}
+		return c[:n], nil
+	}
+	// Fallback to disk
+	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+	contentPath := filepath.Join(dataDir, id)
+	f, err := os.Open(contentPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	buf := make([]byte, n)
+	read, err := f.Read(buf)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return buf[:read], nil
+}
+
 func (m *MockStore) Store(paste *models.Paste) error {
 	m.pastes[paste.ID] = paste
 	if paste.Content != nil {
 		m.StoreContent(paste.ID, paste.Content)
 	}
+	// Also write metadata file to disk to emulate FilesystemStore behavior for tests.
+	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return err
+	}
+	metaPath := filepath.Join(dataDir, paste.ID+".json")
+	b, _ := json.MarshalIndent(paste, "", "  ")
+	_ = os.WriteFile(metaPath, b, 0o644)
 	return nil
 }
 
@@ -76,6 +131,13 @@ func (m *MockStore) Exists(id string) (bool, error) {
 
 func (m *MockStore) Delete(id string) error {
 	delete(m.pastes, id)
+	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+	_ = os.Remove(filepath.Join(dataDir, id))
+	_ = os.Remove(filepath.Join(dataDir, id+".json"))
+	delete(m.content, id)
 	return nil
 }
 

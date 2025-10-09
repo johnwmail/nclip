@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -81,7 +82,7 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 		return nil, err
 	}
 	if paste.IsExpired() {
-		log.Printf("[INFO] FS Get: paste %s is expired", id)
+		log.Printf("[WARN] FS Get: paste %s is expired", id)
 		if !isSafeFilename(id) {
 			log.Printf("[ERROR] FS Get: unsafe id: %q", id)
 			return nil, fmt.Errorf("invalid paste id")
@@ -197,6 +198,37 @@ func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+// GetContentPrefix reads up to n bytes from the content file. If the file is
+// smaller than n, it returns the full content.
+func (fs *FilesystemStore) GetContentPrefix(id string, n int64) ([]byte, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	contentPath := filepath.Join(fs.dataDir, id)
+	f, err := os.Open(contentPath)
+	if err != nil {
+		log.Printf("[ERROR] FS GetContentPrefix: failed to open content for %s: %v", id, err)
+		return nil, err
+	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			log.Printf("[WARN] FS GetContentPrefix: failed to close file for %s: %v", id, cerr)
+		}
+	}()
+	// If n is small enough to allocate, read into buffer
+	buf := make([]byte, n)
+	read, err := io.ReadFull(f, buf)
+	if err != nil {
+		if err == io.ErrUnexpectedEOF || err == io.EOF {
+			return buf[:read], nil
+		}
+		if err == io.ErrUnexpectedEOF {
+			return buf[:read], nil
+		}
+		return nil, err
+	}
+	return buf[:read], nil
 }
 
 func (fs *FilesystemStore) Close() error {

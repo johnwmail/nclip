@@ -29,6 +29,8 @@ func (s *takenStore) Delete(string) error               { return nil }
 func (s *takenStore) IncrementReadCount(string) error   { return nil }
 func (s *takenStore) Close() error                      { return nil }
 
+func (s *takenStore) GetContentPrefix(id string, n int64) ([]byte, error) { return nil, nil }
+
 func TestSlugCollisionExhaustion(t *testing.T) {
 	// Mock GenerateSlugBatch to always return the same 5 slugs
 	fixedSlugs := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD", "EEEEE"}

@@ -75,6 +75,20 @@ func (m *MockPasteStore) GetContent(id string) ([]byte, error) {
 	return c, nil
 }
 
+// GetContentPrefix returns up to n bytes of content for testing purposes
+func (m *MockPasteStore) GetContentPrefix(id string, n int64) ([]byte, error) {
+	if m.closed {
+		return nil, errors.New("store is closed")
+	}
+	if c, ok := m.content[id]; ok {
+		if int64(len(c)) <= n {
+			return c, nil
+		}
+		return c[:n], nil
+	}
+	return nil, nil
+}
+
 func (m *MockPasteStore) Store(paste *models.Paste) error {
 	if m.closed {
 		return errors.New("store is closed")

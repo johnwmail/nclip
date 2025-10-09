@@ -218,6 +218,34 @@ func (s *S3Store) GetContent(id string) ([]byte, error) {
 	return data, nil
 }
 
+// GetContentPrefix retrieves up to n bytes from an S3 object using Range header.
+func (s *S3Store) GetContentPrefix(id string, n int64) ([]byte, error) {
+	if n <= 0 {
+		return []byte{}, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	key := applyS3Prefix(s.prefix, id)
+	// Range header is inclusive: bytes=0-(n-1)
+	rangeHeader := fmt.Sprintf("bytes=0-%d", n-1)
+	obj, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+		Range:  aws.String(rangeHeader),
+	})
+	if err != nil {
+		log.Printf("[ERROR] S3 GetContentPrefix: failed to get object %s: %v", id, err)
+		return nil, err
+	}
+	defer func() { _ = obj.Body.Close() }()
+	data, err := io.ReadAll(obj.Body)
+	if err != nil {
+		log.Printf("[ERROR] S3 GetContentPrefix: failed to read body for %s: %v", id, err)
+		return nil, err
+	}
+	return data, nil
+}
+
 func (s *S3Store) Close() error {
 	return nil
 }

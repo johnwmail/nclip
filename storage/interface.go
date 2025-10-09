@@ -27,4 +27,8 @@ type PasteStore interface {
 
 	// GetContent retrieves the raw content for a paste
 	GetContent(id string) ([]byte, error)
+
+	// GetContentPrefix retrieves up to n bytes of the raw content for a paste.
+	// Implementations should return as many bytes as are available up to n.
+	GetContentPrefix(id string, n int64) ([]byte, error)
 }

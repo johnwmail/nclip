@@ -41,6 +41,21 @@ nclip is a versatile clipboard app that accepts content via:
 - 🛡️ **Production Ready**: Health checks, structured logging
 - 🔧 **Configurable**: Environment variables & CLI flags
 
+New configuration options:
+
+- NCLIP_MAX_RENDER_SIZE: Maximum size (bytes) to render inline in the HTML view. Defaults to 262144 (256 KiB).
+- NCLIP_PREVIEW_LENGTH: (removed) Preview length is now controlled by NCLIP_MAX_RENDER_SIZE only.
+
+Example: control preview behavior
+
+```bash
+# Render full content inline when <= 64 KiB, otherwise preview 64 KiB and show download link
+export NCLIP_MAX_RENDER_SIZE=65536
+./nclip
+```
+
+With the above, any paste whose size is greater than 65536 bytes will show a 64 KiB preview in the HTML view and the page will provide the raw/download link for the full content.
+
 <a id="quick-start"></a>
 ## 🚀 Quick Start
 

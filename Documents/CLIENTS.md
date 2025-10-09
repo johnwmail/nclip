@@ -175,6 +175,20 @@ echo "Hello from stdin" | nclip
 echo "Self-destruct message" | curl -sL --data-binary @- http://localhost:8080/burn/
 ```
 
+Preview/Rendering behavior:
+
+- When viewing a paste via the HTML UI, large content will be previewed instead of fully rendered. The server uses the environment variable `NCLIP_MAX_RENDER_SIZE` to control this behavior. Default value is 262144 (256 KiB). The preview length equals this value.
+
+Example: set preview threshold to 64 KiB
+
+```bash
+export NCLIP_MAX_RENDER_SIZE=65536
+./nclip
+```
+
+Pastes whose size is <= 65536 bytes are rendered inline. Larger pastes show a 64 KiB preview with a link to download the full content.
+
+
 ---
 
 ### 7. Notes on Custom Headers
