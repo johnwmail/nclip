@@ -29,18 +29,10 @@ test_expired_paste_manual() {
 
     # Use date to emit RFC3339-like timestamps in UTC with Z suffix.
     # Set both created_at and expires_at to 7 days ago so expiry is well in the past.
-    local now
-    if date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ >/dev/null 2>&1; then
-        now=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ)
-    else
-        now=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%SZ)
-    fi
+    local created
     local expired
-    if date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ >/dev/null 2>&1; then
-        expired=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ)
-    else
-        expired=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%SZ)
-    fi
+    created=$(date -u -d "-7 days" +%Y-%m-%dT%H:%M:%S.%NZ)
+    expired=$(date -u -d "-6 days" +%Y-%m-%dT%H:%M:%S.%NZ)
 
     # Allow overriding data dir for CI/debugging
     local dir="${NCLIP_DATA_DIR:-./data}"
@@ -64,7 +56,7 @@ test_expired_paste_manual() {
     cat > "$meta_file" <<EOF
 {
   "id": "$slug",
-  "created_at": "$now",
+  "created_at": "$created",
   "expires_at": "$expired",
   "size": 4,
   "content_type": "text/plain; charset=utf-8",
