@@ -10,12 +10,7 @@ test_binary_archive_extensions() {
     local zip_file="/tmp/nclip_test_ext.zip"
     echo -n -e "PK\x03\x04testzip" > "$zip_file"
     local response
-    if try_post response "$NCLIP_URL/" "@${zip_file}" -H "Content-Type: application/zip"; then
-        :
-    else
-        # try_post returns non-zero and may still have set a value
-        :
-    fi
+    try_post response "$NCLIP_URL/" "@${zip_file}" -H "Content-Type: application/zip"
     rm -f "$zip_file"
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload application/zip content. Response: $response"
