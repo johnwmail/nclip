@@ -31,9 +31,7 @@ test_binary_archive_extensions() {
     log "Testing image/png -> .png"
     local png_file="/tmp/nclip_test_ext.png"
     echo -n -e "\x89PNGtestpng" > "$png_file"
-    if try_post response "$NCLIP_URL/" "@${png_file}" -H "Content-Type: image/png"; then
-        :
-    fi
+    try_post response "$NCLIP_URL/" "@${png_file}" -H "Content-Type: image/png"
     rm -f "$png_file"
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload image/png content. Response: $response"
