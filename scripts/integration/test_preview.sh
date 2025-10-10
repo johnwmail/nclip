@@ -22,7 +22,7 @@ test_small_content_full_render() {
     
     log "Fetching HTML view for small content: $paste_url"
     local html_response
-    html_response=$(curl -s -H "User-Agent: Mozilla/5.0" "$paste_url")
+    html_response=$(cget -s -H "User-Agent: Mozilla/5.0" "$paste_url")
     
     if [[ "$html_response" == *"$test_content"* ]]; then
         success "Small content rendered fully in HTML view"
@@ -66,7 +66,7 @@ test_large_content_preview() {
     
     log "Fetching HTML view for large content: $paste_url"
     local html_response
-    html_response=$(curl -s -H "User-Agent: Mozilla/5.0" "$paste_url")
+    html_response=$(cget -s -H "User-Agent: Mozilla/5.0" "$paste_url")
     
     # Should show preview indicator
     if [[ "$html_response" == *"Content Preview (Truncated)"* ]]; then
@@ -123,7 +123,7 @@ test_raw_always_full() {
     
     log "Fetching raw content: $NCLIP_URL/raw/$slug"
     local raw_response
-    raw_response=$(curl -s "$NCLIP_URL/raw/$slug")
+    raw_response=$(cget -s "$NCLIP_URL/raw/$slug")
     
     local raw_size=${#raw_response}
     if [[ $raw_size -eq $expected_size ]]; then

@@ -17,7 +17,8 @@ test_burn_after_read() {
         if [[ "$first_read" == "$test_content" ]]; then
             success "First read of burn paste successful"
             local second_read_status
-            second_read_status=$(curl -s -o /dev/null -w "%{http_code}" "$response")
+            # Use cget to honor auth headers; get only the HTTP status code
+            second_read_status=$(cget -s -o /dev/null -w "%{http_code}" "$response")
             if [[ "$second_read_status" == "404" ]]; then
                 success "Burn-after-read functionality working correctly"
                 return 0
