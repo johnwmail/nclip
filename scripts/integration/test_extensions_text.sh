@@ -12,9 +12,7 @@ test_text_file_extensions() {
         local body="$1"; shift
         local content_type="$1"; shift
         local expected_ext="$1"; shift
-        if try_post response "$NCLIP_URL/" "$body" -H "Content-Type: ${content_type}"; then
-            :
-        fi
+        try_post response "$NCLIP_URL/" "$body" -H "Content-Type: ${content_type}"
         if [[ -n "$response" && "$response" == http* ]]; then
             record_slug "$(basename "$response")"
             local slug
