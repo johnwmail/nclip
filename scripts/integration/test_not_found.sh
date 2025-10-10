@@ -25,7 +25,7 @@ test_not_found() {
             return 1
         fi
     done
-    status=$(curl -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/$slug")
+    status=$(cget -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/$slug")
     if [[ "$status" == "404" ]]; then
         success "404 test passed"
         return 0

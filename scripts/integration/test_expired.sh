@@ -73,7 +73,7 @@ EOF
 
     # Trigger an HTTP GET which should cause the server to detect expiry and delete files
     local status
-    status=$(curl -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/$slug" || true)
+    status=$(cget -s -o /dev/null -w "%{http_code}" "$NCLIP_URL/$slug" || true)
     if [[ "$status" != "404" && "$status" != "400" && "$status" != "410" ]]; then
         error "Unexpected HTTP status for expired paste GET: $status"
         # show directory contents to aid debugging
