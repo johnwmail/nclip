@@ -52,9 +52,7 @@ test_binary_archive_extensions() {
     log "Testing application/pdf -> .pdf"
     local pdf_file="/tmp/nclip_test_ext.pdf"
     echo -n -e "%PDF-1.4testpdf" > "$pdf_file"
-    if try_post response "$NCLIP_URL/" "@${pdf_file}" -H "Content-Type: application/pdf"; then
-        :
-    fi
+    try_post response "$NCLIP_URL/" "@${pdf_file}" -H "Content-Type: application/pdf"
     rm -f "$pdf_file"
     if [[ -z "$response" || ! "$response" =~ http ]]; then
         error "Failed to upload application/pdf content. Response: $response"
