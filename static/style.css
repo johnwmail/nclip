@@ -29,25 +29,24 @@ body {
     line-height: 1.5;
     color: var(--text-primary);
     background: var(--background);
-    min-height: 100vh;
+    min-height: 80vh;
 }
 
 /* Main page specific - single page layout */
 body.main-page {
-    min-height: 100vh;
-    /* Remove overflow: hidden and height: 100vh to allow scrolling on mobile */
+    min-height: 80vh;
 }
 
 .container {
     max-width: 1000px;
     margin: 0 auto;
     padding: 1rem;
-    min-height: 100vh;
+    min-height: 80vh;
 }
 
 /* Main page specific container */
 body.main-page .container {
-    min-height: 100vh;
+    min-height: 80vh;
     /* Changed from height to min-height */
     display: flex;
     flex-direction: column;
@@ -64,7 +63,7 @@ header {
 }
 
 header h1 {
-    font-size: 2rem;
+    font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 0.25rem;
@@ -77,9 +76,11 @@ header p {
 }
 
 /* Main Content */
+/*
 main {
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
+*/
 
 /* Main page specific main element */
 body.main-page main {
@@ -329,8 +330,6 @@ input[type="file"]:hover {
     display: block;
     /* Keep bottom padding consistent with the card gap above */
     padding: 1rem;
-    /* Ensure spacing below the usage card matches the standard card gap */
-    margin-bottom: 1rem;
 }
 
 .usage-section h2 {
@@ -389,13 +388,13 @@ input[type="file"]:hover {
     /* Ensure mobile scrolling works properly */
     body.main-page {
         height: auto;
-        min-height: 100vh;
+        min-height: 80vh;
         overflow: auto;
     }
 
     body.main-page .container {
         height: auto;
-        min-height: 100vh;
+        min-height: 80vh;
         flex-direction: column;
         padding-bottom: 3rem;
         /* More bottom space on mobile */
