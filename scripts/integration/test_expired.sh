@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+enable_cleanup_trap
 
 test_expired_paste() {
     log "Testing expired paste behavior (creation only)..."
@@ -48,7 +49,7 @@ test_expired_paste_manual() {
         cat "$meta_file" || true
         echo "--- END META FILE ---"
     else
-        error "Metadata file not exists before overwrite it: $meta_file"
+        error "Metadata file does not exist before overwrite: $meta_file (data dir: $dir). Are you running the script from repo root or did you override NCLIP_DATA_DIR?"
         return 1
     fi
 

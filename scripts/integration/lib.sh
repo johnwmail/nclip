@@ -6,6 +6,16 @@ set -euo pipefail
 # Resolve this script dir
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Repo root (two levels up from scripts/integration)
+REPO_ROOT="$(cd "$DIR/../.." && pwd)"
+
+# Default data dir to the repository data directory unless overridden
+if [[ -z "${NCLIP_DATA_DIR:-}" ]]; then
+    NCLIP_DATA_DIR="$REPO_ROOT/data"
+    # export for use in test scripts, if not already set
+    export NCLIP_DATA_DIR
+fi
+
 # Configuration (can be overridden by environment)
 NCLIP_URL="${NCLIP_URL:-http://localhost:8080}"
 SLUG_LENGTH="${SLUG_LENGTH:-5}"
@@ -40,13 +50,13 @@ cleanup_temp_files() {
         log "Removing recorded data files listed in $TRASH_RECORD_FILE"
         while IFS= read -r slug; do
             if [[ -n "$slug" ]]; then
-                rm -f "./data/${slug}" "./data/${slug}.json" || true
+                rm -f "${NCLIP_DATA_DIR}/${slug}" "${NCLIP_DATA_DIR}/${slug}.json" || true
             fi
         done < "$TRASH_RECORD_FILE"
         rm -f "$TRASH_RECORD_FILE" || true
     else
         if [[ -d "./data" ]]; then
-            find ./data -maxdepth 1 -type f -mmin -60 -print -delete || true
+            find "${NCLIP_DATA_DIR}" -maxdepth 1 -type f -mmin -60 -print -delete || true
         fi
     fi
     rm -f /tmp/nclip_test_* /tmp/nclip_test_ext.* 2>/dev/null || true
@@ -54,6 +64,16 @@ cleanup_temp_files() {
         rmdir ./testdata 2>/dev/null || true
     fi
     return 0
+}
+
+# Install an EXIT trap so cleanup_temp_files runs even if the test script exits early
+enable_cleanup_trap() {
+    # Avoid installing multiple traps
+    if [[ -n "${_NCLIP_CLEANUP_TRAP_INSTALLED:-}" ]]; then
+        return 0
+    fi
+    trap 'cleanup_temp_files' EXIT
+    _NCLIP_CLEANUP_TRAP_INSTALLED=1
 }
 
 # Retry helper for POST requests. Usage:

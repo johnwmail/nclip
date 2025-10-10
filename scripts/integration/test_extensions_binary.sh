@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+enable_cleanup_trap
 
 test_binary_archive_extensions() {
     log "Testing binary/archive file extensions in Content-Disposition..."
