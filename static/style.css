@@ -329,6 +329,8 @@ input[type="file"]:hover {
     display: block;
     /* Keep bottom padding consistent with the card gap above */
     padding: 1rem;
+    /* Ensure spacing below the usage card matches the standard card gap */
+    margin-bottom: 1rem;
 }
 
 .usage-section h2 {
