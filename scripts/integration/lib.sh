@@ -12,6 +12,8 @@ REPO_ROOT="$(cd "$DIR/../.." && pwd)"
 # Default data dir to the repository data directory unless overridden
 if [[ -z "${NCLIP_DATA_DIR:-}" ]]; then
     NCLIP_DATA_DIR="$REPO_ROOT/data"
+    # export for use in test scripts, if not already set
+    export NCLIP_DATA_DIR
 fi
 
 # Configuration (can be overridden by environment)
