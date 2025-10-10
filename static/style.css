@@ -327,6 +327,7 @@ input[type="file"]:hover {
 /* Usage Section - Compact display */
 .usage-section {
     display: block;
+    /* Keep bottom padding consistent with the card gap above */
     padding: 1rem;
 }
 
@@ -660,11 +661,11 @@ input[type="file"]:hover {
 
 footer {
     text-align: center;
-    padding: 2rem 0;
+    padding: 1rem 0;
     color: var(--text-muted);
     font-size: 0.875rem;
     border-top: 1px solid var(--border);
-    margin-top: 2rem;
+    /* margin-top: 2rem; */
 }
 
 @keyframes slideIn {
