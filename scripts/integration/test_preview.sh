@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+enable_cleanup_trap
 
 test_small_content_full_render() {
     log "Testing small content renders fully in HTML view"

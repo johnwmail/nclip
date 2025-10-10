@@ -56,6 +56,16 @@ cleanup_temp_files() {
     return 0
 }
 
+# Install an EXIT trap so cleanup_temp_files runs even if the test script exits early
+enable_cleanup_trap() {
+    # Avoid installing multiple traps
+    if [[ -n "${_NCLIP_CLEANUP_TRAP_INSTALLED:-}" ]]; then
+        return 0
+    fi
+    trap 'cleanup_temp_files' EXIT
+    _NCLIP_CLEANUP_TRAP_INSTALLED=1
+}
+
 # Retry helper for POST requests. Usage:
 # try_post VAR_NAME URL DATA [extra curl args...]
 # - If DATA starts with '@', the rest is treated as a filename and sent with --data-binary @file

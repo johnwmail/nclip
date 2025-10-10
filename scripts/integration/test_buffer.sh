@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+enable_cleanup_trap
 
 test_buffer_size_limit() {
     log "Testing buffer size limit enforcement..."

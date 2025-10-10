@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+enable_cleanup_trap
 
 test_text_file_extensions() {
     log "Testing text file extensions in Content-Disposition..."

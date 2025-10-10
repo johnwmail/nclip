@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+enable_cleanup_trap
 
 test_expired_paste() {
     log "Testing expired paste behavior (creation only)..."
