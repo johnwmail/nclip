@@ -111,22 +111,10 @@ func (h *Handler) isCli(c *gin.Context) bool {
 func (h *Handler) View(c *gin.Context) {
 	slug := c.Param("slug")
 
-	if !utils.IsValidSlug(slug) {
-		// Prefer HTML for non-CLI (browser) clients; return JSON for CLI/API clients.
-		if !h.isCli(c) {
-			c.HTML(http.StatusBadRequest, "view.html", gin.H{
-				"Title":      "NCLIP - Error",
-				"Error":      "Invalid slug format",
-				"Version":    h.config.Version,
-				"BuildTime":  h.config.BuildTime,
-				"CommitHash": h.config.CommitHash,
-				"BaseURL":    h.getBaseURL(c),
-			})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
-		}
-		return
-	}
+	// Note: slug format validation is enforced when creating pastes. For
+	// retrieval (view/raw), we rely on the store/service layer to return
+	// not-found semantics so that clients can attempt any slug and receive
+	// a 404 if it doesn't exist.
 
 	paste, err := h.service.GetPaste(slug)
 	if err != nil {

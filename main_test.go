@@ -449,8 +449,8 @@ func TestInvalidSlug(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/invalid-slug!", nil)
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status 400, got %d", w.Code)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
 	}
 }
 

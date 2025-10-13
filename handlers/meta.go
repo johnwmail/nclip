@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/storage"
-	"github.com/johnwmail/nclip/utils"
 )
 
 // MetaHandler handles metadata operations
@@ -25,10 +24,9 @@ func NewMetaHandler(store storage.PasteStore) *MetaHandler {
 func (h *MetaHandler) GetMetadata(c *gin.Context) {
 	slug := c.Param("slug")
 
-	if !utils.IsValidSlug(slug) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
-		return
-	}
+	// Allow any slug to be queried; the store will return not-found if it
+	// doesn't exist. Slug format validation is performed during paste
+	// creation to prevent invalid slugs from being stored.
 
 	paste, err := h.store.Get(slug)
 	if err != nil {

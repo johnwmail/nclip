@@ -125,9 +125,9 @@ func TestMetaHandler_GetMetadata(t *testing.T) {
 			name:           "invalid slug format",
 			slug:           "invalid-slug!",
 			setupStore:     func(store *MockPasteStore) {},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus: http.StatusNotFound,
 			expectedBody: map[string]interface{}{
-				"error": "Invalid slug format",
+				"error": "Paste not found",
 			},
 			expectError: true,
 		},
