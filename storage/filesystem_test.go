@@ -8,7 +8,6 @@ import (
 )
 
 func TestNewFilesystemStore_Defaults(t *testing.T) {
-	os.Setenv("NCLIP_DATA_DIR", "./testdata")
 	store, err := NewFilesystemStore("./testdata")
 	if err != nil {
 		t.Fatalf("NewFilesystemStore failed: %v", err)
@@ -32,8 +31,6 @@ func TestNewFilesystemStore_CreatesDataDir(t *testing.T) {
 		t.Fatalf("failed to create test dir: %v", err)
 	}
 
-	os.Setenv("NCLIP_DATA_DIR", testDir)
-
 	store, err := NewFilesystemStore(testDir)
 	if err != nil {
 		t.Fatalf("NewFilesystemStore failed: %v", err)
@@ -45,7 +42,6 @@ func TestNewFilesystemStore_CreatesDataDir(t *testing.T) {
 }
 
 func TestFilesystemStore_StoreAndGet_LocalFS(t *testing.T) {
-	os.Setenv("NCLIP_DATA_DIR", "./testdata")
 	// Ensure testdata directory exists
 	if err := os.MkdirAll("./testdata", 0o755); err != nil {
 		t.Fatalf("Failed to create testdata dir: %v", err)
@@ -72,7 +68,6 @@ func TestFilesystemStore_StoreAndGet_LocalFS(t *testing.T) {
 }
 
 func TestFilesystemStore_Delete_LocalFS(t *testing.T) {
-	os.Setenv("NCLIP_DATA_DIR", "./testdata")
 	store, err := NewFilesystemStore("./testdata")
 	if err != nil {
 		t.Fatalf("NewFilesystemStore failed: %v", err)

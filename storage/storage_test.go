@@ -256,7 +256,6 @@ func TestMockPasteStore(t *testing.T) {
 // Integration tests for FilesystemStore (local FS mode)
 func TestFilesystemStore_LocalFS(t *testing.T) {
 	os.Setenv("NCLIP_S3_BUCKET", "") // Ensure S3 is disabled
-	os.Setenv("NCLIP_DATA_DIR", "./testdata")
 
 	_ = os.Mkdir("./testdata", 0o755)
 	defer os.RemoveAll("./testdata")

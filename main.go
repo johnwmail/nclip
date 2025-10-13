@@ -110,13 +110,8 @@ func main() {
 		}
 		log.Println("Lambda mode: Using S3 storage")
 	} else {
-		// Server mode: Use filesystem
-		// Ensure data directory exists before initializing filesystem storage
-		dataDir := os.Getenv("NCLIP_DATA_DIR")
-		if dataDir == "" {
-			dataDir = "./data"
-		}
-		store, err = storage.NewFilesystemStore(dataDir)
+		// Server mode: Use filesystem. Use configured DataDir.
+		store, err = storage.NewFilesystemStore(cfg.DataDir)
 		if err != nil {
 			log.Fatalf("Failed to initialize filesystem storage: %v", err)
 		}
@@ -296,7 +291,7 @@ func jsonRecovery() gin.HandlerFunc {
 }
 
 // canonicalErrors ensures that if a handler did not write a body but the
-// response status is an error (>=400), a small JSON error body is written.
+// response status is an error (>=400), a small JSON error body is writtencanonicalErrors.
 // This helps intermediaries and CDNs forward a predictable JSON payload.
 func canonicalErrors() gin.HandlerFunc {
 	return func(c *gin.Context) {

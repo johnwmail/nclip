@@ -16,26 +16,19 @@ import (
 // set, the test will use that directory (useful for manual/CI integration). If not
 // set, the test uses a temporary directory and cleans it up.
 func TestIntegrationDeleteExpired(t *testing.T) {
-	dir := os.Getenv("NCLIP_DATA_DIR")
-	cleanup := false
-	if dir == "" {
-		var err error
-		dir, err = os.MkdirTemp("", "nclip-integ-")
-		if err != nil {
-			t.Fatalf("failed to create temp dir: %v", err)
-		}
-		cleanup = true
-	}
-	if cleanup {
-		defer os.RemoveAll(dir)
-	}
+	// Prefer an explicit temp dir for integration test so we don't depend on
+	// environment and can run in CI reliably.
+	cfg := config.LoadConfig()
+	dir := t.TempDir()
+	// Override cfg DataDir for this test to ensure service and store use the temp dir.
+	cfg.DataDir = dir
 
 	store, err := storage.NewFilesystemStore(dir)
 	if err != nil {
 		t.Fatalf("failed to create filesystem store: %v", err)
 	}
 
-	svc := NewPasteService(store, &config.Config{})
+	svc := NewPasteService(store, cfg)
 
 	slug := "integ-expired-" + time.Now().Format("20060102150405")
 	expires := time.Now().Add(-1 * time.Hour)

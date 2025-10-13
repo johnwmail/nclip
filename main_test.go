@@ -26,13 +26,15 @@ type MockStore struct {
 	readCount map[string]int
 	// For content storage
 	content map[string][]byte
+	dataDir string
 }
 
-func NewMockStore() *MockStore {
+func NewMockStore(dataDir string) *MockStore {
 	return &MockStore{
 		pastes:    make(map[string]*models.Paste),
 		readCount: make(map[string]int),
 		content:   make(map[string][]byte),
+		dataDir:   dataDir,
 	}
 }
 
@@ -41,7 +43,7 @@ func (m *MockStore) StoreContent(id string, content []byte) error {
 	m.content[id] = content
 	// Also write the content to disk inside NCLIP_DATA_DIR so handlers that
 	// perform rename/mv inside that directory succeed during tests.
-	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	dataDir := m.dataDir
 	if dataDir == "" {
 		dataDir = "./data"
 	}
@@ -73,8 +75,8 @@ func (m *MockStore) GetContentPrefix(id string, n int64) ([]byte, error) {
 		}
 		return c[:n], nil
 	}
-	// Fallback to disk
-	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	// Fallback to disk using the configured dataDir on the mock
+	dataDir := m.dataDir
 	if dataDir == "" {
 		dataDir = "./data"
 	}
@@ -98,7 +100,7 @@ func (m *MockStore) Store(paste *models.Paste) error {
 		m.StoreContent(paste.ID, paste.Content)
 	}
 	// Also write metadata file to disk to emulate FilesystemStore behavior for tests.
-	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	dataDir := m.dataDir
 	if dataDir == "" {
 		dataDir = "./data"
 	}
@@ -131,7 +133,7 @@ func (m *MockStore) Exists(id string) (bool, error) {
 
 func (m *MockStore) Delete(id string) error {
 	delete(m.pastes, id)
-	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	dataDir := m.dataDir
 	if dataDir == "" {
 		dataDir = "./data"
 	}
@@ -163,7 +165,7 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 		DefaultTTL: 24 * time.Hour,
 	}
 
-	store := NewMockStore()
+	store := NewMockStore(cfg.DataDir)
 
 	pasteService := services.NewPasteService(store, cfg)
 	uploadHandler := upload.NewHandler(pasteService, cfg)
@@ -674,7 +676,7 @@ func TestUploadAuthEnforced(t *testing.T) {
 		DefaultTTL: 24 * time.Hour,
 	}
 
-	store := NewMockStore()
+	store := NewMockStore(cfg.DataDir)
 
 	// Use the real setupRouter so middleware wiring is exercised
 	router := setupRouter(store, cfg)

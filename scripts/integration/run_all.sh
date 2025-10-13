@@ -15,6 +15,7 @@ SCRIPTS=(
     "$DIR/test_expired.sh"
     "$DIR/test_buffer.sh"
     "$DIR/test_preview.sh"
+    "$DIR/test_size_mismatch.sh"
 )
 
 failed=0

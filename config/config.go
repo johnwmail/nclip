@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -16,6 +17,10 @@ type Config struct {
 	DefaultTTL time.Duration `json:"default_ttl"`
 	S3Bucket   string        `json:"s3_bucket"`
 	S3Prefix   string        `json:"s3_prefix"`
+	// DataDir is the filesystem directory used by the server mode to store
+	// paste content and metadata. It defaults to ./data and can be overridden
+	// via the NCLIP_DATA_DIR environment variable or CLI flag.
+	DataDir string `json:"data_dir"`
 	// UploadAuth enables API key authentication on upload endpoints
 	UploadAuth bool `json:"upload_auth"`
 	// APIKeys is a comma-separated list of valid API keys
@@ -36,6 +41,7 @@ func LoadConfig() *Config {
 		DefaultTTL:    24 * time.Hour,
 		S3Bucket:      "",
 		S3Prefix:      "",
+		DataDir:       "./data",
 		MaxRenderSize: 262144, // 256 KiB
 	}
 
@@ -48,6 +54,7 @@ func LoadConfig() *Config {
 	flag.DurationVar(&config.DefaultTTL, "ttl", config.DefaultTTL, "Default paste expiration time")
 	flag.StringVar(&config.S3Bucket, "s3-bucket", config.S3Bucket, "S3 bucket for Lambda mode")
 	flag.StringVar(&config.S3Prefix, "s3-prefix", config.S3Prefix, "S3 key prefix for Lambda mode")
+	flag.StringVar(&config.DataDir, "data-dir", config.DataDir, "Filesystem data directory for server mode")
 	flag.BoolVar(&config.UploadAuth, "upload-auth", config.UploadAuth, "Require API key for upload endpoints")
 	flag.StringVar(&config.APIKeys, "api-keys", config.APIKeys, "Comma-separated API keys for upload authentication")
 	flag.Parse()
@@ -93,8 +100,28 @@ func LoadConfig() *Config {
 	setStringEnv("NCLIP_S3_PREFIX", &config.S3Prefix)
 	setBoolEnv("NCLIP_UPLOAD_AUTH", &config.UploadAuth)
 	setStringEnv("NCLIP_API_KEYS", &config.APIKeys)
+	// NCLIP_DATA_DIR configures the local filesystem data directory used in
+	// server mode. Keep backward compatibility with the environment var.
+	setStringEnv("NCLIP_DATA_DIR", &config.DataDir)
 	// NCLIP_MAX_RENDER_SIZE configures MaxRenderSize; preview length equals MaxRenderSize.
 	setInt64Env("NCLIP_MAX_RENDER_SIZE", &config.MaxRenderSize)
+
+	// Ensure DataDir is never empty. If a user passed an empty value via
+	// CLI flags (for example `--data-dir ""`) we treat that as unspecified
+	// and fall back to the default directory.
+	if config.DataDir == "" {
+		config.DataDir = "./data"
+	}
+
+	// Normalize DataDir to absolute path where possible
+	if abs, err := filepath.Abs(config.DataDir); err == nil {
+		config.DataDir = abs
+	} else {
+		// If we can't get an absolute path, return error and exit
+		// (this should be rare, only if the current working directory
+		// is somehow invalid)
+		panic("Failed to resolve absolute path for data directory: " + err.Error())
+	}
 
 	return config
 }

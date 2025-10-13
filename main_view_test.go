@@ -21,7 +21,7 @@ import (
 func TestViewSmallRendersFull(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{MaxRenderSize: 1024}
-	store := NewMockStore()
+	store := NewMockStore(cfg.DataDir)
 	svc := services.NewPasteService(store, cfg)
 	rh := retrieval.NewHandler(svc, store, cfg)
 
@@ -50,7 +50,7 @@ func TestViewSmallRendersFull(t *testing.T) {
 func TestViewLargeShowsPreview(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{MaxRenderSize: 10}
-	store := NewMockStore()
+	store := NewMockStore(cfg.DataDir)
 	svc := services.NewPasteService(store, cfg)
 	rh := retrieval.NewHandler(svc, store, cfg)
 
@@ -83,7 +83,7 @@ func TestViewLargeShowsPreview(t *testing.T) {
 func TestBurnAfterReadPreviewDeletesTemp(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{MaxRenderSize: 10}
-	store := NewMockStore()
+	store := NewMockStore(cfg.DataDir)
 	svc := services.NewPasteService(store, cfg)
 	rh := retrieval.NewHandler(svc, store, cfg)
 
@@ -93,7 +93,7 @@ func TestBurnAfterReadPreviewDeletesTemp(t *testing.T) {
 	store.Store(paste)
 
 	// ensure data dir exists and the file is present (MockStore writes file)
-	dataDir := os.Getenv("NCLIP_DATA_DIR")
+	dataDir := cfg.DataDir
 	if dataDir == "" {
 		dataDir = "./data"
 	}
