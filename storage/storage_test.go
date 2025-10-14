@@ -89,6 +89,17 @@ func (m *MockPasteStore) GetContentPrefix(id string, n int64) ([]byte, error) {
 	return nil, nil
 }
 
+// StatContent reports whether content exists and its size in the mock store.
+func (m *MockPasteStore) StatContent(id string) (bool, int64, error) {
+	if m.closed {
+		return false, 0, errors.New("store is closed")
+	}
+	if c, ok := m.content[id]; ok {
+		return true, int64(len(c)), nil
+	}
+	return false, 0, nil
+}
+
 func (m *MockPasteStore) Store(paste *models.Paste) error {
 	if m.closed {
 		return errors.New("store is closed")
@@ -256,7 +267,6 @@ func TestMockPasteStore(t *testing.T) {
 // Integration tests for FilesystemStore (local FS mode)
 func TestFilesystemStore_LocalFS(t *testing.T) {
 	os.Setenv("NCLIP_S3_BUCKET", "") // Ensure S3 is disabled
-	os.Setenv("NCLIP_DATA_DIR", "./testdata")
 
 	_ = os.Mkdir("./testdata", 0o755)
 	defer os.RemoveAll("./testdata")

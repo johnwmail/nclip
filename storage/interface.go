@@ -1,6 +1,8 @@
 package storage
 
-import "github.com/johnwmail/nclip/models"
+import (
+	"github.com/johnwmail/nclip/models"
+)
 
 // PasteStore defines the interface for paste storage backends
 type PasteStore interface {
@@ -31,4 +33,10 @@ type PasteStore interface {
 	// GetContentPrefix retrieves up to n bytes of the raw content for a paste.
 	// Implementations should return as many bytes as are available up to n.
 	GetContentPrefix(id string, n int64) ([]byte, error)
+
+	// StatContent reports whether content exists and its size. Implementations
+	// should return (false, 0, nil) when the content does not exist.
+	// This is used by handlers to perform early size checks without
+	// retrieving the entire object.
+	StatContent(id string) (exists bool, size int64, err error)
 }
