@@ -423,6 +423,83 @@ aws lambda update-function-configuration \
 **Cause:** Missing CORS headers in API Gateway
 **Solution:** Configure CORS in API Gateway or Function URL
 
+#### 5. Cloudflare Returns HTML Error Page Instead of JSON
+**Symptoms:** 
+- Upload fails with "Upload failed: <!DOCTYPE html>"
+- Error message shows Cloudflare challenge page ("Attention Required!")
+- Web UI cannot parse the response
+
+**Causes:**
+1. **Cloudflare Bot Protection:** Blocking automated requests
+2. **WAF Rules:** Security rules triggering on POST requests
+3. **Rate Limiting:** Too many requests from same IP
+4. **Large Payload:** Exceeding Cloudflare's limits (different from Lambda's 6MB)
+5. **Missing Headers:** Cloudflare expects certain headers
+
+**Solutions:**
+
+**Option 1: Bypass Cloudflare for API Endpoints** (Recommended)
+```browser
+# In Cloudflare dashboard:
+# 1. Go to Rules > Page Rules
+# 2. Create rule: *demo.nclip.app/api/*
+# 3. Settings: "Cache Level: Bypass" and "Security Level: Off"
+# 4. Or create DNS record without Cloudflare proxy (grey cloud)
+```
+
+**Option 2: Whitelist Your Upload Endpoint**
+```browser
+# In Cloudflare dashboard:
+# 1. Go to Security > WAF
+# 2. Create WAF exception for your upload endpoint
+# 3. Add rule: URI Path equals "/" AND HTTP Method equals "POST"
+# 4. Action: Skip
+```
+
+**Option 3: Disable Bot Fight Mode**
+```browser
+# In Cloudflare dashboard:
+# 1. Go to Security > Bots
+# 2. Disable "Bot Fight Mode" or "Super Bot Fight Mode"
+# 3. Or whitelist your domain/IP
+```
+
+**Option 4: Use Direct Lambda Function URL**
+```bash
+# Test without Cloudflare first:
+curl -X POST https://YOUR_LAMBDA_FUNCTION_URL.lambda-url.us-east-1.on.aws/ \
+    -H "Content-Type: text/plain" \
+    -d "test content"
+
+# If this works, the issue is Cloudflare, not Lambda
+```
+
+**Option 5: Add Cloudflare-Friendly Headers**
+```bash
+# Update your upload requests to include:
+curl -X POST https://demo.nclip.app/ \
+    -H "Content-Type: text/plain" \
+    -H "User-Agent: nclip-cli/1.0" \
+    -H "CF-Connecting-IP: YOUR_IP" \
+    -d "test content"
+```
+
+**Debugging Steps:**
+1. Check Cloudflare Firewall Events (Security > Events)
+2. Look for blocked requests with your timestamp
+3. Check which rule triggered (Bot Fight, WAF, Rate Limit)
+4. Temporarily set Security Level to "Essentially Off" for testing
+5. Check CloudWatch logs to verify Lambda received the request
+
+**Verify Lambda is Working:**
+```bash
+# Check Lambda logs for incoming requests
+aws logs tail /aws/lambda/your-function-name --follow
+
+# If no logs appear when you upload, Cloudflare is blocking BEFORE Lambda
+# If logs show request but error, issue is in Lambda function
+```
+
 ### Health Checks
 
 ```bash
