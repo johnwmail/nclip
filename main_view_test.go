@@ -22,6 +22,7 @@ func TestViewSmallRendersFull(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{MaxRenderSize: 1024}
 	store := NewMockStore(cfg.DataDir)
+	defer cleanupTestData(store.dataDir)
 	svc := services.NewPasteService(store, cfg)
 	rh := retrieval.NewHandler(svc, store, cfg)
 
@@ -51,6 +52,7 @@ func TestViewLargeShowsPreview(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{MaxRenderSize: 10}
 	store := NewMockStore(cfg.DataDir)
+	defer cleanupTestData(store.dataDir)
 	svc := services.NewPasteService(store, cfg)
 	rh := retrieval.NewHandler(svc, store, cfg)
 
@@ -84,6 +86,7 @@ func TestBurnAfterReadPreviewDeletesTemp(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{MaxRenderSize: 10}
 	store := NewMockStore(cfg.DataDir)
+	defer cleanupTestData(store.dataDir)
 	svc := services.NewPasteService(store, cfg)
 	rh := retrieval.NewHandler(svc, store, cfg)
 

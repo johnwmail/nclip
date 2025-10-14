@@ -112,6 +112,7 @@ jobs:
           # Export any NCLIP_* values injected into the environment by the previous step
           if [ -n "${NCLIP_API_KEYS:-}" ]; then export NCLIP_API_KEYS="$NCLIP_API_KEYS"; fi
           if [ -n "${NCLIP_TEST_API_KEY:-}" ]; then export NCLIP_TEST_API_KEY="$NCLIP_TEST_API_KEY"; fi
+          # Run unified integration test suite (orchestrates all test scripts)
           bash scripts/integration-test.sh
 
       - name: Stop nclip server

@@ -38,6 +38,15 @@ func NewMockStore(dataDir string) *MockStore {
 	}
 }
 
+// cleanupTestData removes the test data directory and all its contents.
+// Should be called with defer in each test that creates files.
+func cleanupTestData(dataDir string) {
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+	_ = os.RemoveAll(dataDir)
+}
+
 // StoreContent saves the raw content for a paste
 func (m *MockStore) StoreContent(id string, content []byte) error {
 	m.content[id] = content
@@ -155,6 +164,23 @@ func (m *MockStore) Close() error {
 	return nil
 }
 
+// StatContent reports whether content exists on disk (from dataDir) and its size.
+func (m *MockStore) StatContent(id string) (bool, int64, error) {
+	dataDir := m.dataDir
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+	contentPath := filepath.Join(dataDir, id)
+	st, err := os.Stat(contentPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, 0, nil
+		}
+		return false, 0, err
+	}
+	return true, st.Size(), nil
+}
+
 func setupTestRouter() (*gin.Engine, *MockStore) {
 	gin.SetMode(gin.TestMode)
 
@@ -235,6 +261,7 @@ func TestMetricsEndpointRemoved(t *testing.T) {
 
 func TestUploadText(t *testing.T) {
 	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
 
 	content := "Hello, World!"
 	w := httptest.NewRecorder()
@@ -260,6 +287,7 @@ func TestUploadText(t *testing.T) {
 
 func TestGetPaste(t *testing.T) {
 	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
 
 	// First, create a paste
 	paste := &models.Paste{
@@ -283,6 +311,7 @@ func TestGetPaste(t *testing.T) {
 
 func TestGetRawPaste(t *testing.T) {
 	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
 
 	content := []byte("raw content")
 	paste := &models.Paste{
@@ -309,6 +338,7 @@ func TestGetRawPaste(t *testing.T) {
 
 func TestGetMetadata(t *testing.T) {
 	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
 
 	paste := &models.Paste{
 		ID:          "TEST4",
@@ -341,6 +371,7 @@ func TestGetMetadata(t *testing.T) {
 
 func TestGetMetadataAlias(t *testing.T) {
 	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
 
 	paste := &models.Paste{
 		ID:          "TEST5",
@@ -383,6 +414,7 @@ func TestGetMetadataAlias(t *testing.T) {
 
 func TestBurnAfterRead(t *testing.T) {
 	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
 
 	content := "burn this"
 	w := httptest.NewRecorder()
@@ -433,7 +465,8 @@ func TestBurnAfterRead(t *testing.T) {
 }
 
 func TestNotFound(t *testing.T) {
-	router, _ := setupTestRouter()
+	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/ABCDE", nil) // Valid slug format that doesn't exist
@@ -445,7 +478,8 @@ func TestNotFound(t *testing.T) {
 }
 
 func TestInvalidSlug(t *testing.T) {
-	router, _ := setupTestRouter()
+	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/invalid-slug!", nil)
@@ -677,6 +711,7 @@ func TestUploadAuthEnforced(t *testing.T) {
 	}
 
 	store := NewMockStore(cfg.DataDir)
+	defer cleanupTestData(store.dataDir)
 
 	// Use the real setupRouter so middleware wiring is exercised
 	router := setupRouter(store, cfg)

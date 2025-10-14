@@ -85,7 +85,9 @@ func (s *S3Store) Get(id string) (*models.Paste, error) {
 		return nil, err
 	}
 	defer func() {
-		_ = obj.Body.Close()
+		if cerr := obj.Body.Close(); cerr != nil {
+			log.Printf("[WARN] S3 Get: failed to close response body for %s: %v", id, cerr)
+		}
 	}()
 	metaData, err := io.ReadAll(obj.Body)
 	if err != nil {
@@ -208,7 +210,9 @@ func (s *S3Store) GetContent(id string) ([]byte, error) {
 		return nil, err
 	}
 	defer func() {
-		_ = obj.Body.Close()
+		if cerr := obj.Body.Close(); cerr != nil {
+			log.Printf("[WARN] S3 GetContent: failed to close response body for %s: %v", id, cerr)
+		}
 	}()
 	data, err := io.ReadAll(obj.Body)
 	if err != nil {
@@ -216,6 +220,36 @@ func (s *S3Store) GetContent(id string) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+// StatContent checks if the object exists in S3 and returns its size.
+func (s *S3Store) StatContent(id string) (bool, int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	key := applyS3Prefix(s.prefix, id)
+	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			code := apiErr.ErrorCode()
+			if code == "NotFound" || code == "NoSuchKey" || code == "404" {
+				return false, 0, nil
+			}
+		}
+		// Also check textual message for 404
+		if strings.Contains(err.Error(), "StatusCode: 404") || strings.Contains(err.Error(), "NotFound") {
+			return false, 0, nil
+		}
+		log.Printf("[WARN] S3 StatContent: error checking %s: %v", id, err)
+		return false, 0, err
+	}
+	if head.ContentLength == nil {
+		return true, 0, nil
+	}
+	return true, *head.ContentLength, nil
 }
 
 // GetContentPrefix retrieves up to n bytes from an S3 object using Range header.
@@ -237,7 +271,11 @@ func (s *S3Store) GetContentPrefix(id string, n int64) ([]byte, error) {
 		log.Printf("[ERROR] S3 GetContentPrefix: failed to get object %s: %v", id, err)
 		return nil, err
 	}
-	defer func() { _ = obj.Body.Close() }()
+	defer func() {
+		if cerr := obj.Body.Close(); cerr != nil {
+			log.Printf("[WARN] S3 GetContentPrefix: failed to close response body for %s: %v", id, cerr)
+		}
+	}()
 	data, err := io.ReadAll(obj.Body)
 	if err != nil {
 		log.Printf("[ERROR] S3 GetContentPrefix: failed to read body for %s: %v", id, err)

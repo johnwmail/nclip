@@ -92,17 +92,19 @@ The codebase has specific requirements for 404 handling:
 ## Testing & Development Workflows
 
 ### Test Cleanup Requirements ⚠️
-**CRITICAL**: All tests must clean up artifacts they create. The integration test script (`scripts/integration-test.sh`) uses:
+**CRITICAL**: All tests must clean up artifacts they create. The unified integration test script (`scripts/integration-test.sh`) uses:
 - `TRASH_RECORD_FILE="/tmp/nclip_integration_slugs.txt"` to track created slugs
 - Cleanup function removes only recorded slugs or recently modified files (`-mmin -60`)
 - Never use broad cleanup like `rm -rf ./data/*` - it may delete unrelated data
-- Ensuring the environment is clean before and after every test run
+- Cleanup runs automatically via EXIT trap handlers in lib.sh
+- Unit tests use `defer cleanupTestData(store.dataDir)` to remove test files
+
 This requirement ensures reproducible, reliable tests and prevents leftover artifacts from affecting subsequent runs or deployments.
 
 ### Buffer Size Testing
 Buffer size limits are tested at multiple levels:
-- **Unit tests**: `TestBufferSizeLimit` in `handlers/paste_test.go` tests both direct POST and multipart uploads
-- **Integration tests**: `test_buffer_size_limit()` in `scripts/integration-test.sh` tests end-to-end with real HTTP requests
+- **Unit tests**: `TestBufferSizeLimit` tests both direct POST and multipart uploads
+- **Integration tests**: `test_buffer.sh` module in unified test suite tests end-to-end with real HTTP requests
 - Both test that oversized uploads are rejected with 400 status and appropriate error messages
 
 ### Upload-auth testing
@@ -116,7 +118,7 @@ Upload-auth is a runtime toggle that requires clients to present an API key to u
 - Test: Please passed `go fmt ./...` and `go vet ./...` and `go test ./...` and `golangci-lint run` before building
 - Development: `go run .` 
 - Docker: Multi-stage build with version injection via `--build-arg`
-- Integration tests: `./scripts/integration-test.sh` (requires running server)
+- Integration tests: `bash scripts/integration-test.sh` (requires running server, orchestrates all test modules)
 
 ### Environment Variables
 Key config vars (all prefixed with `NCLIP_`):

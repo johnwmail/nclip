@@ -200,6 +200,22 @@ func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 	return data, nil
 }
 
+// StatContent reports whether content exists on disk and its size.
+func (fs *FilesystemStore) StatContent(id string) (bool, int64, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	contentPath := filepath.Join(fs.dataDir, id)
+	st, err := os.Stat(contentPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, 0, nil
+		}
+		log.Printf("[ERROR] FS StatContent: failed to stat content for %s: %v", id, err)
+		return false, 0, err
+	}
+	return true, st.Size(), nil
+}
+
 // GetContentPrefix reads up to n bytes from the content file. If the file is
 // smaller than n, it returns the full content.
 func (fs *FilesystemStore) GetContentPrefix(id string, n int64) ([]byte, error) {

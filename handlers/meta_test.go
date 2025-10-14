@@ -85,6 +85,13 @@ func (m *MockPasteStore) GetContentPrefix(id string, n int64) ([]byte, error) {
 	return c[:n], nil
 }
 
+func (m *MockPasteStore) StatContent(id string) (bool, int64, error) {
+	if c, ok := m.content[id]; ok {
+		return true, int64(len(c)), nil
+	}
+	return false, 0, nil
+}
+
 func (m *MockPasteStore) SetGetError(err error) {
 	m.getErr = err
 }
