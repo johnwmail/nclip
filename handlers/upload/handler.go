@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -48,13 +49,83 @@ func (h *Handler) parseTTL(c *gin.Context) (time.Time, error) {
 }
 
 // readUploadContent extracts content, filename, and content-type from request
+// Supports X-Base64 header for base64 encoded content
 func (h *Handler) readUploadContent(c *gin.Context) ([]byte, string, string, error) {
 	limit := h.config.BufferSize
 	contentTypeHeader := c.Request.Header.Get("Content-Type")
+
+	var content []byte
+	var filename string
+	var contentType string
+	var err error
+
 	if contentTypeHeader != "" && strings.HasPrefix(contentTypeHeader, "multipart/form-data") {
-		return h.readMultipartUpload(c, limit)
+		content, filename, contentType, err = h.readMultipartUpload(c, limit)
+	} else {
+		content, filename, contentType, err = h.readDirectUpload(c, limit)
 	}
-	return h.readDirectUpload(c, limit)
+
+	if err != nil {
+		return nil, filename, contentType, err
+	}
+
+	// Check if content is base64 encoded
+	if c.GetHeader("X-Base64") != "" {
+		decoded, decodeErr := h.decodeBase64Content(content)
+		if decodeErr != nil {
+			return nil, filename, contentType, decodeErr
+		}
+
+		// Validate decoded content size
+		if int64(len(decoded)) > limit {
+			return nil, filename, contentType, fmt.Errorf("decoded content too large: %d bytes exceeds limit of %d bytes", len(decoded), limit)
+		}
+
+		// Validate decoded content is not empty
+		if len(decoded) == 0 {
+			return nil, filename, contentType, fmt.Errorf("decoded content is empty")
+		}
+
+		// Re-detect content type based on decoded content
+		contentType = utils.DetectContentType(filename, decoded)
+
+		if utils.IsDebugEnabled() {
+			log.Printf("[DEBUG] Base64 decoded: %d bytes → %d bytes", len(content), len(decoded))
+		}
+
+		return decoded, filename, contentType, nil
+	}
+
+	return content, filename, contentType, nil
+}
+
+// decodeBase64Content decodes base64 encoded content
+func (h *Handler) decodeBase64Content(encoded []byte) ([]byte, error) {
+	// Try standard base64 decoding first
+	decoded, err := base64.StdEncoding.DecodeString(string(encoded))
+	if err == nil {
+		return decoded, nil
+	}
+
+	// Try URL-safe base64 as fallback
+	decoded, err = base64.URLEncoding.DecodeString(string(encoded))
+	if err == nil {
+		return decoded, nil
+	}
+
+	// Try raw standard base64 (no padding)
+	decoded, err = base64.RawStdEncoding.DecodeString(string(encoded))
+	if err == nil {
+		return decoded, nil
+	}
+
+	// Try raw URL-safe base64 (no padding)
+	decoded, err = base64.RawURLEncoding.DecodeString(string(encoded))
+	if err != nil {
+		return nil, fmt.Errorf("invalid base64 encoding: %v", err)
+	}
+
+	return decoded, nil
 }
 
 func (h *Handler) readMultipartUpload(c *gin.Context, limit int64) ([]byte, string, string, error) {
@@ -65,16 +136,23 @@ func (h *Handler) readMultipartUpload(c *gin.Context, limit int64) ([]byte, stri
 	defer func() { _ = file.Close() }()
 
 	filename := header.Filename
-	if header.Size > 0 && header.Size > limit {
-		return nil, filename, "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", header.Size, limit)
+
+	// If content is base64 encoded, adjust limit
+	effectiveLimit := limit
+	if c.GetHeader("X-Base64") != "" {
+		effectiveLimit = int64(float64(limit) * 1.34)
 	}
 
-	content, exceeded, err := h.readLimitedContent(file)
+	if header.Size > 0 && header.Size > effectiveLimit {
+		return nil, filename, "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", header.Size, effectiveLimit)
+	}
+
+	content, exceeded, err := h.readLimitedContent(file, effectiveLimit)
 	if err != nil {
 		return nil, filename, "", fmt.Errorf("failed to read file")
 	}
 	if exceeded {
-		return nil, filename, "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
+		return nil, filename, "", fmt.Errorf("content too large: exceeds limit of %d bytes", effectiveLimit)
 	}
 
 	contentType := utils.DetectContentType(filename, content)
@@ -85,16 +163,24 @@ func (h *Handler) readMultipartUpload(c *gin.Context, limit int64) ([]byte, stri
 }
 
 func (h *Handler) readDirectUpload(c *gin.Context, limit int64) ([]byte, string, string, error) {
-	if contentLength := c.Request.ContentLength; contentLength > 0 && contentLength > limit {
-		return nil, "", "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", contentLength, limit)
+	// Adjust limit for base64 overhead if needed
+	effectiveLimit := limit
+	if c.GetHeader("X-Base64") != "" {
+		// Base64 increases size by ~33%, plus potential padding
+		// Use 1.34x multiplier to account for overhead
+		effectiveLimit = int64(float64(limit) * 1.34)
 	}
 
-	content, exceeded, err := h.readLimitedContent(c.Request.Body)
+	if contentLength := c.Request.ContentLength; contentLength > 0 && contentLength > effectiveLimit {
+		return nil, "", "", fmt.Errorf("content too large: %d bytes exceeds limit of %d bytes", contentLength, effectiveLimit)
+	}
+
+	content, exceeded, err := h.readLimitedContent(c.Request.Body, effectiveLimit)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to read content")
 	}
 	if exceeded {
-		return nil, "", "", fmt.Errorf("content too large: exceeds limit of %d bytes", limit)
+		return nil, "", "", fmt.Errorf("content too large: exceeds limit of %d bytes", effectiveLimit)
 	}
 
 	contentType := ""
@@ -114,12 +200,11 @@ func (h *Handler) readDirectUpload(c *gin.Context, limit int64) ([]byte, string,
 	return content, "", contentType, nil
 }
 
-func (h *Handler) readLimitedContent(r io.Reader) ([]byte, bool, error) {
+func (h *Handler) readLimitedContent(r io.Reader, limit int64) ([]byte, bool, error) {
 	if r == nil {
 		return nil, false, fmt.Errorf("nil reader")
 	}
 
-	limit := h.config.BufferSize
 	if limit <= 0 {
 		return nil, false, fmt.Errorf("invalid buffer size configuration: %d", limit)
 	}
@@ -233,11 +318,21 @@ func (h *Handler) Upload(c *gin.Context) {
 		return
 	}
 
+	// Determine if burn-after-read: check X-Burn header first, then fall back to route path
+	burnAfterRead := false
+	if burnHeader := c.GetHeader("X-Burn"); burnHeader != "" {
+		// Support: X-Burn: true, X-Burn: 1, X-Burn: yes
+		burnAfterRead = burnHeader == "true" || burnHeader == "1" || burnHeader == "yes"
+	} else {
+		// Fall back to route-based detection for backward compatibility
+		burnAfterRead = strings.HasSuffix(c.FullPath(), "/burn/")
+	}
+
 	req := services.CreatePasteRequest{
 		Content:       content,
 		Filename:      filename,
 		ContentType:   contentType,
-		BurnAfterRead: strings.HasSuffix(c.FullPath(), "/burn/"),
+		BurnAfterRead: burnAfterRead,
 	}
 
 	// Check for custom slug header

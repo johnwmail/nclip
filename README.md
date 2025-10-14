@@ -81,13 +81,17 @@ echo "Hello World!" | curl -sL --data-binary @- http://localhost:8080
 curl -sL http://localhost:8080/2F4D6          # HTML view
 curl -sL http://localhost:8080/raw/2F4D6      # Raw content
 
+# Upload with base64 encoding (bypass WAF/security filters)
+cat script.sh | base64 | curl -sL --data-binary @- http://localhost:8080/base64
+# Server automatically decodes and stores original content
+
 # Slug length: Slugs must be 3–32 characters. If out of range, default is 5.
 
 # Web interface
 open http://localhost:8080
 ```
 
-For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and advanced features (custom TTL, slugs, etc.), see:
+For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and advanced features (custom TTL, slugs, base64 ... etc.), see:
 
 👉 **[Documents/CLIENTS.md](Documents/CLIENTS.md)** - Complete client usage guide
 
@@ -311,10 +315,13 @@ export NCLIP_PORT=3000
 
 ### Core Endpoints
 - `GET /` — Web UI (upload form, stats)
-- `POST /` — Upload paste (returns URL)
-- `POST /burn/` — Create burn-after-read paste
+- `POST /` — Upload paste (returns URL, supports all headers)
+- `POST /burn/` — Create burn-after-read paste (use `X-Burn` header)
+- `POST /base64` — Upload base64-encoded content (use `X-Base64` header)
 - `GET /{slug}` — HTML view of paste
 - `GET /raw/{slug}` — Raw content download
+
+**Supported Headers:** `X-TTL`, `X-Slug`, `X-Base64`, `X-Burn`, `X-Api-Key` / `Authorization`
 
 ### Metadata API
 - `GET /api/v1/meta/{slug}` — JSON metadata (no content)

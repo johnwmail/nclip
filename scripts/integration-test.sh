@@ -20,6 +20,8 @@ SCRIPTS=(
     "$INTEGRATION_DIR/test_health.sh"
     "$INTEGRATION_DIR/test_paste.sh"
     "$INTEGRATION_DIR/test_burn.sh"
+    "$INTEGRATION_DIR/test_base64.sh"
+    "$INTEGRATION_DIR/test_xburn.sh"
     "$INTEGRATION_DIR/test_extensions_text.sh"
     "$INTEGRATION_DIR/test_extensions_binary.sh"
     "$INTEGRATION_DIR/test_not_found.sh"
