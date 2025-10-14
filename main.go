@@ -291,7 +291,7 @@ func jsonRecovery() gin.HandlerFunc {
 }
 
 // canonicalErrors ensures that if a handler did not write a body but the
-// response status is an error (>=400), a small JSON error body is writtencanonicalErrors.
+// response status is an error (>=400), a small JSON error body is written.
 // This helps intermediaries and CDNs forward a predictable JSON payload.
 func canonicalErrors() gin.HandlerFunc {
 	return func(c *gin.Context) {
