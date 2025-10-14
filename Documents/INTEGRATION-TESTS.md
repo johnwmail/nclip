@@ -2,7 +2,7 @@
 
 
 
-This document describes the integration test suite for the nclip service.This directory contains integration tests for the nclip service.
+This document describes the integration test suite for the nclip service.
 
 
 
