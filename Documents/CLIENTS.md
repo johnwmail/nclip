@@ -34,6 +34,35 @@ echo "Expiring soon" | curl -sL --data-binary @- -H "X-TTL: 2h" http://localhost
 echo "My custom slug" | curl -sL --data-binary @- -H "X-SLUG: MYPASTE" http://localhost:8080
 ```
 
+**Upload with Base64 encoding (bypass WAF/security filters):**
+
+Method 1 - Using dedicated route:
+```bash
+echo "Content with special chars" | base64 | curl -sL --data-binary @- http://localhost:8080/base64
+```
+
+Method 2 - Using header:
+```bash
+echo "Content with special chars" | base64 | curl -sL --data-binary @- -H "X-Base64: true" http://localhost:8080
+```
+
+Upload shell script (bypass WAF):
+```bash
+cat script.sh | base64 | curl -sL --data-binary @- http://localhost:8080/base64
+```
+
+Base64 + Burn-after-read (using X-Burn header):
+```bash
+echo "secret" | base64 | curl -sL --data-binary @- -H "X-Burn: true" http://localhost:8080/base64
+```
+
+Base64 + Custom TTL:
+```bash
+echo "expires soon" | base64 | curl -sL --data-binary @- -H "X-TTL: 2h" http://localhost:8080/base64
+```
+
+> **Note**: The server automatically decodes base64 content before storage. Retrieved content is returned in its original (decoded) form. This feature is useful for bypassing WAF/security filters that block certain patterns in plain text.
+
 ### API Key / Upload Auth Examples
 
 If `NCLIP_UPLOAD_AUTH=true` is set on the server, upload endpoints require an API key. You can provide the key either via the `Authorization: Bearer <key>` header or the `X-Api-Key: <key>` header.
@@ -82,6 +111,11 @@ echo "Expiring soon" | wget --method=POST --header="X-TTL: 2h" --body-data="$(ca
 echo "My custom slug" | wget --method=POST --header="X-SLUG: MYPASTE" --body-data="$(cat)" http://localhost:8080 -O -
 ```
 
+**Upload with Base64 encoding:**
+```bash
+echo "Content with special chars" | base64 | wget --method=POST --body-data="$(cat)" http://localhost:8080/base64 -O -
+```
+
 ---
 
 ### 3. PowerShell (Windows)
@@ -106,6 +140,13 @@ Invoke-WebRequest -Uri http://localhost:8080 -Method POST -Body "Expiring soon" 
 Invoke-WebRequest -Uri http://localhost:8080 -Method POST -Body "My custom slug" -Headers @{"X-SLUG"="MYPASTE"} -UseBasicParsing
 ```
 
+**Upload with Base64 encoding:**
+```powershell
+$content = "Content with special chars"
+$base64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($content))
+Invoke-WebRequest -Uri http://localhost:8080/base64 -Method POST -Body $base64 -UseBasicParsing
+```
+
 ---
 
 ### 4. HTTPie (Linux/macOS/Windows)
@@ -128,6 +169,11 @@ echo "Expiring soon" | http POST http://localhost:8080 X-TTL:2h
 **Set custom slug/ID:**
 ```bash
 echo "My custom slug" | http POST http://localhost:8080 X-SLUG:MYPASTE
+```
+
+**Upload with Base64 encoding:**
+```bash
+echo "Content with special chars" | base64 | http POST http://localhost:8080/base64
 ```
 
 ---
@@ -170,10 +216,40 @@ echo "Hello from stdin" | nclip
 
 ### 6. Advanced: Burn-After-Read
 
-**Create burn-after-read paste (curl):**
+Burn-after-read pastes self-destruct after being accessed once. You can create them using either the `/burn/` route or the `X-Burn` header.
+
+**Method 1: Using X-Burn header (recommended):**
+```bash
+echo "Self-destruct message" | curl -sL --data-binary @- -H "X-Burn: true" http://localhost:8080/
+```
+
+**Method 2: Using /burn/ route (backward compatible):**
 ```bash
 echo "Self-destruct message" | curl -sL --data-binary @- http://localhost:8080/burn/
 ```
+
+**Burn-after-read with other features:**
+```bash
+# Burn + Base64 encoding
+echo "secret" | base64 | curl -sL --data-binary @- \
+    -H "X-Burn: true" \
+    -H "X-Base64: true" \
+    http://localhost:8080/
+
+# Burn + Custom TTL (expires in 1 hour OR after first read, whichever comes first)
+echo "Expires soon" | curl -sL --data-binary @- \
+    -H "X-Burn: 1" \
+    -H "X-TTL: 1h" \
+    http://localhost:8080/
+
+# Burn + Custom Slug
+echo "Custom burn paste" | curl -sL --data-binary @- \
+    -H "X-Burn: yes" \
+    -H "X-Slug: MYBURN" \
+    http://localhost:8080/
+```
+
+**X-Burn accepted values:** `true`, `1`, `yes` (case-sensitive)
 
 Preview/Rendering behavior:
 
@@ -191,10 +267,84 @@ Pastes whose size is <= 65536 bytes are rendered inline. Larger pastes show a 64
 
 ---
 
-### 7. Notes on Custom Headers
+### 7. Base64 Encoding Feature
 
-- `X-TTL`: Set a custom time-to-live (expiry) for a paste. Valid range: 1h–7d. Example: `X-TTL: 2h`
-- `X-SLUG`: Specify a custom slug/ID for the paste. Must be unique and valid. Example: `X-SLUG: MYPASTE`
-- Other `X-XXX` headers (e.g., `X-Forwarded-Proto`, `X-Scheme`) may be used for proxy detection, HTTPS, and debugging.
+The `/base64` endpoint (and `X-Base64: true` header) allows you to bypass WAF (Web Application Firewall) or security filters that may block certain content patterns.
+
+**Why use base64 encoding?**
+- Bypass WAF blocking shell scripts or curl commands
+- Work around API Gateway content filters
+- Upload content with special characters that trigger security rules
+
+**How it works:**
+1. Encode your content as base64 before uploading
+2. Server automatically decodes and stores the original content
+3. Content is retrieved in its original (decoded) form
+
+**Supported routes:**
+- `POST /base64` - Standard upload with base64
+- `POST /` with header `X-Base64: true` - Any route with encoding header
+
+**Encoding variants supported:**
+- Standard base64 (RFC 4648)
+- URL-safe base64 (RFC 4648)
+- Raw (no padding) variants
+
+See `.github/BASE64_FEATURE_SUMMARY.md` for detailed documentation.
+
+---
+
+### 8. Custom Headers Reference
+
+nclip supports several custom HTTP headers to control paste behavior. All headers are optional and can be combined.
+
+**Content Headers:**
+- `X-Base64: true` - Upload base64-encoded content. Server decodes before storage. Useful for bypassing WAF/security filters.
+- `X-Slug: <custom-id>` - Specify a custom slug/ID for the paste. Must be 3-32 characters, alphanumeric only (A-Z, 2-9, excluding confusing chars: 0, 1, O, I).
+
+**Behavior Headers:**
+- `X-TTL: <duration>` - Set custom time-to-live (expiry). Valid range: 1h to 7d. Examples: `2h`, `24h`, `3d`, `7d`
+- `X-Burn: <value>` - Enable burn-after-read. Accepted values: `true`, `1`, `yes`. Paste self-destructs after first access.
+
+**Authentication Headers:**
+- `Authorization: Bearer <key>` - API key authentication (when `NCLIP_UPLOAD_AUTH=true` on server)
+- `X-Api-Key: <key>` - Alternative API key header
+
+**Proxy/HTTPS Detection Headers** (usually set by reverse proxy, not manually):
+- `X-Forwarded-Proto: https` - Indicate HTTPS protocol
+- `CloudFront-Forwarded-Proto: https` - CloudFront HTTPS indicator
+- Other `X-Forwarded-*` headers - Various proxy detection
+
+**Header Combination Examples:**
+
+```bash
+# Base64 + Burn + Custom TTL
+echo "secret script" | base64 | curl -sL --data-binary @- \
+    -H "X-Base64: true" \
+    -H "X-Burn: true" \
+    -H "X-TTL: 2h" \
+    http://localhost:8080/
+
+# Custom Slug + TTL
+echo "Important data" | curl -sL --data-binary @- \
+    -H "X-Slug: DATA2024" \
+    -H "X-TTL: 7d" \
+    http://localhost:8080/
+
+# Burn + API Key (when auth enabled)
+echo "Confidential" | curl -sL --data-binary @- \
+    -H "X-Burn: 1" \
+    -H "X-Api-Key: my-secret-key" \
+    http://localhost:8080/
+
+# All features combined
+cat sensitive.sh | base64 | curl -sL --data-binary @- \
+    -H "X-Base64: true" \
+    -H "X-Burn: true" \
+    -H "X-TTL: 1h" \
+    -H "X-Slug: DEPLOY" \
+    -H "Authorization: Bearer my-key" \
+    http://localhost:8080/
+```
 
 See the main README and API documentation for more details.

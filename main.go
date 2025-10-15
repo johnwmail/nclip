@@ -250,9 +250,13 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 		auth := apiKeyAuth(cfg)
 		router.POST("/", auth, uploadHandler.Upload)
 		router.POST("/burn/", auth, uploadHandler.UploadBurn)
+		// Base64 upload routes (shortcut that auto-sets X-Content-Encoding header)
+		router.POST("/base64", auth, base64UploadMiddleware(), uploadHandler.Upload)
 	} else {
 		router.POST("/", uploadHandler.Upload)
 		router.POST("/burn/", uploadHandler.UploadBurn)
+		// Base64 upload routes (shortcut that auto-sets X-Content-Encoding header)
+		router.POST("/base64", base64UploadMiddleware(), uploadHandler.Upload)
 	}
 	router.GET("/:slug", retrievalHandler.View)
 	router.GET("/raw/:slug", retrievalHandler.Raw)
@@ -272,6 +276,15 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	})
 
 	return router
+}
+
+// base64UploadMiddleware sets the X-Base64 header
+// This allows /base64 route to automatically enable base64 decoding
+func base64UploadMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Header.Set("X-Base64", "true")
+		c.Next()
+	}
 }
 
 // jsonRecovery returns a middleware that recovers from panics and ensures
