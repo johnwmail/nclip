@@ -41,13 +41,16 @@ func headerEnabled(c *gin.Context, header string) bool {
 	if len(vals) == 0 {
 		return true
 	}
-	v := strings.TrimSpace(vals[0])
-	if v == "" {
-		return true
-	}
-	v = strings.ToLower(v)
-	if v == "0" || v == "false" || v == "no" {
-		return false
+	// Scan all values for explicit disabling tokens
+	for _, v := range vals {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue // empty value counts as enabled, keep scanning
+		}
+		lv := strings.ToLower(v)
+		if lv == "0" || lv == "false" || lv == "no" {
+			return false
+		}
 	}
 	return true
 }
