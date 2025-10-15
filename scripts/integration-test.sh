@@ -18,19 +18,20 @@ enable_cleanup_trap
 # List of all integration test scripts to run
 SCRIPTS=(
     "$INTEGRATION_DIR/test_health.sh"
-    "$INTEGRATION_DIR/test_paste.sh"
-    "$INTEGRATION_DIR/test_burn.sh"
     "$INTEGRATION_DIR/test_base64.sh"
-    "$INTEGRATION_DIR/test_xburn.sh"
-    "$INTEGRATION_DIR/test_extensions_text.sh"
-    "$INTEGRATION_DIR/test_extensions_binary.sh"
-    "$INTEGRATION_DIR/test_not_found.sh"
-    "$INTEGRATION_DIR/test_xttl.sh"
-    "$INTEGRATION_DIR/test_slug_collision.sh"
-    "$INTEGRATION_DIR/test_expired.sh"
+    "$INTEGRATION_DIR/test_burn.sh"
     "$INTEGRATION_DIR/test_buffer.sh"
+    "$INTEGRATION_DIR/test_expired.sh"
+    "$INTEGRATION_DIR/test_extensions_binary.sh"
+    "$INTEGRATION_DIR/test_extensions_text.sh"
+    "$INTEGRATION_DIR/test_not_found.sh"
+    "$INTEGRATION_DIR/test_paste.sh"
     "$INTEGRATION_DIR/test_preview.sh"
     "$INTEGRATION_DIR/test_size_mismatch.sh"
+    "$INTEGRATION_DIR/test_slug_collision.sh"
+    "$INTEGRATION_DIR/test_xbase64.sh"
+    "$INTEGRATION_DIR/test_xburn.sh"
+    "$INTEGRATION_DIR/test_xttl.sh"
 )
 
 # Print test environment configuration

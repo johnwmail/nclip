@@ -70,7 +70,8 @@ func (h *Handler) readUploadContent(c *gin.Context) ([]byte, string, string, err
 	}
 
 	// Check if content is base64 encoded
-	if c.GetHeader("X-Base64") != "" {
+	// Support: X-Base64: true, X-Base64: 1, X-Base64: yes
+	if base64Header := c.GetHeader("X-Base64"); base64Header == "true" || base64Header == "1" || base64Header == "yes" {
 		decoded, decodeErr := h.decodeBase64Content(content)
 		if decodeErr != nil {
 			return nil, filename, contentType, decodeErr
@@ -165,7 +166,7 @@ func (h *Handler) readMultipartUpload(c *gin.Context, limit int64) ([]byte, stri
 func (h *Handler) readDirectUpload(c *gin.Context, limit int64) ([]byte, string, string, error) {
 	// Adjust limit for base64 overhead if needed
 	effectiveLimit := limit
-	if c.GetHeader("X-Base64") != "" {
+	if base64Header := c.GetHeader("X-Base64"); base64Header == "true" || base64Header == "1" || base64Header == "yes" {
 		// Base64 increases size by ~33%, plus potential padding
 		// Use 1.34x multiplier to account for overhead
 		effectiveLimit = int64(float64(limit) * 1.34)
