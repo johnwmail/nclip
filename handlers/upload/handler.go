@@ -30,6 +30,31 @@ func NewHandler(service *services.PasteService, config *config.Config) *Handler 
 	}
 }
 
+// headerEnabled returns true if the given header key is present and not
+// explicitly disabled. Presence with an empty value counts as enabled.
+// Explicit disabling values (case-insensitive): "0", "false", "no".
+func headerEnabled(c *gin.Context, header string) bool {
+	vals, ok := c.Request.Header[header]
+	if !ok {
+		return false
+	}
+	if len(vals) == 0 {
+		return true
+	}
+	// Scan all values for explicit disabling tokens
+	for _, v := range vals {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue // empty value counts as enabled, keep scanning
+		}
+		lv := strings.ToLower(v)
+		if lv == "0" || lv == "false" || lv == "no" {
+			return false
+		}
+	}
+	return true
+}
+
 // parseTTL parses TTL from X-TTL header or uses default
 func (h *Handler) parseTTL(c *gin.Context) (time.Time, error) {
 	ttlStr := c.GetHeader("X-TTL")
@@ -70,8 +95,8 @@ func (h *Handler) readUploadContent(c *gin.Context) ([]byte, string, string, err
 	}
 
 	// Check if content is base64 encoded
-	// Support: X-Base64: true, X-Base64: 1, X-Base64: yes
-	if base64Header := c.GetHeader("X-Base64"); base64Header == "true" || base64Header == "1" || base64Header == "yes" {
+	// Semantics: header presence enables base64 unless explicitly set to 0/false/no
+	if headerEnabled(c, "X-Base64") {
 		decoded, decodeErr := h.decodeBase64Content(content)
 		if decodeErr != nil {
 			return nil, filename, contentType, decodeErr
@@ -140,7 +165,7 @@ func (h *Handler) readMultipartUpload(c *gin.Context, limit int64) ([]byte, stri
 
 	// If content is base64 encoded, adjust limit
 	effectiveLimit := limit
-	if c.GetHeader("X-Base64") != "" {
+	if headerEnabled(c, "X-Base64") {
 		effectiveLimit = int64(float64(limit) * 1.34)
 	}
 
@@ -166,7 +191,7 @@ func (h *Handler) readMultipartUpload(c *gin.Context, limit int64) ([]byte, stri
 func (h *Handler) readDirectUpload(c *gin.Context, limit int64) ([]byte, string, string, error) {
 	// Adjust limit for base64 overhead if needed
 	effectiveLimit := limit
-	if base64Header := c.GetHeader("X-Base64"); base64Header == "true" || base64Header == "1" || base64Header == "yes" {
+	if headerEnabled(c, "X-Base64") {
 		// Base64 increases size by ~33%, plus potential padding
 		// Use 1.34x multiplier to account for overhead
 		effectiveLimit = int64(float64(limit) * 1.34)
@@ -321,9 +346,9 @@ func (h *Handler) Upload(c *gin.Context) {
 
 	// Determine if burn-after-read: check X-Burn header first, then fall back to route path
 	burnAfterRead := false
-	if burnHeader := c.GetHeader("X-Burn"); burnHeader != "" {
-		// Support: X-Burn: true, X-Burn: 1, X-Burn: yes
-		burnAfterRead = burnHeader == "true" || burnHeader == "1" || burnHeader == "yes"
+	// Support header-presence semantics: X-Burn enables burn unless explicitly disabled
+	if headerEnabled(c, "X-Burn") {
+		burnAfterRead = true
 	} else {
 		// Fall back to route-based detection for backward compatibility
 		burnAfterRead = strings.HasSuffix(c.FullPath(), "/burn/")
