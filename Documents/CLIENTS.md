@@ -290,7 +290,9 @@ The `/base64` endpoint (and `X-Base64: true` header) allows you to bypass WAF (W
 - URL-safe base64 (RFC 4648)
 - Raw (no padding) variants
 
-See `.github/BASE64_FEATURE_SUMMARY.md` for detailed documentation.
+For full header semantics, examples, and middleware precedence, see:
+
+👉 **[Documents/X-HEADERS.md](Documents/X-HEADERS.md)**
 
 ---
 

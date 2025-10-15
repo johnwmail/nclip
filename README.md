@@ -91,9 +91,13 @@ cat script.sh | base64 | curl -sL --data-binary @- http://localhost:8080/base64
 open http://localhost:8080
 ```
 
-For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and advanced features (custom TTL, slugs, base64 ... etc.), see:
+For comprehensive client usage examples with curl, wget, PowerShell, HTTPie, and advanced features (custom TTL, slugs, base64, burn, etc.), see:
 
 👉 **[Documents/CLIENTS.md](Documents/CLIENTS.md)** - Complete client usage guide
+
+For detailed reference on custom HTTP headers (X-Base64, X-Burn, X-TTL, X-Slug, etc.), see:
+
+👉 **[Documents/X-HEADERS.md](Documents/X-HEADERS.md)** - Header behavior, examples, and middleware/route precedence
 
 
 <a id="deployment"></a>
