@@ -91,6 +91,19 @@ The codebase has specific requirements for 404 handling:
 
 ## Testing & Development Workflows
 
+### Required Before Each Commit
+- Run `go fmt ./...` and `golangci-lint run` before committing any changes to ensure proper code formatting and linting
+- This will run gofmt on all Go files to maintain consistent style
+
+### Development Flow
+- Code changes, add new feature and bug fixes
+  ** If adding new features, add corresponding unit tests, integration tests, and update documentation (Documents/* and README.md as needed)
+- Ensure no linting errors with `golangci-lint run`, `go fmt ./...`, and `go vet ./...`
+- Run unit tests with `go test ./...` to verify functionality
+- Run integration tests with `bash scripts/integration-test.sh` (requires stop and re-running server, `pkill nclip` and `go run . &`)
+- Address any issues found during testing and repeat until all tests pass
+- Before pushing changes, ensure all above steps is passed and code is clean
+
 ### Test Cleanup Requirements ⚠️
 **CRITICAL**: All tests must clean up artifacts they create. The unified integration test script (`scripts/integration-test.sh`) uses:
 - `TRASH_RECORD_FILE="/tmp/nclip_integration_slugs.txt"` to track created slugs
@@ -113,12 +126,6 @@ Upload-auth is a runtime toggle that requires clients to present an API key to u
 - `NCLIP_API_KEYS` contains the comma-separated allowed keys the server accepts. In CI the integration job generates a random key and writes it here.
 - `NCLIP_TEST_API_KEY` (or `NCLIP_TEST_API_KEY_BEARER`) is used by the integration script to authenticate requests when `NCLIP_UPLOAD_AUTH=true`.
 - Integration tests assert unauthenticated uploads return 401 when auth is enabled and verify authenticated uploads succeed using the generated test key.
-
-### Build Commands
-- Test: Please passed `go fmt ./...` and `go vet ./...` and `go test ./...` and `golangci-lint run` before building
-- Development: `go run .` 
-- Docker: Multi-stage build with version injection via `--build-arg`
-- Integration tests: `bash scripts/integration-test.sh` (requires running server, orchestrates all test modules)
 
 ### Environment Variables
 Key config vars (all prefixed with `NCLIP_`):
