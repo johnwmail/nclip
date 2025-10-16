@@ -35,24 +35,31 @@ func NewHandler(service *services.PasteService, config *config.Config) *Handler 
 // Explicit disabling values (case-insensitive): "0", "false", "no".
 func headerEnabled(c *gin.Context, header string) bool {
 	vals, ok := c.Request.Header[header]
-	if !ok {
+	if !ok || len(vals) == 0 {
 		return false
 	}
-	if len(vals) == 0 {
+
+	// If any value indicates enabled (empty or non-disabling), treat header as enabled.
+	// Only return false if all values are explicit disabling tokens.
+	allDisabled := true
+	for _, raw := range vals {
+		v := strings.TrimSpace(raw)
+		if v == "" {
+			return true
+		}
+		vl := strings.ToLower(v)
+		if vl == "0" || vl == "false" || vl == "no" {
+			// this value explicitly disables; keep checking others
+			continue
+		}
+		// any other non-empty value -> enabled
 		return true
 	}
-	// Scan all values for explicit disabling tokens
-	for _, v := range vals {
-		v = strings.TrimSpace(v)
-		if v == "" {
-			continue // empty value counts as enabled, keep scanning
-		}
-		lv := strings.ToLower(v)
-		if lv == "0" || lv == "false" || lv == "no" {
-			return false
-		}
+	// If we got here, every value was an explicit disabling token
+	if allDisabled {
+		return false
 	}
-	return true
+	return false
 }
 
 // parseTTL parses TTL from X-TTL header or uses default

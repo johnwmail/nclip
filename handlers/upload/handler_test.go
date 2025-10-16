@@ -16,6 +16,83 @@ import (
 	"github.com/johnwmail/nclip/storage"
 )
 
+// base64Test is a lightweight descriptor for the table-driven base64 tests.
+type base64Test struct {
+	name          string
+	content       string
+	useBase64     bool
+	useRoute      bool // Use /base64 route instead of header
+	expectError   bool
+	errorContains string
+}
+
+// buildTestBody prepares the request body string for a test case.
+func buildTestBody(tt base64Test) string {
+	if !tt.useBase64 {
+		return tt.content
+	}
+	// When expecting invalid base64, return the raw (invalid) content
+	if tt.errorContains == "invalid base64 encoding" {
+		return tt.content
+	}
+	// Empty content encodes to empty string
+	if tt.content == "" {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString([]byte(tt.content))
+}
+
+// executeBase64Case runs a single base64 test case against the given handler.
+func executeBase64Case(t *testing.T, handler *Handler, tt base64Test) {
+	router := gin.New()
+
+	if tt.useRoute {
+		router.POST("/base64", func(c *gin.Context) {
+			c.Request.Header.Set("X-Base64", "true")
+			c.Next()
+		}, handler.Upload)
+	} else {
+		router.POST("/", handler.Upload)
+	}
+
+	body := buildTestBody(tt)
+
+	path := "/"
+	if tt.useRoute {
+		path = "/base64"
+	}
+
+	req := httptest.NewRequest("POST", path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "text/plain")
+	if tt.useBase64 && !tt.useRoute {
+		req.Header.Set("X-Base64", "true")
+	}
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if tt.expectError {
+		if w.Code == 200 {
+			t.Errorf("Expected error but got success")
+			return
+		}
+		if tt.errorContains != "" && !strings.Contains(w.Body.String(), tt.errorContains) {
+			t.Errorf("Expected error containing %q, got: %s", tt.errorContains, w.Body.String())
+		}
+		return
+	}
+
+	if w.Code != 200 {
+		t.Errorf("Expected success but got status %d: %s", w.Code, w.Body.String())
+		return
+	}
+
+	bodyStr := w.Body.String()
+	if !strings.Contains(bodyStr, "slug") {
+		t.Errorf("Response missing slug: %s", bodyStr)
+	}
+}
+
 func TestBase64Decoding(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
