@@ -41,7 +41,6 @@ func headerEnabled(c *gin.Context, header string) bool {
 
 	// If any value indicates enabled (empty or non-disabling), treat header as enabled.
 	// Only return false if all values are explicit disabling tokens.
-	allDisabled := true
 	for _, raw := range vals {
 		v := strings.TrimSpace(raw)
 		if v == "" {
@@ -56,9 +55,6 @@ func headerEnabled(c *gin.Context, header string) bool {
 		return true
 	}
 	// If we got here, every value was an explicit disabling token
-	if allDisabled {
-		return false
-	}
 	return false
 }
 
