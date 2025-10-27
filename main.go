@@ -321,31 +321,25 @@ func canonicalErrors() gin.HandlerFunc {
 		ct := bcw.Header().Get("Content-Type")
 
 		if status >= 400 {
-			// Determine a suitable message to expose
-			var msg string
-
-			// If there is JSON body, try extracting its message/error
-			if len(buf) > 0 && strings.Contains(ct, "application/json") {
-				var parsed map[string]interface{}
-				if err := json.Unmarshal(buf, &parsed); err == nil {
-					if e, ok := parsed["error"].(string); ok {
-						msg = e
-					} else if m, ok := parsed["message"].(string); ok {
-						msg = m
-					}
-				}
-			}
-
-			// If not found, use raw body text if present
-			if msg == "" {
+			// If the client explicitly accepts HTML, forward the original
+			// buffered response unchanged so browsers receive the HTML page.
+			// Only canonicalize to JSON for clients that do not accept HTML
+			// (e.g., APIs / CLI tools).
+			accept := c.Request.Header.Get("Accept")
+			if strings.Contains(accept, "text/html") {
 				if len(buf) > 0 {
-					msg = string(bytes.TrimSpace(buf))
-				} else if len(c.Errors) > 0 {
-					msg = c.Errors.Last().Error()
+					origWriter.WriteHeader(status)
+					if _, err := origWriter.Write(buf); err != nil {
+						log.Printf("[ERROR] canonicalErrors: failed to write response body: %v", err)
+					}
 				} else {
-					msg = http.StatusText(status)
+					origWriter.WriteHeader(status)
 				}
+				return
 			}
+
+			// Determine a suitable message to expose
+			msg := getErrorMessage(buf, ct, c, status)
 
 			// Write canonical JSON to the original writer
 			origWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -366,6 +360,46 @@ func canonicalErrors() gin.HandlerFunc {
 			}
 		}
 	}
+}
+
+// getErrorMessage extracts a suitable error message from the response body,
+// gin.Context errors, or HTTP status text.
+//
+// Parameters:
+//
+//	buf    - the response body as a byte slice
+//	ct     - the content-type of the response
+//	c      - the gin.Context for the current request
+//	status - the HTTP status code of the response
+//
+// Returns:
+//
+//	A string containing a suitable error message for the client.
+func getErrorMessage(buf []byte, ct string, c *gin.Context, status int) string {
+	// If there is a JSON body, try extracting its message/error
+	if len(buf) > 0 && strings.Contains(ct, "application/json") {
+		var parsed map[string]interface{}
+		if err := json.Unmarshal(buf, &parsed); err == nil {
+			if e, ok := parsed["error"].(string); ok {
+				return e
+			}
+			if m, ok := parsed["message"].(string); ok {
+				return m
+			}
+		}
+	}
+
+	// If not found, use raw body text if present
+	if len(buf) > 0 {
+		return string(bytes.TrimSpace(buf))
+	}
+
+	// Fallback to gin errors or status text
+	if len(c.Errors) > 0 {
+		return c.Errors.Last().Error()
+	}
+
+	return http.StatusText(status)
 }
 
 // apiKeyAuth returns a middleware that validates API keys supplied via

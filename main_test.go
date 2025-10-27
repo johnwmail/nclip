@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -731,5 +732,65 @@ func TestUploadAuthEnforced(t *testing.T) {
 	router.ServeHTTP(w2, req2)
 	if w2.Code != http.StatusOK {
 		t.Fatalf("Expected 200 when valid key provided, got %d (body: %s)", w2.Code, w2.Body.String())
+	}
+}
+
+func TestNotFoundBrowser(t *testing.T) {
+	// The main router setup includes the canonicalErrors middleware,
+	// so this test will correctly exercise the logic that returns
+	// HTML for browser-like requests.
+	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/ABADPASTE", nil)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
+	}
+
+	contentType := w.Header().Get("Content-Type")
+	if !strings.HasPrefix(contentType, "text/html") {
+		t.Errorf("Expected Content-Type to be text/html, got %s", contentType)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "<!DOCTYPE html>") {
+		t.Errorf("Expected body to contain <!DOCTYPE html>, but it did not.")
+	}
+}
+
+func TestNotFoundCLI(t *testing.T) {
+	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/ABADPASTE", nil)
+	// CLI-like headers (no text/html in Accept)
+	req.Header.Set("Accept", "application/json, */*")
+	req.Header.Set("User-Agent", "curl/7.81.0")
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status 404, got %d", w.Code)
+	}
+
+	contentType := w.Header().Get("Content-Type")
+	if !strings.HasPrefix(contentType, "application/json") {
+		t.Errorf("Expected Content-Type to be application/json, got %s", contentType)
+	}
+
+	var response map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal JSON response: %v", err)
+	}
+
+	if _, ok := response["error"]; !ok {
+		t.Errorf("Expected JSON response to have an 'error' key")
 	}
 }
