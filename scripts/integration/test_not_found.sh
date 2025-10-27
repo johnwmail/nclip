@@ -54,7 +54,7 @@ test_not_found_browser() {
     local body
     body=$(curl -sS "${CURL_AUTH_ARGS[@]}" -A "$ua" -H "Accept: text/html" "$NCLIP_URL/$slug" || true)
 
-    if [[ "$content_type" == "text/html" ]] || echo "$body" | grep -qi "<!doctype html\|<html"; then
+    if [[ "$content_type" == "text/html" ]] || echo "$body" | grep -qiE '<!doctype html|<html'; then
         success "Browser 404 HTML test passed"
         return 0
     else
