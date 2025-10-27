@@ -42,10 +42,26 @@ func buildTestBody(tt base64Test) string {
 	return base64.StdEncoding.EncodeToString([]byte(tt.content))
 }
 
-// executeBase64Case runs a single base64 test case against the given handler.
-func executeBase64Case(t *testing.T, handler *Handler, tt base64Test) {
+// setupTestRouterForBase64 creates a Gin router and handler for base64 tests.
+func setupTestRouterForBase64(t *testing.T) (*gin.Engine, *Handler) {
+	gin.SetMode(gin.TestMode)
+	store, err := storage.NewFilesystemStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create store: %v", err)
+	}
+	cfg := &config.Config{
+		BufferSize: 1024 * 1024, // 1MB
+		DefaultTTL: 24 * time.Hour,
+	}
+	service := services.NewPasteService(store, cfg)
+	handler := NewHandler(service, cfg)
 	router := gin.New()
+	return router, handler
+}
 
+// runBase64TestCase executes a single test case.
+func runBase64TestCase(t *testing.T, handler *Handler, tt base64Test) {
+	router := gin.New()
 	if tt.useRoute {
 		router.POST("/base64", func(c *gin.Context) {
 			c.Request.Header.Set("X-Base64", "true")
@@ -56,7 +72,6 @@ func executeBase64Case(t *testing.T, handler *Handler, tt base64Test) {
 	}
 
 	body := buildTestBody(tt)
-
 	path := "/"
 	if tt.useRoute {
 		path = "/base64"
@@ -74,50 +89,24 @@ func executeBase64Case(t *testing.T, handler *Handler, tt base64Test) {
 	if tt.expectError {
 		if w.Code == 200 {
 			t.Errorf("Expected error but got success")
-			return
 		}
 		if tt.errorContains != "" && !strings.Contains(w.Body.String(), tt.errorContains) {
 			t.Errorf("Expected error containing %q, got: %s", tt.errorContains, w.Body.String())
 		}
-		return
-	}
-
-	if w.Code != 200 {
-		t.Errorf("Expected success but got status %d: %s", w.Code, w.Body.String())
-		return
-	}
-
-	bodyStr := w.Body.String()
-	if !strings.Contains(bodyStr, "slug") {
-		t.Errorf("Response missing slug: %s", bodyStr)
+	} else {
+		if w.Code != 200 {
+			t.Errorf("Expected success but got status %d: %s", w.Code, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), "slug") {
+			t.Errorf("Response missing slug: %s", w.Body.String())
+		}
 	}
 }
 
 func TestBase64Decoding(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	_, handler := setupTestRouterForBase64(t)
 
-	// Create temp storage
-	store, err := storage.NewFilesystemStore(t.TempDir())
-	if err != nil {
-		t.Fatalf("Failed to create store: %v", err)
-	}
-
-	cfg := &config.Config{
-		BufferSize: 1024 * 1024, // 1MB
-		DefaultTTL: 24 * time.Hour,
-	}
-
-	service := services.NewPasteService(store, cfg)
-	handler := NewHandler(service, cfg)
-
-	tests := []struct {
-		name          string
-		content       string
-		useBase64     bool
-		useRoute      bool // Use /base64 route instead of header
-		expectError   bool
-		errorContains string
-	}{
+	tests := []base64Test{
 		{
 			name:        "Plain text upload - no encoding",
 			content:     "Hello, World!",
@@ -168,72 +157,7 @@ func TestBase64Decoding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := gin.New()
-
-			// Setup routes similar to main.go
-			if tt.useRoute {
-				router.POST("/base64", func(c *gin.Context) {
-					c.Request.Header.Set("X-Base64", "true")
-					c.Next()
-				}, handler.Upload)
-			} else {
-				router.POST("/", handler.Upload)
-			}
-
-			// Prepare request body
-			var body string
-			if tt.useBase64 {
-				if tt.errorContains == "invalid base64 encoding" {
-					// Use invalid base64
-					body = tt.content
-				} else if tt.content == "" {
-					// Empty content encodes to empty string
-					body = ""
-				} else {
-					body = base64.StdEncoding.EncodeToString([]byte(tt.content))
-				}
-			} else {
-				body = tt.content
-			}
-
-			// Create request
-			path := "/"
-			if tt.useRoute {
-				path = "/base64"
-			}
-
-			req := httptest.NewRequest("POST", path, strings.NewReader(body))
-			req.Header.Set("Content-Type", "text/plain")
-
-			// Set header if not using route
-			if tt.useBase64 && !tt.useRoute {
-				req.Header.Set("X-Base64", "true")
-			}
-
-			// Execute request
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-
-			// Check results
-			if tt.expectError {
-				if w.Code == 200 {
-					t.Errorf("Expected error but got success")
-				}
-				if tt.errorContains != "" && !strings.Contains(w.Body.String(), tt.errorContains) {
-					t.Errorf("Expected error containing %q, got: %s", tt.errorContains, w.Body.String())
-				}
-			} else {
-				if w.Code != 200 {
-					t.Errorf("Expected success but got status %d: %s", w.Code, w.Body.String())
-				}
-
-				// Verify the paste was created by retrieving it
-				// Parse response to get slug
-				body := w.Body.String()
-				if !strings.Contains(body, "slug") {
-					t.Errorf("Response missing slug: %s", body)
-				}
-			}
+			runBase64TestCase(t, handler, tt)
 		})
 	}
 }
