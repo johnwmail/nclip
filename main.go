@@ -366,13 +366,15 @@ func canonicalErrors() gin.HandlerFunc {
 // gin.Context errors, or HTTP status text.
 //
 // Parameters:
-//   buf    - the response body as a byte slice
-//   ct     - the content-type of the response
-//   c      - the gin.Context for the current request
-//   status - the HTTP status code of the response
+//
+//	buf    - the response body as a byte slice
+//	ct     - the content-type of the response
+//	c      - the gin.Context for the current request
+//	status - the HTTP status code of the response
 //
 // Returns:
-//   A string containing a suitable error message for the client.
+//
+//	A string containing a suitable error message for the client.
 func getErrorMessage(buf []byte, ct string, c *gin.Context, status int) string {
 	// If there is a JSON body, try extracting its message/error
 	if len(buf) > 0 && strings.Contains(ct, "application/json") {
