@@ -60,14 +60,25 @@ func (h *Handler) isHTTPS(c *gin.Context) bool {
 	return false
 }
 
-// isCli detects if the request is from CLI (curl, wget, Invoke-WebRequest, Invoke-RestMethod, etc.)
+// isCli detects if the request is from a CLI tool. It checks the User-Agent
+// and also considers the Accept header to avoid misclassifying browsers.
 func (h *Handler) isCli(c *gin.Context) bool {
 	userAgent := strings.ToLower(c.Request.Header.Get("User-Agent"))
-	if strings.Contains(userAgent, "curl") ||
-		strings.Contains(userAgent, "wget") ||
-		strings.Contains(userAgent, "powershell") {
-		return true
+	acceptHeader := c.Request.Header.Get("Accept")
+
+	// If the client explicitly accepts HTML, treat it as a browser.
+	if strings.Contains(acceptHeader, "text/html") {
+		return false
 	}
+
+	// Specific checks for common CLI tools
+	cliTools := []string{"curl", "wget", "powershell"}
+	for _, tool := range cliTools {
+		if strings.Contains(userAgent, tool) {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -410,6 +421,7 @@ func (h *Handler) renderNotFound(c *gin.Context, message string) {
 	if h.isCli(c) {
 		c.JSON(http.StatusNotFound, gin.H{"error": message})
 	} else {
+		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.HTML(http.StatusNotFound, "view.html", gin.H{
 			"Title":      "NCLIP - Not Found",
 			"Error":      message,

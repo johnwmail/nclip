@@ -321,6 +321,23 @@ func canonicalErrors() gin.HandlerFunc {
 		ct := bcw.Header().Get("Content-Type")
 
 		if status >= 400 {
+			// If the client explicitly accepts HTML, forward the original
+			// buffered response unchanged so browsers receive the HTML page.
+			// Only canonicalize to JSON for clients that do not accept HTML
+			// (e.g., APIs / CLI tools).
+			accept := c.Request.Header.Get("Accept")
+			if strings.Contains(accept, "text/html") {
+				if len(buf) > 0 {
+					origWriter.WriteHeader(status)
+					if _, err := origWriter.Write(buf); err != nil {
+						log.Printf("[ERROR] canonicalErrors: failed to write response body: %v", err)
+					}
+				} else {
+					origWriter.WriteHeader(status)
+				}
+				return
+			}
+
 			// Determine a suitable message to expose
 			var msg string
 
