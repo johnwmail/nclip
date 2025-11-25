@@ -319,7 +319,9 @@ func TestBase64MultipartUpload(t *testing.T) {
 		t.Fatalf("Failed to write to form: %v", err)
 	}
 
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Failed to close multipart writer: %v", err)
+	}
 
 	req := httptest.NewRequest("POST", "/", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())

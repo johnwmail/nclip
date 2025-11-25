@@ -17,7 +17,11 @@ func TestGetPasteDeletesExpired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatalf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	fs, err := storage.NewFilesystemStore(dir)
 	if err != nil {
@@ -72,7 +76,11 @@ func TestDeleteBurnAfterRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatalf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	fs, err := storage.NewFilesystemStore(dir)
 	if err != nil {

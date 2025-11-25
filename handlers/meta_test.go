@@ -123,7 +123,9 @@ func TestMetaHandler_GetMetadata(t *testing.T) {
 					ReadCount:     5,
 					Content:       []byte("test content"),
 				}
-				store.Store(paste)
+				if err := store.Store(paste); err != nil {
+					t.Fatalf("failed to seed store: %v", err)
+				}
 			},
 			expectedStatus: http.StatusOK,
 			expectError:    false,

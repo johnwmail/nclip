@@ -78,7 +78,7 @@ func (m *MockStore) GetContent(id string) ([]byte, error) {
 
 // GetContentPrefix reads up to n bytes of content for tests and also from the
 // on-disk copy so handlers that do rename/mv in data dir can read preview.
-func (m *MockStore) GetContentPrefix(id string, n int64) ([]byte, error) {
+func (m *MockStore) GetContentPrefix(id string, n int64) (b []byte, reterr error) {
 	if c, ok := m.content[id]; ok {
 		if int64(len(c)) <= n {
 			return c, nil
@@ -95,19 +95,26 @@ func (m *MockStore) GetContentPrefix(id string, n int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && reterr == nil {
+			reterr = cerr
+		}
+	}()
 	buf := make([]byte, n)
 	read, err := f.Read(buf)
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
-	return buf[:read], nil
+	b = buf[:read]
+	return b, nil
 }
 
 func (m *MockStore) Store(paste *models.Paste) error {
 	m.pastes[paste.ID] = paste
 	if paste.Content != nil {
-		m.StoreContent(paste.ID, paste.Content)
+		if err := m.StoreContent(paste.ID, paste.Content); err != nil {
+			return err
+		}
 	}
 	// Also write metadata file to disk to emulate FilesystemStore behavior for tests.
 	dataDir := m.dataDir
@@ -298,7 +305,9 @@ func TestGetPaste(t *testing.T) {
 		ContentType: "text/plain",
 		Content:     []byte("hello"),
 	}
-	store.Store(paste)
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
 
 	// Now retrieve it
 	w := httptest.NewRecorder()
@@ -322,7 +331,9 @@ func TestGetRawPaste(t *testing.T) {
 		ContentType: "text/plain",
 		Content:     content,
 	}
-	store.Store(paste)
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/raw/TEST3", nil)
@@ -348,7 +359,9 @@ func TestGetMetadata(t *testing.T) {
 		ContentType: "text/plain",
 		Content:     []byte("test content"),
 	}
-	store.Store(paste)
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/api/v1/meta/TEST4", nil)
@@ -359,7 +372,9 @@ func TestGetMetadata(t *testing.T) {
 	}
 
 	var response map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &response)
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	if response["id"] != "TEST4" {
 		t.Errorf("Expected id 'TEST4', got %v", response["id"])
@@ -381,7 +396,9 @@ func TestGetMetadataAlias(t *testing.T) {
 		ContentType: "text/plain",
 		Content:     []byte("alias test content"),
 	}
-	store.Store(paste)
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
 
 	// Test the /json/:slug alias
 	w := httptest.NewRecorder()
@@ -393,7 +410,9 @@ func TestGetMetadataAlias(t *testing.T) {
 	}
 
 	var response map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &response)
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	if response["id"] != "TEST5" {
 		t.Errorf("Expected id 'TEST5', got %v", response["id"])
@@ -622,7 +641,9 @@ func TestAPIKeyAuth(t *testing.T) {
 			// Check error message if unauthorized
 			if tt.expectedStatus == http.StatusUnauthorized {
 				var response map[string]interface{}
-				json.Unmarshal(w.Body.Bytes(), &response)
+				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+					t.Fatalf("failed to unmarshal auth error response: %v", err)
+				}
 				if response["error"] != tt.expectedError {
 					t.Errorf("Expected error '%s', got '%v'", tt.expectedError, response["error"])
 				}
