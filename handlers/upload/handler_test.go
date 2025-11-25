@@ -103,7 +103,10 @@ func runBase64TestCase(t *testing.T, handler *Handler, tt base64Test) {
 	}
 }
 
-func TestBase64Decoding(t *testing.T) {
+// Valid cases for base64 decoding and upload flows. Keeping valid scenarios
+// in a focused test reduces cyclomatic complexity compared to having all
+// variants + error cases in one large test function.
+func TestBase64Decoding_ValidCases(t *testing.T) {
 	_, handler := setupTestRouterForBase64(t)
 
 	tests := []base64Test{
@@ -128,6 +131,33 @@ func TestBase64Decoding(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:        "Base64 with shell script (WAF trigger)",
+			content:     "#!/bin/bash\ncurl -X POST https://example.com --data-binary @-",
+			useBase64:   true,
+			expectError: false,
+		},
+		{
+			name:        "Base64 with special characters",
+			content:     "Line 1\nLine 2\tTab\r\nWindows Line",
+			useBase64:   true,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runBase64TestCase(t, handler, tt)
+		})
+	}
+}
+
+// Error cases intentionally separated into a focused test to keep each test's
+// complexity within acceptable limits for static cyclomatic analysis.
+func TestBase64Decoding_ErrorCases(t *testing.T) {
+	_, handler := setupTestRouterForBase64(t)
+
+	tests := []base64Test{
+		{
 			name:          "Invalid base64 content",
 			content:       "This is not valid base64!!@#$%",
 			useBase64:     true,
@@ -140,18 +170,6 @@ func TestBase64Decoding(t *testing.T) {
 			useBase64:     true,
 			expectError:   true,
 			errorContains: "empty content", // Gets caught earlier in validation
-		},
-		{
-			name:        "Base64 with shell script (WAF trigger)",
-			content:     "#!/bin/bash\ncurl -X POST https://example.com --data-binary @-",
-			useBase64:   true,
-			expectError: false,
-		},
-		{
-			name:        "Base64 with special characters",
-			content:     "Line 1\nLine 2\tTab\r\nWindows Line",
-			useBase64:   true,
-			expectError: false,
 		},
 	}
 
