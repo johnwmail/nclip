@@ -20,7 +20,11 @@ func TestNewFilesystemStore_Defaults(t *testing.T) {
 func TestNewFilesystemStore_CreatesDataDir(t *testing.T) {
 	// Use a unique test directory that doesn't exist
 	testDir := "./testdata_create_dir"
-	defer os.RemoveAll(testDir) // Clean up after test
+	defer func() {
+		if err := os.RemoveAll(testDir); err != nil {
+			t.Fatalf("failed to remove test dir: %v", err)
+		}
+	}()
 
 	// Ensure directory doesn't exist initially
 	_ = os.RemoveAll(testDir)

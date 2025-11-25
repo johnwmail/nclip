@@ -11,7 +11,11 @@ import (
 // TestSlugCollision verifies that storing a paste with an existing slug does not overwrite the original paste
 func TestSlugCollision(t *testing.T) {
 	store := NewMockPasteStore()
-	defer store.Close()
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("failed to close store: %v", err)
+		}
+	}()
 
 	slug := "COLLISION"
 	paste1 := &models.Paste{ID: slug, Content: []byte("first")}
@@ -209,7 +213,11 @@ func TestMockPasteStoreImplementation(t *testing.T) {
 // TestMockPasteStore tests the mock implementation
 func TestMockPasteStore(t *testing.T) {
 	store := NewMockPasteStore()
-	defer store.Close()
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("failed to close store: %v", err)
+		}
+	}()
 
 	t.Run("Store and Get", func(t *testing.T) {
 		paste := &models.Paste{
@@ -238,7 +246,9 @@ func TestMockPasteStore(t *testing.T) {
 
 	t.Run("Closed Store", func(t *testing.T) {
 		closedStore := NewMockPasteStore()
-		closedStore.Close()
+		if err := closedStore.Close(); err != nil {
+			t.Fatalf("failed to close closedStore: %v", err)
+		}
 
 		paste := &models.Paste{ID: "TEST", Content: []byte("test")}
 
@@ -265,17 +275,36 @@ func TestMockPasteStore(t *testing.T) {
 }
 
 // Integration tests for FilesystemStore (local FS mode)
-func TestFilesystemStore_LocalFS(t *testing.T) {
-	os.Setenv("NCLIP_S3_BUCKET", "") // Ensure S3 is disabled
+// helper to setup a local FilesystemStore for tests
+func setupLocalFilesystem(t *testing.T) (PasteStore, func()) {
+	if err := os.Setenv("NCLIP_S3_BUCKET", ""); err != nil { // Ensure S3 is disabled
+		t.Fatalf("failed to set NCLIP_S3_BUCKET: %v", err)
+	}
 
-	_ = os.Mkdir("./testdata", 0o755)
-	defer os.RemoveAll("./testdata")
+	if err := os.MkdirAll("./testdata", 0o755); err != nil {
+		t.Fatalf("failed to create testdata: %v", err)
+	}
 
 	store, err := NewFilesystemStore("./testdata")
 	if err != nil {
 		t.Fatalf("Failed to create FilesystemStore: %v", err)
 	}
-	defer store.Close()
+
+	cleanup := func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("failed to close store: %v", err)
+		}
+		if err := os.RemoveAll("./testdata"); err != nil {
+			t.Fatalf("failed to remove testdata: %v", err)
+		}
+	}
+
+	return store, cleanup
+}
+
+func TestFilesystemStore_LocalFS_StoreAndGet(t *testing.T) {
+	store, cleanup := setupLocalFilesystem(t)
+	defer cleanup()
 
 	paste := &models.Paste{
 		ID:          "FS_TEST",
@@ -285,53 +314,66 @@ func TestFilesystemStore_LocalFS(t *testing.T) {
 	}
 
 	// Store
-	err = store.Store(paste)
-	if err != nil {
-		t.Errorf("FilesystemStore.Store failed: %v", err)
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("FilesystemStore.Store failed: %v", err)
 	}
 
 	// Get
 	retrieved, err := store.Get("FS_TEST")
 	if err != nil {
-		t.Errorf("FilesystemStore.Get failed: %v", err)
+		t.Fatalf("FilesystemStore.Get failed: %v", err)
 	}
 	if retrieved == nil || retrieved.ID != paste.ID {
-		t.Errorf("FilesystemStore.Get returned wrong paste: %+v", retrieved)
+		t.Fatalf("FilesystemStore.Get returned wrong paste: %+v", retrieved)
+	}
+}
+
+func TestFilesystemStore_LocalFS_ReadContentAndCleanup(t *testing.T) {
+	store, cleanup := setupLocalFilesystem(t)
+	defer cleanup()
+
+	paste := &models.Paste{ID: "FS_TEST2", Size: 1}
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("FilesystemStore.Store failed: %v", err)
 	}
 
 	// IncrementReadCount
-	err = store.IncrementReadCount("FS_TEST")
-	if err != nil {
-		t.Errorf("FilesystemStore.IncrementReadCount failed: %v", err)
+	if err := store.IncrementReadCount("FS_TEST2"); err != nil {
+		t.Fatalf("FilesystemStore.IncrementReadCount failed: %v", err)
 	}
-	retrieved, _ = store.Get("FS_TEST")
+	retrieved, _ := store.Get("FS_TEST2")
 	if retrieved.ReadCount != 1 {
-		t.Errorf("FilesystemStore.ReadCount should be 1, got %d", retrieved.ReadCount)
+		t.Fatalf("FilesystemStore.ReadCount should be 1, got %d", retrieved.ReadCount)
 	}
 
-	// StoreContent
-	err = store.StoreContent("FS_TEST", []byte("raw content"))
-	if err != nil {
-		t.Errorf("FilesystemStore.StoreContent failed: %v", err)
+	// StoreContent + GetContent
+	if err := store.StoreContent("FS_TEST2", []byte("raw content")); err != nil {
+		t.Fatalf("FilesystemStore.StoreContent failed: %v", err)
 	}
-
-	// GetContent
-	content, err := store.GetContent("FS_TEST")
+	content, err := store.GetContent("FS_TEST2")
 	if err != nil {
-		t.Errorf("FilesystemStore.GetContent failed: %v", err)
+		t.Fatalf("FilesystemStore.GetContent failed: %v", err)
 	}
 	if string(content) != "raw content" {
-		t.Errorf("FilesystemStore.GetContent returned wrong content: %s", string(content))
+		t.Fatalf("FilesystemStore.GetContent returned wrong content: %s", string(content))
+	}
+}
+
+func TestFilesystemStore_LocalFS_Delete(t *testing.T) {
+	store, cleanup := setupLocalFilesystem(t)
+	defer cleanup()
+
+	paste := &models.Paste{ID: "FS_TEST3", Size: 1}
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("FilesystemStore.Store failed: %v", err)
 	}
 
 	// Delete
-	err = store.Delete("FS_TEST")
-	if err != nil {
-		t.Errorf("FilesystemStore.Delete failed: %v", err)
+	if err := store.Delete("FS_TEST3"); err != nil {
+		t.Fatalf("FilesystemStore.Delete failed: %v", err)
 	}
-	retrieved, err = store.Get("FS_TEST")
+	retrieved, err := store.Get("FS_TEST3")
 	if err == nil && retrieved != nil {
-		t.Errorf("FilesystemStore.Get should return nil after delete, got %+v", retrieved)
+		t.Fatalf("FilesystemStore.Get should return nil after delete, got %+v", retrieved)
 	}
-
 }

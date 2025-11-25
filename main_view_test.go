@@ -28,7 +28,9 @@ func TestViewSmallRendersFull(t *testing.T) {
 
 	// Create small paste
 	paste := &models.Paste{ID: "SMALLA", CreatedAt: time.Now(), Size: 11, ContentType: "text/plain", Content: []byte("hello world"), BurnAfterRead: false}
-	store.Store(paste)
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
 
 	// Call handler directly using a test context to avoid router matching issues
 	w := httptest.NewRecorder()
@@ -59,7 +61,9 @@ func TestViewLargeShowsPreview(t *testing.T) {
 	// Create large paste
 	long := strings.Repeat("A", 50)
 	paste := &models.Paste{ID: "LARGEA", CreatedAt: time.Now(), Size: int64(len(long)), ContentType: "text/plain", Content: []byte(long), BurnAfterRead: false}
-	store.Store(paste)
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
 
 	w := httptest.NewRecorder()
 	c, engine := gin.CreateTestContext(w)
@@ -93,7 +97,9 @@ func TestBurnAfterReadPreviewDeletesTemp(t *testing.T) {
 	// Create burn paste
 	content := strings.Repeat("B", 32)
 	paste := &models.Paste{ID: "BURN2", CreatedAt: time.Now(), Size: int64(len(content)), ContentType: "text/plain", Content: []byte(content), BurnAfterRead: true}
-	store.Store(paste)
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
 
 	// ensure data dir exists and the file is present (MockStore writes file)
 	dataDir := cfg.DataDir

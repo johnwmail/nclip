@@ -33,8 +33,14 @@ func TestLoadConfig_Defaults(t *testing.T) {
 func TestMaxRenderSize_FromEnv(t *testing.T) {
 	// Test that MaxRenderSize can be overridden by environment variable
 	// We create a new Config and manually apply env var logic
-	os.Setenv("NCLIP_MAX_RENDER_SIZE", "65536")
-	defer os.Unsetenv("NCLIP_MAX_RENDER_SIZE")
+	if err := os.Setenv("NCLIP_MAX_RENDER_SIZE", "65536"); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("NCLIP_MAX_RENDER_SIZE"); err != nil {
+			t.Fatalf("failed to unset env: %v", err)
+		}
+	}()
 
 	// Simulate the env var parsing logic from LoadConfig
 	var maxRenderSize int64 = 262144 // default
@@ -51,8 +57,14 @@ func TestMaxRenderSize_FromEnv(t *testing.T) {
 
 func TestMaxRenderSize_InvalidEnv(t *testing.T) {
 	// Test that invalid env var falls back to default
-	os.Setenv("NCLIP_MAX_RENDER_SIZE", "invalid")
-	defer os.Unsetenv("NCLIP_MAX_RENDER_SIZE")
+	if err := os.Setenv("NCLIP_MAX_RENDER_SIZE", "invalid"); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("NCLIP_MAX_RENDER_SIZE"); err != nil {
+			t.Fatalf("failed to unset env: %v", err)
+		}
+	}()
 
 	var maxRenderSize int64 = 262144 // default
 	if val := os.Getenv("NCLIP_MAX_RENDER_SIZE"); val != "" {

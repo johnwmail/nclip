@@ -10,8 +10,7 @@ import (
 	"github.com/johnwmail/nclip/storage"
 )
 
-// storeFactory creates a storage.PasteStore for testing and returns a cleanup func
-type storeFactory func(t *testing.T) (storage.PasteStore, func())
+// fsFactory creates a storage.PasteStore for testing (filesystem-backed) and returns a cleanup func
 
 func fsFactory(t *testing.T) (storage.PasteStore, func()) {
 	dir, err := os.MkdirTemp("", "nclip-store-test-")
@@ -23,7 +22,11 @@ func fsFactory(t *testing.T) (storage.PasteStore, func()) {
 		_ = os.RemoveAll(dir)
 		t.Fatalf("failed to create filesystem store: %v", err)
 	}
-	cleanup := func() { os.RemoveAll(dir) }
+	cleanup := func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatalf("failed to remove temp dir: %v", err)
+		}
+	}
 	return store, cleanup
 }
 
