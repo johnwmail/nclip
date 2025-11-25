@@ -152,7 +152,7 @@ All tests must pass for the integration test suite to succeed.
 The integration tests run automatically in CI via `.github/workflows/integration-test.yml`:
 
 **Features:**
-- **Multi-version Testing**: Tests against Go 1.23, 1.24, and 1.25
+- **Multi-version Testing**: Tests against Go 1.24 and 1.25
 - **Auth Matrix**: Tests with both `UPLOAD_AUTH=true` and `UPLOAD_AUTH=false`
 - **Service Dependencies**: Tests run after unit tests and linting pass
 - **Conditional Execution**: Runs on main/dev branch pushes and pull requests

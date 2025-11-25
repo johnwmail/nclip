@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/johnwmail/nclip/branch/main/graph/badge.svg?token=G9K6YJH1XK)](https://codecov.io/gh/johnwmail/nclip)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub release](https://img.shields.io/github/release/johnwmail/nclip.svg)](https://github.com/johnwmail/nclip/releases)
-[![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://golang.org/)
 
 # NCLIP
 
@@ -47,7 +47,7 @@ nclip is a versatile clipboard app that accepts content via:
 
 ### Installation
 ```bash
-# Install with go install (requires Go 1.23+)
+# Install with go install (requires Go 1.24+)
 go install github.com/johnwmail/nclip@latest
 
 # Download pre-built binary
@@ -355,18 +355,18 @@ Returned by `GET /api/v1/meta/{slug}` or `GET /json/{slug}`. Does **not** includ
 
 ### Requirements
 
-- **Go**: 1.23 or higher (minimum supported version)
+- **Go**: 1.24 or higher (minimum supported version)
 - **Docker**: For container builds and testing
 
 ### Build Strategy
 
 nclip follows a compatibility-first approach:
 
-- **Minimum Go Version**: 1.23 (in `go.mod`) - Required by AWS SDK v2
+- **Minimum Go Version**: 1.24 (in `go.mod`) - Required by AWS SDK v2
 - **Build/Release Go Version**: 1.25 (latest) - Uses newest optimizations and security features
-- **CI Testing**: Tests against Go 1.23, 1.24, and 1.25
+- **CI Testing**: Tests against Go 1.24 and 1.25
 
-This means your code runs on Go 1.23+ systems while benefiting from the latest compiler optimizations in production builds.
+This means your code runs on Go 1.24+ systems while benefiting from the latest compiler optimizations in production builds.
 
 ### Local Development
 

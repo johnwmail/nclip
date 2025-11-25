@@ -26,7 +26,7 @@ jobs:
 
     strategy:
       matrix:
-        go-version: ["1.23", "1.24", "1.25"]
+        go-version: ["1.24", "1.25"]
 
     steps:
       - name: Checkout code
@@ -36,16 +36,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
 
       - name: Download dependencies
         run: go mod download
@@ -89,25 +79,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION_LATEST }}
-
-      - name: Prepare fresh Go caches
-        id: go-cache-paths
-        run: |
-          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
-          echo "Current working directory: $(pwd)"
-          echo "Go version: $(go version)"
-          echo "Go env: $(go env GOROOT GOPATH GOMODCACHE GOCACHE)"
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ steps.go-cache-paths.outputs.go-build }}
-            ${{ steps.go-cache-paths.outputs.go-mod }}
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION_LATEST }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ env.GO_VERSION_LATEST }}-
 
       - name: Download dependencies
         run: go mod download
@@ -168,7 +139,7 @@ jobs:
 
     strategy:
       matrix:
-        go-version: ["1.23", "1.24", "1.25"]
+        go-version: ["1.24", "1.25"]
         goos: [linux]
         goarch: [amd64, arm64]
 
@@ -180,16 +151,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
 
       - name: Build binary
         env:
