@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -136,4 +137,176 @@ func TestWebUIHandler_isHTTPS(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWebUIHandler_isCli(t *testing.T) {
+	handler := setupTestWebUIHandler("")
+
+	tests := []struct {
+		name      string
+		userAgent string
+		accept    string
+		want      bool
+	}{
+		{
+			name:      "curl user agent",
+			userAgent: "curl/7.81.0",
+			accept:    "*/*",
+			want:      true,
+		},
+		{
+			name:      "curl user agent with Accept HTML should return HTML",
+			userAgent: "curl/7.81.0",
+			accept:    "text/html",
+			want:      false,
+		},
+		{
+			name:      "wget user agent",
+			userAgent: "Wget/1.21.2",
+			accept:    "*/*",
+			want:      true,
+		},
+		{
+			name:      "PowerShell user agent",
+			userAgent: "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.19041.1682",
+			accept:    "*/*",
+			want:      true,
+		},
+		{
+			name:      "HTTPie user agent",
+			userAgent: "HTTPie/3.2.1",
+			accept:    "*/*",
+			want:      true,
+		},
+		{
+			name:      "Invoke-WebRequest user agent",
+			userAgent: "Mozilla/5.0 (Windows NT 10.0; Microsoft Windows 10.0.19044; en-US) PowerShell/7.2.6",
+			accept:    "*/*",
+			want:      true,
+		},
+		{
+			name:      "Invoke-RestMethod user agent",
+			userAgent: "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) Invoke-RestMethod",
+			accept:    "*/*",
+			want:      true,
+		},
+		{
+			name:      "Chrome browser user agent",
+			userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+			accept:    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			want:      false,
+		},
+		{
+			name:      "Firefox browser user agent",
+			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+			accept:    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			want:      false,
+		},
+		{
+			name:      "Safari browser user agent",
+			userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15",
+			accept:    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			want:      false,
+		},
+		{
+			name:      "Empty user agent",
+			userAgent: "",
+			accept:    "*/*",
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test request
+			req, _ := http.NewRequest("GET", "/", nil)
+			req.Header.Set("User-Agent", tt.userAgent)
+			req.Header.Set("Accept", tt.accept)
+
+			// Create test context
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = req
+
+			got := handler.isCli(c)
+			if got != tt.want {
+				t.Errorf("WebUIHandler.isCli() with User-Agent=%q, Accept=%q = %v, want %v", tt.userAgent, tt.accept, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWebUIHandler_Index_CLI(t *testing.T) {
+	handler := setupTestWebUIHandler("http://localhost:8080")
+
+	tests := []struct {
+		name       string
+		userAgent  string
+		accept     string
+		wantCLI    bool
+		wantStatus int
+	}{
+		{
+			name:       "curl request should return CLI usage",
+			userAgent:  "curl/7.81.0",
+			accept:     "*/*",
+			wantCLI:    true,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "wget request should return CLI usage",
+			userAgent:  "Wget/1.21.2",
+			accept:     "*/*",
+			wantCLI:    true,
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test router
+			gin.SetMode(gin.TestMode)
+			router := gin.New()
+			router.GET("/", handler.Index)
+
+			// Create test request
+			req, _ := http.NewRequest("GET", "/", nil)
+			req.Header.Set("User-Agent", tt.userAgent)
+			req.Header.Set("Accept", tt.accept)
+
+			// Execute request
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			// Check status code
+			if w.Code != tt.wantStatus {
+				t.Errorf("Status code = %d, want %d", w.Code, tt.wantStatus)
+			}
+
+			// Check content type
+			contentType := w.Header().Get("Content-Type")
+			if tt.wantCLI {
+				// For CLI, expect plain text
+				if contentType != "text/plain; charset=utf-8" {
+					t.Errorf("Content-Type = %q, want %q", contentType, "text/plain; charset=utf-8")
+				}
+
+				// Check that response contains expected CLI usage text
+				body := w.Body.String()
+				if !containsAll(body, []string{"NCLIP", "Usage Examples", "curl", "echo"}) {
+					t.Errorf("Response body does not contain expected CLI usage text")
+				}
+			}
+		})
+	}
+}
+
+// containsAll checks if the text contains all the given substrings
+func containsAll(text string, substrings []string) bool {
+	for _, s := range substrings {
+		if !strings.Contains(text, s) {
+			return false
+		}
+	}
+	return true
 }
