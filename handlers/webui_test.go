@@ -322,7 +322,7 @@ func TestWebUIHandler_Index_CLI(t *testing.T) {
 			// Check content type and body
 			contentType := w.Header().Get("Content-Type")
 			body := w.Body.String()
-			
+
 			if tt.wantCLI {
 				// For CLI, expect plain text
 				if contentType != "text/plain; charset=utf-8" {
