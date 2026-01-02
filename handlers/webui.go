@@ -84,8 +84,13 @@ func (h *WebUIHandler) isCli(c *gin.Context) bool {
 
 // serveCLIUsage returns plain text usage examples for CLI tools
 func (h *WebUIHandler) serveCLIUsage(c *gin.Context, baseURL string) {
+	// Pre-format the usage lines with baseURL to avoid confusion with multiple fmt.Sprintf arguments
 	var usage string
 	if h.config.UploadAuth {
+		uploadURL := baseURL
+		fileUploadURL := baseURL
+		infoURL := baseURL
+		
 		usage = fmt.Sprintf(`NCLIP - HTTP Clipboard Service
 Version: %s
 
@@ -100,8 +105,12 @@ echo "Hello World" | curl -sL --data-binary @- -H "X-Api-Key: YOUR_API_KEY" %s
 curl -sL --data-binary @/path/to/file.txt -H "Authorization: Bearer YOUR_API_KEY" %s
 
 For more information and web interface, visit: %s
-`, h.config.Version, baseURL, baseURL, baseURL)
+`, h.config.Version, uploadURL, fileUploadURL, infoURL)
 	} else {
+		uploadURL := baseURL
+		fileUploadURL := baseURL
+		infoURL := baseURL
+		
 		usage = fmt.Sprintf(`NCLIP - HTTP Clipboard Service
 Version: %s
 
@@ -115,7 +124,7 @@ echo "Hello World" | curl -sL --data-binary @- %s
 curl -sL --data-binary @/path/to/file.txt %s
 
 For more information and web interface, visit: %s
-`, h.config.Version, baseURL, baseURL, baseURL)
+`, h.config.Version, uploadURL, fileUploadURL, infoURL)
 	}
 
 	c.String(http.StatusOK, usage)
