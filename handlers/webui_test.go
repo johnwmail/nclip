@@ -301,6 +301,46 @@ func TestWebUIHandler_Index_CLI(t *testing.T) {
 	}
 }
 
+func TestWebUIHandler_Index_CLI_WithAuth(t *testing.T) {
+	handler := &WebUIHandler{
+		config: &config.Config{
+			URL:        "http://localhost:8080",
+			Version:    "1.0.0",
+			UploadAuth: true,
+		},
+	}
+
+	// Create test router
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/", handler.Index)
+
+	// Create test request mimicking curl
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.Header.Set("User-Agent", "curl/7.81.0")
+	req.Header.Set("Accept", "*/*")
+
+	// Execute request
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Check status code
+	if w.Code != http.StatusOK {
+		t.Fatalf("Status code = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	// For CLI + UploadAuth, expect plain text and auth examples
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "text/plain; charset=utf-8" {
+		t.Fatalf("Content-Type = %q, want %q", contentType, "text/plain; charset=utf-8")
+	}
+
+	body := w.Body.String()
+	if !containsAll(body, []string{"Support both Authorization and X-Api-Key", "X-Api-Key", "Authorization"}) {
+		t.Fatalf("Response body does not contain expected API key authentication examples")
+	}
+}
+
 // containsAll checks if the text contains all the given substrings
 func containsAll(text string, substrings []string) bool {
 	for _, s := range substrings {
