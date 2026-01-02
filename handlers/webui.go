@@ -14,6 +14,9 @@ type WebUIHandler struct {
 	config *config.Config
 }
 
+// cliTools is the list of common CLI tools to detect in User-Agent headers
+var cliTools = []string{"curl", "wget", "powershell", "httpie", "invoke-webrequest", "invoke-restmethod"}
+
 // NewWebUIHandler creates a new web UI handler
 func NewWebUIHandler(config *config.Config) *WebUIHandler {
 	return &WebUIHandler{
@@ -61,15 +64,15 @@ func (h *WebUIHandler) Index(c *gin.Context) {
 // isCli detects if the request is from a CLI tool (curl, wget, PowerShell, etc.)
 func (h *WebUIHandler) isCli(c *gin.Context) bool {
 	userAgent := strings.ToLower(c.Request.Header.Get("User-Agent"))
-	acceptHeader := c.Request.Header.Get("Accept")
+	acceptHeader := strings.ToLower(c.Request.Header.Get("Accept"))
 
 	// If the client explicitly accepts HTML, treat it as a browser
+	// Check for "text/html" as a complete MIME type to avoid false positives
 	if strings.Contains(acceptHeader, "text/html") {
 		return false
 	}
 
 	// Check for common CLI tools
-	cliTools := []string{"curl", "wget", "powershell", "httpie", "invoke-webrequest", "invoke-restmethod"}
 	for _, tool := range cliTools {
 		if strings.Contains(userAgent, tool) {
 			return true

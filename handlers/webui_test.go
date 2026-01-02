@@ -161,6 +161,12 @@ func TestWebUIHandler_isCli(t *testing.T) {
 			want:      false,
 		},
 		{
+			name:      "curl user agent with Accept HTML (case insensitive)",
+			userAgent: "curl/7.81.0",
+			accept:    "TEXT/HTML",
+			want:      false,
+		},
+		{
 			name:      "wget user agent",
 			userAgent: "Wget/1.21.2",
 			accept:    "*/*",
@@ -260,6 +266,34 @@ func TestWebUIHandler_Index_CLI(t *testing.T) {
 			wantCLI:    true,
 			wantStatus: http.StatusOK,
 		},
+		{
+			name:       "curl with Accept: text/html should return HTML",
+			userAgent:  "curl/7.81.0",
+			accept:     "text/html",
+			wantCLI:    false,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "browser (Chrome) request should return HTML",
+			userAgent:  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+			accept:     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			wantCLI:    false,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "browser (Firefox) request should return HTML",
+			userAgent:  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+			accept:     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			wantCLI:    false,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "browser (Safari) request should return HTML",
+			userAgent:  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15",
+			accept:     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			wantCLI:    false,
+			wantStatus: http.StatusOK,
+		},
 	}
 
 	for _, tt := range tests {
@@ -267,6 +301,8 @@ func TestWebUIHandler_Index_CLI(t *testing.T) {
 			// Create test router
 			gin.SetMode(gin.TestMode)
 			router := gin.New()
+			// Load HTML templates for browser tests
+			router.LoadHTMLGlob("/home/runner/work/nclip/nclip/static/*.html")
 			router.GET("/", handler.Index)
 
 			// Create test request
@@ -283,8 +319,10 @@ func TestWebUIHandler_Index_CLI(t *testing.T) {
 				t.Errorf("Status code = %d, want %d", w.Code, tt.wantStatus)
 			}
 
-			// Check content type
+			// Check content type and body
 			contentType := w.Header().Get("Content-Type")
+			body := w.Body.String()
+			
 			if tt.wantCLI {
 				// For CLI, expect plain text
 				if contentType != "text/plain; charset=utf-8" {
@@ -292,9 +330,18 @@ func TestWebUIHandler_Index_CLI(t *testing.T) {
 				}
 
 				// Check that response contains expected CLI usage text
-				body := w.Body.String()
 				if !containsAll(body, []string{"NCLIP", "Usage Examples", "curl", "echo"}) {
 					t.Errorf("Response body does not contain expected CLI usage text")
+				}
+			} else {
+				// For browser, expect HTML
+				if contentType != "text/html; charset=utf-8" {
+					t.Errorf("Content-Type = %q, want %q for browser request", contentType, "text/html; charset=utf-8")
+				}
+
+				// Check that response contains HTML elements
+				if !containsAll(body, []string{"<!DOCTYPE html>", "<html", "NCLIP"}) {
+					t.Errorf("Response body does not contain expected HTML content")
 				}
 			}
 		})
