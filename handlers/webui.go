@@ -89,8 +89,9 @@ func (h *WebUIHandler) serveCLIUsage(c *gin.Context, baseURL string) {
 		usage = fmt.Sprintf(`NCLIP - HTTP Clipboard Service
 Version: %s
 
-Usage Examples: Support both Authorization and X-Api-Key headers for API key authentication.
+Usage Examples:
 ===============
+Support both Authorization and X-Api-Key headers for API key authentication.
 
 # Upload content (with API key authentication - X-Api-Key header):
 echo "Hello World" | curl -sL --data-binary @- -H "X-Api-Key: YOUR_API_KEY" %s
