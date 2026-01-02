@@ -302,7 +302,7 @@ func TestWebUIHandler_Index_CLI(t *testing.T) {
 			gin.SetMode(gin.TestMode)
 			router := gin.New()
 			// Load HTML templates for browser tests
-			router.LoadHTMLGlob("/home/runner/work/nclip/nclip/static/*.html")
+			router.LoadHTMLGlob("static/*.html")
 			router.GET("/", handler.Index)
 
 			// Create test request
