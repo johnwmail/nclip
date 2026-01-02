@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"crypto/tls"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -301,8 +302,11 @@ func TestWebUIHandler_Index_CLI(t *testing.T) {
 			// Create test router
 			gin.SetMode(gin.TestMode)
 			router := gin.New()
-			// Load HTML templates for browser tests
-			router.LoadHTMLGlob("static/*.html")
+			// Load a minimal HTML template for browser tests to avoid filesystem dependency during CI
+			if !tt.wantCLI {
+				tmpl := template.Must(template.New("index.html").Parse(`{{define "index.html"}}<!DOCTYPE html><html><head><title>{{.Title}}</title></head><body></body></html>{{end}}`))
+				router.SetHTMLTemplate(tmpl)
+			}
 			router.GET("/", handler.Index)
 
 			// Create test request
