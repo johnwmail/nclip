@@ -81,18 +81,24 @@ func (h *WebUIHandler) isCli(c *gin.Context) bool {
 
 // serveCLIUsage returns plain text usage examples for CLI tools
 func (h *WebUIHandler) serveCLIUsage(c *gin.Context, baseURL string) {
-	authExamples := ""
+	var usage string
 	if h.config.UploadAuth {
-		authExamples = fmt.Sprintf(`
-# With API key authentication (using Authorization header):
-echo "Hello World" | curl -sL --data-binary @- -H "Authorization: Bearer YOUR_API_KEY" %s
+		usage = fmt.Sprintf(`NCLIP - HTTP Clipboard Service
+Version: %s
 
-# With API key authentication (using X-Api-Key header):
+Usage Examples: Support both Authorization and X-Api-Key headers for API key authentication.
+===============
+
+# Upload content (with API key authentication - X-Api-Key header):
 echo "Hello World" | curl -sL --data-binary @- -H "X-Api-Key: YOUR_API_KEY" %s
-`, baseURL, baseURL)
-	}
 
-	usage := fmt.Sprintf(`NCLIP - HTTP Clipboard Service
+# Upload a file (with API key authentication):
+curl -sL --data-binary @/path/to/file.txt -H "Authorization: Bearer YOUR_API_KEY" %s
+
+For more information and web interface, visit: %s
+`, h.config.Version, baseURL, baseURL, baseURL)
+	} else {
+		usage = fmt.Sprintf(`NCLIP - HTTP Clipboard Service
 Version: %s
 
 Usage Examples:
@@ -100,31 +106,13 @@ Usage Examples:
 
 # Upload content:
 echo "Hello World" | curl -sL --data-binary @- %s
-%s
+
 # Upload a file:
 curl -sL --data-binary @/path/to/file.txt %s
 
-# Upload with custom TTL (time-to-live):
-echo "Expires in 1 hour" | curl -sL --data-binary @- -H "X-TTL: 1h" %s
-
-# Upload with custom slug:
-echo "Custom URL" | curl -sL --data-binary @- -H "X-Slug: my-custom-slug" %s
-
-# Upload with base64 encoding:
-echo "Secret data" | base64 | curl -sL --data-binary @- %s/base64
-
-# Create burn-after-read paste (self-destructs after first view):
-echo "Secret message" | curl -sL --data-binary @- %s/burn/
-
-# Retrieve content:
-curl -sL %s/SLUG              # HTML view
-curl -sL %s/raw/SLUG          # Raw content
-
-# Get metadata (JSON):
-curl -sL %s/json/SLUG
-
 For more information and web interface, visit: %s
-`, h.config.Version, baseURL, authExamples, baseURL, baseURL, baseURL, baseURL, baseURL, baseURL, baseURL, baseURL, baseURL)
+`, h.config.Version, baseURL, baseURL, baseURL)
+	}
 
 	c.String(http.StatusOK, usage)
 }
