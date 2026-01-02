@@ -100,7 +100,7 @@ echo "Hello World" | curl -sL --data-binary @- -H "X-Api-Key: YOUR_API_KEY" %s
 curl -sL --data-binary @/path/to/file.txt -H "Authorization: Bearer YOUR_API_KEY" %s
 
 For more information and web interface, visit: %s
-`, h.config.Version, baseURL, baseURL, baseURL) // baseURL used for: upload endpoint, file upload endpoint, info URL
+`, h.config.Version, baseURL, baseURL, baseURL) // baseURL repeated for each usage example line
 	} else {
 		usage = fmt.Sprintf(`NCLIP - HTTP Clipboard Service
 Version: %s
@@ -115,7 +115,7 @@ echo "Hello World" | curl -sL --data-binary @- %s
 curl -sL --data-binary @/path/to/file.txt %s
 
 For more information and web interface, visit: %s
-`, h.config.Version, baseURL, baseURL, baseURL) // baseURL used for: upload endpoint, file upload endpoint, info URL
+`, h.config.Version, baseURL, baseURL, baseURL) // baseURL repeated for each usage example line
 	}
 
 	c.String(http.StatusOK, usage)
