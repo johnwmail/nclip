@@ -82,8 +82,21 @@
                         {{if .IsText}}
                         <button id="copy-content" class="btn btn-secondary">Copy</button>
                         {{end}}
+                        <button id="delete-paste" class="btn btn-danger" data-slug="{{.Paste.ID}}">
+                            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete
+                        </button>
                         <a href="/" class="btn btn-primary">New Paste</a>
                     </div>
+                    {{if .UploadAuth}}
+                    <div class="form-group api-key-row" style="margin-top: 0.75rem;">
+                        <label for="api-key-input">API Key <small>(required for delete)</small></label>
+                        <input type="text" id="api-key-input" placeholder="Enter API key to delete this paste" style="width:100%;" />
+                    </div>
+                    {{end}}
                     <h3 style="margin-top: 1.25rem;">
                         {{if .IsPreview}}
                         Content Preview (Truncated) — <a href="/raw/{{.Paste.ID}}"
@@ -229,6 +242,48 @@
                 document.body.removeChild(textArea);
             }
         }
+    </script>
+    <script>
+        // Delete paste functionality
+        (function() {
+            const deleteBtn = document.getElementById('delete-paste');
+            if (!deleteBtn) return;
+
+            const slug = deleteBtn.getAttribute('data-slug');
+            if (!slug) return;
+
+            deleteBtn.addEventListener('click', function() {
+                const apiKeyInput = document.getElementById('api-key-input');
+                const headers = {};
+                if (apiKeyInput) {
+                    const key = apiKeyInput.value.trim();
+                    if (key) {
+                        headers['Authorization'] = 'Bearer ' + key;
+                    }
+                }
+
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = 'Deleting...';
+
+                fetch('/' + slug, { method: 'DELETE', headers: headers })
+                    .then(function(response) {
+                        if (!response.ok) {
+                            return response.json().then(function(data) {
+                                throw new Error(data.error || 'Delete failed');
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(function() {
+                        window.location.href = '/';
+                    })
+                    .catch(function(err) {
+                        alert('Delete failed: ' + err.message);
+                        deleteBtn.disabled = false;
+                        deleteBtn.textContent = 'Delete';
+                    });
+            });
+        })();
     </script>
     <!-- No auto-redirect for missing paste pages (user requested removal) -->
 </body>

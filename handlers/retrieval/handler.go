@@ -99,6 +99,7 @@ func (h *Handler) View(c *gin.Context) {
 				"BuildTime":  h.config.BuildTime,
 				"CommitHash": h.config.CommitHash,
 				"BaseURL":    h.getBaseURL(c),
+				"UploadAuth": h.config.UploadAuth,
 			})
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
@@ -130,6 +131,7 @@ func (h *Handler) View(c *gin.Context) {
 					"BuildTime":  h.config.BuildTime,
 					"CommitHash": h.config.CommitHash,
 					"BaseURL":    h.getBaseURL(c),
+					"UploadAuth": h.config.UploadAuth,
 				})
 			}
 			return
@@ -182,7 +184,7 @@ func (h *Handler) viewBrowserBurn(c *gin.Context, slug string, paste *models.Pas
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete burn-after-read paste"})
 			return
 		}
-		c.HTML(http.StatusOK, "view.html", gin.H{"Title": fmt.Sprintf("NCLIP - Paste %s", paste.ID), "Paste": paste, "IsText": utils.IsTextContent(paste.ContentType), "IsPreview": false, "Content": string(full), "Version": h.config.Version, "BuildTime": h.config.BuildTime, "CommitHash": h.config.CommitHash, "BaseURL": h.getBaseURL(c)})
+		c.HTML(http.StatusOK, "view.html", gin.H{"Title": fmt.Sprintf("NCLIP - Paste %s", paste.ID), "Paste": paste, "IsText": utils.IsTextContent(paste.ContentType), "IsPreview": false, "Content": string(full), "Version": h.config.Version, "BuildTime": h.config.BuildTime, "CommitHash": h.config.CommitHash, "BaseURL": h.getBaseURL(c), "UploadAuth": h.config.UploadAuth})
 		return
 	}
 
@@ -192,7 +194,7 @@ func (h *Handler) viewBrowserBurn(c *gin.Context, slug string, paste *models.Pas
 	if err != nil {
 		return
 	}
-	c.HTML(http.StatusOK, "view.html", gin.H{"Title": fmt.Sprintf("NCLIP - Paste %s", paste.ID), "Paste": paste, "IsText": utils.IsTextContent(paste.ContentType), "IsPreview": true, "Content": string(preview), "Version": h.config.Version, "BuildTime": h.config.BuildTime, "CommitHash": h.config.CommitHash, "BaseURL": h.getBaseURL(c)})
+	c.HTML(http.StatusOK, "view.html", gin.H{"Title": fmt.Sprintf("NCLIP - Paste %s", paste.ID), "Paste": paste, "IsText": utils.IsTextContent(paste.ContentType), "IsPreview": true, "Content": string(preview), "Version": h.config.Version, "BuildTime": h.config.BuildTime, "CommitHash": h.config.CommitHash, "BaseURL": h.getBaseURL(c), "UploadAuth": h.config.UploadAuth})
 }
 
 // viewCLI handles CLI (curl/wget/powershell) clients; streams full content or temp file for burn-after-read
@@ -257,6 +259,7 @@ func (h *Handler) viewBrowser(c *gin.Context, slug string, paste *models.Paste) 
 		"BuildTime":  h.config.BuildTime,
 		"CommitHash": h.config.CommitHash,
 		"BaseURL":    h.getBaseURL(c),
+		"UploadAuth": h.config.UploadAuth,
 	})
 }
 
@@ -429,6 +432,7 @@ func (h *Handler) renderNotFound(c *gin.Context, message string) {
 			"BuildTime":  h.config.BuildTime,
 			"CommitHash": h.config.CommitHash,
 			"BaseURL":    h.getBaseURL(c),
+			"UploadAuth": h.config.UploadAuth,
 		})
 	}
 }
