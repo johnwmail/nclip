@@ -71,9 +71,10 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 	metaPath := filepath.Join(fs.dataDir, id+".json")
 	metaData, err := os.ReadFile(metaPath)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("[ERROR] FS Get: failed to read metadata for %s: %v", id, err)
+		if os.IsNotExist(err) {
+			return nil, ErrNotFound
 		}
+		log.Printf("[ERROR] FS Get: failed to read metadata for %s: %v", id, err)
 		return nil, err
 	}
 	var paste models.Paste
@@ -95,7 +96,7 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 			// If remove fails, log and continue returning not found
 			log.Printf("[WARN] FS Get: failed to remove expired metadata for %s: %v", id, err)
 		}
-		return nil, os.ErrNotExist
+		return nil, ErrNotFound
 	}
 	return &paste, nil
 }

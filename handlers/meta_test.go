@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/models"
+	"github.com/johnwmail/nclip/storage"
 )
 
 // MockPasteStore implements storage.PasteStore for testing
@@ -252,9 +253,20 @@ func TestMetaHandler_DeletePaste(t *testing.T) {
 			},
 		},
 		{
-			name:           "paste not found",
+			name:           "paste not found (nil)",
 			slug:           "XYZ89",
 			setupStore:     func(store *MockPasteStore) {},
+			expectedStatus: http.StatusNotFound,
+			expectedBody: map[string]interface{}{
+				"error": "Paste not found",
+			},
+		},
+		{
+			name: "paste not found (ErrNotFound)",
+			slug: "NF523",
+			setupStore: func(store *MockPasteStore) {
+				store.SetGetError(storage.ErrNotFound)
+			},
 			expectedStatus: http.StatusNotFound,
 			expectedBody: map[string]interface{}{
 				"error": "Paste not found",
