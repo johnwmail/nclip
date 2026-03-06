@@ -1,8 +1,15 @@
 package storage
 
 import (
+	"errors"
+
 	"github.com/johnwmail/nclip/models"
 )
+
+// ErrNotFound is returned by Get when the requested paste does not exist.
+// All PasteStore implementations must return this (or a wrapped version of it)
+// so callers can use errors.Is(err, ErrNotFound) regardless of backend.
+var ErrNotFound = errors.New("paste not found")
 
 // PasteStore defines the interface for paste storage backends
 type PasteStore interface {

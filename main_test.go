@@ -218,6 +218,7 @@ func setupTestRouter() (*gin.Engine, *MockStore) {
 	router.POST("/burn/", uploadHandler.UploadBurn)
 	router.GET("/:slug", retrievalHandler.View)
 	router.GET("/raw/:slug", retrievalHandler.Raw)
+	router.DELETE("/:slug", metaHandler.DeletePaste)
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
 	router.GET("/json/:slug", metaHandler.GetMetadata)
 	router.GET("/health", systemHandler.Health)
@@ -813,5 +814,107 @@ func TestNotFoundCLI(t *testing.T) {
 
 	if _, ok := response["error"]; !ok {
 		t.Errorf("Expected JSON response to have an 'error' key")
+	}
+}
+
+func TestDeletePaste(t *testing.T) {
+	router, store := setupTestRouter()
+	defer cleanupTestData(store.dataDir)
+
+	// Create a paste to delete
+	paste := &models.Paste{
+		ID:          "ZAP23",
+		CreatedAt:   time.Now(),
+		Size:        13,
+		ContentType: "text/plain",
+		Content:     []byte("delete me pls"),
+	}
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
+
+	// DELETE the paste
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/ZAP23", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d (body: %s)", w.Code, w.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+
+	if response["deleted"] != true {
+		t.Errorf("Expected deleted=true, got %v", response["deleted"])
+	}
+	if response["slug"] != "ZAP23" {
+		t.Errorf("Expected slug='ZAP23', got %v", response["slug"])
+	}
+
+	// Verify paste is gone — GET should return 404
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("GET", "/ZAP23", nil)
+	router.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusNotFound {
+		t.Errorf("Expected 404 after deletion, got %d", w2.Code)
+	}
+}
+
+func TestDeletePasteAuthEnforced(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{
+		APIKeys:    "testkey",
+		UploadAuth: true,
+		Port:       8080,
+		SlugLength: 5,
+		BufferSize: 5 * 1024 * 1024,
+		DefaultTTL: 24 * time.Hour,
+	}
+
+	store := NewMockStore(cfg.DataDir)
+	defer cleanupTestData(store.dataDir)
+
+	// Seed a paste so DELETE has something to find
+	paste := &models.Paste{
+		ID:          "RMV45",
+		CreatedAt:   time.Now(),
+		Size:        5,
+		ContentType: "text/plain",
+		Content:     []byte("hello"),
+	}
+	if err := store.Store(paste); err != nil {
+		t.Fatalf("failed to store paste: %v", err)
+	}
+
+	router := setupRouter(store, cfg)
+
+	// DELETE without auth should be rejected
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("DELETE", "/RMV45", nil)
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 when UploadAuth enabled and no key provided, got %d (body: %s)", w.Code, w.Body.String())
+	}
+
+	// DELETE with valid Bearer token should succeed
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest("DELETE", "/RMV45", nil)
+	req2.Header.Set("Authorization", "Bearer testkey")
+	router.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("Expected 200 when valid key provided, got %d (body: %s)", w2.Code, w2.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(w2.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if response["deleted"] != true {
+		t.Errorf("Expected deleted=true, got %v", response["deleted"])
 	}
 }

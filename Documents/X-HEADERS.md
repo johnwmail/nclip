@@ -145,7 +145,8 @@ Accepted methods:
 - `X-Api-Key: <key>`
 
 Behavior:
-- If `UploadAuth` is enabled, the API key middleware enforces presence of a configured key.
+- If `UploadAuth` is enabled, the API key middleware enforces presence of a configured key for all upload endpoints (POST /, POST /burn/, POST /base64) and the delete endpoint (DELETE /{slug}).
+- GET requests (viewing, downloading, metadata) do not require authentication.
 
 ---
 

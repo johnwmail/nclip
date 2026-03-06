@@ -81,6 +81,17 @@ func (s *S3Store) Get(id string) (*models.Paste, error) {
 		Key:    aws.String(metaKey),
 	})
 	if err != nil {
+		// Map AWS not-found errors to storage.ErrNotFound
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			code := apiErr.ErrorCode()
+			if code == "NoSuchKey" || code == "NotFound" || code == "404" {
+				return nil, ErrNotFound
+			}
+		}
+		if strings.Contains(err.Error(), "StatusCode: 404") || strings.Contains(err.Error(), "NotFound") {
+			return nil, ErrNotFound
+		}
 		log.Printf("[ERROR] S3 Get: failed to get metadata for %s: %v", id, err)
 		return nil, err
 	}
@@ -114,7 +125,7 @@ func (s *S3Store) Get(id string) (*models.Paste, error) {
 		}); err != nil {
 			log.Printf("[WARN] S3 Get: failed to delete expired metadata for %s: %v", id, err)
 		}
-		return nil, fmt.Errorf("paste expired")
+		return nil, ErrNotFound
 	}
 	return &paste, nil
 }
@@ -152,14 +163,20 @@ func (s *S3Store) Exists(id string) (bool, error) {
 func (s *S3Store) Delete(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+	if _, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(applyS3Prefix(s.prefix, id)),
-	})
-	_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+	}); err != nil {
+		log.Printf("[ERROR] S3 Delete: failed to delete content for %s: %v", id, err)
+		return fmt.Errorf("failed to delete content for %s: %w", id, err)
+	}
+	if _, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(applyS3Prefix(s.prefix, id+".json")),
-	})
+	}); err != nil {
+		log.Printf("[ERROR] S3 Delete: failed to delete metadata for %s: %v", id, err)
+		return fmt.Errorf("failed to delete metadata for %s: %w", id, err)
+	}
 	return nil
 }
 

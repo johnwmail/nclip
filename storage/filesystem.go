@@ -14,12 +14,27 @@ import (
 	"github.com/johnwmail/nclip/utils"
 )
 
-// isSafeFilename checks that the provided filename/id is a single name (not a path)
-func isSafeFilename(name string) bool {
-	if strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.Contains(name, "..") {
-		return false
+// errUnsafeID is returned when an id contains path traversal characters.
+var errUnsafeID = fmt.Errorf("invalid paste id")
+
+// safePath constructs a filesystem path for the given id under baseDir,
+// returning an error if the resulting path escapes the base directory.
+// This uses filepath.Clean to normalize the path and then verifies it
+// stays within baseDir, which is the pattern recognised by CodeQL.
+func safePath(baseDir, id string) (string, error) {
+	// Reject obvious traversal characters early for clear error messages.
+	if strings.Contains(id, "/") || strings.Contains(id, "\\") || strings.Contains(id, "..") {
+		log.Printf("[ERROR] FS: unsafe id rejected: %q", id)
+		return "", errUnsafeID
 	}
-	return true
+	p := filepath.Join(baseDir, id)
+	p = filepath.Clean(p)
+	// Ensure the cleaned path is still within baseDir.
+	if !strings.HasPrefix(p, filepath.Clean(baseDir)+string(os.PathSeparator)) {
+		log.Printf("[ERROR] FS: path escapes base dir: %q", p)
+		return "", errUnsafeID
+	}
+	return p, nil
 }
 
 // FilesystemStore stores paste metadata and content on the local filesystem.
@@ -50,6 +65,10 @@ func NewFilesystemStore(dataDir string) (*FilesystemStore, error) {
 
 // Store saves the paste metadata (JSON) to local filesystem
 func (fs *FilesystemStore) Store(paste *models.Paste) error {
+	metaPath, err := safePath(fs.dataDir, paste.ID+".json")
+	if err != nil {
+		return err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	metaData, err := json.MarshalIndent(paste, "", "  ")
@@ -57,7 +76,6 @@ func (fs *FilesystemStore) Store(paste *models.Paste) error {
 		log.Printf("[ERROR] FS Store: failed to marshal metadata for %s: %v", paste.ID, err)
 		return err
 	}
-	metaPath := filepath.Join(fs.dataDir, paste.ID+".json")
 	if err := os.WriteFile(metaPath, metaData, 0o644); err != nil {
 		log.Printf("[ERROR] FS Store: failed to write metadata for %s: %v", paste.ID, err)
 		return err
@@ -66,14 +84,22 @@ func (fs *FilesystemStore) Store(paste *models.Paste) error {
 }
 
 func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
+	metaPath, err := safePath(fs.dataDir, id+".json")
+	if err != nil {
+		return nil, err
+	}
+	contentPath, err := safePath(fs.dataDir, id)
+	if err != nil {
+		return nil, err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	metaPath := filepath.Join(fs.dataDir, id+".json")
 	metaData, err := os.ReadFile(metaPath)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Printf("[ERROR] FS Get: failed to read metadata for %s: %v", id, err)
+		if os.IsNotExist(err) {
+			return nil, ErrNotFound
 		}
+		log.Printf("[ERROR] FS Get: failed to read metadata for %s: %v", id, err)
 		return nil, err
 	}
 	var paste models.Paste
@@ -83,60 +109,57 @@ func (fs *FilesystemStore) Get(id string) (*models.Paste, error) {
 	}
 	if paste.IsExpired() {
 		log.Printf("[WARN] FS Get: paste %s is expired", id)
-		if !isSafeFilename(id) {
-			log.Printf("[ERROR] FS Get: unsafe id: %q", id)
-			return nil, fmt.Errorf("invalid paste id")
-		}
 		// Delete expired paste files directly (we already hold the mutex) so subsequent accesses are clean
-		contentPath := filepath.Join(fs.dataDir, id)
-		metaPath := filepath.Join(fs.dataDir, id+".json")
 		_ = os.Remove(contentPath)
 		if err := os.Remove(metaPath); err != nil {
-			// If remove fails, log and continue returning not found
 			log.Printf("[WARN] FS Get: failed to remove expired metadata for %s: %v", id, err)
 		}
-		return nil, os.ErrNotExist
+		return nil, ErrNotFound
 	}
 	return &paste, nil
 }
 
 func (fs *FilesystemStore) Exists(id string) (bool, error) {
+	metaPath, err := safePath(fs.dataDir, id+".json")
+	if err != nil {
+		return false, err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	metaPath := filepath.Join(fs.dataDir, id+".json")
-	_, err := os.Stat(metaPath)
+	_, err = os.Stat(metaPath)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	if err != nil {
 		log.Printf("[ERROR] FS Exists: failed to stat metadata for %s: %v", id, err)
-		if !isSafeFilename(id) {
-			log.Printf("[ERROR] FS Exists: unsafe id: %q", id)
-			return false, fmt.Errorf("invalid paste id")
-		}
 		return false, err
 	}
 	return true, nil
 }
 
 func (fs *FilesystemStore) Delete(id string) error {
+	contentPath, err := safePath(fs.dataDir, id)
+	if err != nil {
+		return err
+	}
+	metaPath, err := safePath(fs.dataDir, id+".json")
+	if err != nil {
+		return err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	contentPath := filepath.Join(fs.dataDir, id)
-	metaPath := filepath.Join(fs.dataDir, id+".json")
-	if !isSafeFilename(id) {
-		log.Printf("[ERROR] FS IncrementReadCount: unsafe id: %q", id)
-		return fmt.Errorf("invalid paste id")
-	}
 	_ = os.Remove(contentPath)
 	_ = os.Remove(metaPath)
 	return nil
 }
 
 func (fs *FilesystemStore) IncrementReadCount(id string) error {
+	metaPath, err := safePath(fs.dataDir, id+".json")
+	if err != nil {
+		return err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	metaPath := filepath.Join(fs.dataDir, id+".json")
 	metaData, err := os.ReadFile(metaPath)
 	if err != nil {
 		log.Printf("[ERROR] FS IncrementReadCount: failed to read metadata for %s: %v", id, err)
@@ -154,16 +177,16 @@ func (fs *FilesystemStore) IncrementReadCount(id string) error {
 	}
 	if err := os.WriteFile(metaPath, newMeta, 0o644); err != nil {
 		log.Printf("[ERROR] FS IncrementReadCount: failed to write metadata for %s: %v", id, err)
-		if !isSafeFilename(id) {
-			log.Printf("[ERROR] FS StoreContent: unsafe id: %q", id)
-			return fmt.Errorf("invalid paste id")
-		}
 		return err
 	}
 	return nil
 }
 
 func (fs *FilesystemStore) StoreContent(id string, content []byte) error {
+	contentPath, err := safePath(fs.dataDir, id)
+	if err != nil {
+		return err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	if utils.IsDebugEnabled() {
@@ -173,7 +196,6 @@ func (fs *FilesystemStore) StoreContent(id string, content []byte) error {
 		log.Printf("[ERROR] FS StoreContent: failed to create data directory %s: %v", fs.dataDir, err)
 		return err
 	}
-	contentPath := filepath.Join(fs.dataDir, id)
 	if err := os.WriteFile(contentPath, content, 0o644); err != nil {
 		log.Printf("[ERROR] FS StoreContent: failed to write content for %s: %v", id, err)
 		return err
@@ -189,9 +211,12 @@ func min(a, b int) int {
 }
 
 func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
+	contentPath, err := safePath(fs.dataDir, id)
+	if err != nil {
+		return nil, err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	contentPath := filepath.Join(fs.dataDir, id)
 	data, err := os.ReadFile(contentPath)
 	if err != nil {
 		log.Printf("[ERROR] FS GetContent: failed to read content for %s: %v", id, err)
@@ -202,9 +227,12 @@ func (fs *FilesystemStore) GetContent(id string) ([]byte, error) {
 
 // StatContent reports whether content exists on disk and its size.
 func (fs *FilesystemStore) StatContent(id string) (bool, int64, error) {
+	contentPath, err := safePath(fs.dataDir, id)
+	if err != nil {
+		return false, 0, err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	contentPath := filepath.Join(fs.dataDir, id)
 	st, err := os.Stat(contentPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -219,9 +247,12 @@ func (fs *FilesystemStore) StatContent(id string) (bool, int64, error) {
 // GetContentPrefix reads up to n bytes from the content file. If the file is
 // smaller than n, it returns the full content.
 func (fs *FilesystemStore) GetContentPrefix(id string, n int64) ([]byte, error) {
+	contentPath, err := safePath(fs.dataDir, id)
+	if err != nil {
+		return nil, err
+	}
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	contentPath := filepath.Join(fs.dataDir, id)
 	f, err := os.Open(contentPath)
 	if err != nil {
 		log.Printf("[ERROR] FS GetContentPrefix: failed to open content for %s: %v", id, err)

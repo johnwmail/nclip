@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -58,4 +59,36 @@ func (h *MetaHandler) GetMetadata(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, "application/json; charset=utf-8", jsonBytes)
+}
+
+// DeletePaste handles paste deletion via DELETE /:slug
+func (h *MetaHandler) DeletePaste(c *gin.Context) {
+	slug := c.Param("slug")
+
+	if !utils.IsValidSlug(slug) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid slug format"})
+		return
+	}
+
+	paste, err := h.store.Get(slug)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve paste"})
+		return
+	}
+
+	if paste == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found"})
+		return
+	}
+
+	if err := h.store.Delete(slug); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete paste"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"deleted": true, "slug": slug})
 }

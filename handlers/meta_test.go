@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/models"
+	"github.com/johnwmail/nclip/storage"
 )
 
 // MockPasteStore implements storage.PasteStore for testing
@@ -214,6 +215,125 @@ func TestMetaHandler_GetMetadata(t *testing.T) {
 				// Ensure content is not included
 				if _, ok := response["content"]; ok {
 					t.Errorf("Content should not be included in metadata response")
+				}
+			}
+		})
+	}
+}
+
+func TestMetaHandler_DeletePaste(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		slug           string
+		setupStore     func(*MockPasteStore)
+		expectedStatus int
+		expectedBody   map[string]interface{}
+	}{
+		{
+			name: "valid delete",
+			slug: "ABC23",
+			setupStore: func(store *MockPasteStore) {
+				paste := &models.Paste{
+					ID:          "ABC23",
+					CreatedAt:   time.Now(),
+					Size:        12,
+					ContentType: "text/plain",
+					Content:     []byte("test content"),
+				}
+				if err := store.Store(paste); err != nil {
+					t.Fatalf("failed to seed store: %v", err)
+				}
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody: map[string]interface{}{
+				"deleted": true,
+				"slug":    "ABC23",
+			},
+		},
+		{
+			name:           "paste not found (nil)",
+			slug:           "XYZ89",
+			setupStore:     func(store *MockPasteStore) {},
+			expectedStatus: http.StatusNotFound,
+			expectedBody: map[string]interface{}{
+				"error": "Paste not found",
+			},
+		},
+		{
+			name: "paste not found (ErrNotFound)",
+			slug: "NF523",
+			setupStore: func(store *MockPasteStore) {
+				store.SetGetError(storage.ErrNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedBody: map[string]interface{}{
+				"error": "Paste not found",
+			},
+		},
+		{
+			name:           "invalid slug format",
+			slug:           "invalid-slug!",
+			setupStore:     func(store *MockPasteStore) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody: map[string]interface{}{
+				"error": "Invalid slug format",
+			},
+		},
+		{
+			name: "store get error",
+			slug: "ERR23",
+			setupStore: func(store *MockPasteStore) {
+				store.SetGetError(errors.New("database error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody: map[string]interface{}{
+				"error": "Failed to retrieve paste",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := NewMockPasteStore()
+			tt.setupStore(store)
+
+			handler := NewMetaHandler(store)
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Params = gin.Params{
+				{Key: "slug", Value: tt.slug},
+			}
+
+			handler.DeletePaste(c)
+
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			var response map[string]interface{}
+			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+				t.Fatalf("Failed to unmarshal response: %v", err)
+			}
+
+			for key, expected := range tt.expectedBody {
+				got, ok := response[key]
+				if !ok {
+					t.Errorf("Expected key '%s' in response", key)
+					continue
+				}
+				if got != expected {
+					t.Errorf("Expected %s=%v, got %v", key, expected, got)
+				}
+			}
+
+			// For the success case, verify the paste was actually deleted
+			if tt.expectedStatus == http.StatusOK {
+				paste, _ := store.Get(tt.slug)
+				if paste != nil {
+					t.Errorf("Expected paste '%s' to be deleted from store", tt.slug)
 				}
 			}
 		})

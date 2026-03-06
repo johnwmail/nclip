@@ -263,6 +263,16 @@ input[type="file"]:hover {
     border-color: var(--text-secondary);
 }
 
+.btn-danger {
+    background: #dc2626;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+}
+
 .btn-success {
     background: var(--success-color);
     color: white;
