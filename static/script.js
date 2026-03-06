@@ -234,7 +234,11 @@ document.addEventListener('DOMContentLoaded', function () {
             deletePasteBtn.disabled = true;
             deletePasteBtn.textContent = 'Deleting...';
 
-            fetch('/' + currentSlug, { method: 'DELETE' })
+            const headers = {};
+            const key = getApiKey();
+            if (key) headers['Authorization'] = 'Bearer ' + key;
+
+            fetch('/' + currentSlug, { method: 'DELETE', headers: headers })
                 .then(async response => {
                     if (!response.ok) {
                         const msg = await extractErrorMessage(response);

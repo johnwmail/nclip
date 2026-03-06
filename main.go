@@ -260,7 +260,12 @@ func setupRouter(store storage.PasteStore, cfg *config.Config) *gin.Engine {
 	}
 	router.GET("/:slug", retrievalHandler.View)
 	router.GET("/raw/:slug", retrievalHandler.Raw)
-	router.DELETE("/:slug", metaHandler.DeletePaste)
+	if cfg.UploadAuth {
+		auth := apiKeyAuth(cfg)
+		router.DELETE("/:slug", auth, metaHandler.DeletePaste)
+	} else {
+		router.DELETE("/:slug", metaHandler.DeletePaste)
+	}
 
 	// Metadata API
 	router.GET("/api/v1/meta/:slug", metaHandler.GetMetadata)
