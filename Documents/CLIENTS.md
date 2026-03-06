@@ -87,6 +87,20 @@ curl -sL -F "file=@myfile.txt" -H "X-Api-Key: my-secret-key" http://localhost:80
 
 Web UI note: when upload auth is enabled the web UI includes an "API Key" input field. Paste your key there before uploading. Browsers will not automatically attach API keys for you.
 
+**Delete a paste:**
+```bash
+curl -sL -X DELETE http://localhost:8080/SLUG
+```
+
+**Delete with API key (when auth is enabled):**
+```bash
+# Using Authorization: Bearer header
+curl -sL -X DELETE -H "Authorization: Bearer my-secret-key" http://localhost:8080/SLUG
+
+# Using X-Api-Key header
+curl -sL -X DELETE -H "X-Api-Key: my-secret-key" http://localhost:8080/SLUG
+```
+
 ---
 
 ### 2. Wget (Linux/macOS/Windows)
@@ -114,6 +128,11 @@ echo "My custom slug" | wget --method=POST --header="X-SLUG: MYPASTE" --body-dat
 **Upload with Base64 encoding:**
 ```bash
 echo "Content with special chars" | base64 | wget --method=POST --body-data="$(cat)" http://localhost:8080/base64 -O -
+```
+
+**Delete a paste:**
+```bash
+wget --method=DELETE http://localhost:8080/SLUG -O -
 ```
 
 ---
@@ -147,6 +166,16 @@ $base64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($content))
 Invoke-WebRequest -Uri http://localhost:8080/base64 -Method POST -Body $base64 -UseBasicParsing
 ```
 
+**Delete a paste:**
+```powershell
+Invoke-WebRequest -Uri http://localhost:8080/SLUG -Method DELETE -UseBasicParsing
+```
+
+**Delete with API key (when auth is enabled):**
+```powershell
+Invoke-WebRequest -Uri http://localhost:8080/SLUG -Method DELETE -Headers @{"Authorization"="Bearer my-secret-key"} -UseBasicParsing
+```
+
 ---
 
 ### 4. HTTPie (Linux/macOS/Windows)
@@ -174,6 +203,11 @@ echo "My custom slug" | http POST http://localhost:8080 X-SLUG:MYPASTE
 **Upload with Base64 encoding:**
 ```bash
 echo "Content with special chars" | base64 | http POST http://localhost:8080/base64
+```
+
+**Delete a paste:**
+```bash
+http DELETE http://localhost:8080/SLUG
 ```
 
 ---

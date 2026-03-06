@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/johnwmail/nclip/storage"
@@ -71,6 +73,10 @@ func (h *MetaHandler) DeletePaste(c *gin.Context) {
 
 	paste, err := h.store.Get(slug)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Paste not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve paste"})
 		return
 	}

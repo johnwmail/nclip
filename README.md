@@ -266,14 +266,14 @@ $headers = @{ "X-Api-Key" = "secret-key-1" }
 When API key authentication is enabled, the web UI includes an optional "API Key" input field. Simply paste your API key into this field before uploading content.
 
 **Important Notes:**
-- When `NCLIP_UPLOAD_AUTH=true`, all POST requests to `/` and `/burn/` require authentication
+- When `NCLIP_UPLOAD_AUTH=true`, all POST requests to `/` and `/burn/` and DELETE requests to `/{slug}` require authentication
 - GET requests (viewing/downloading pastes) do **not** require authentication
 - When deployed behind CDNs (CloudFront/Cloudflare), ensure the distribution forwards `Authorization` or `X-Api-Key` headers to the origin
 - Multiple API keys can be configured (comma-separated) for different users or applications
 
 ### Upload Auth (API Key) — additional guidance
 
-When `NCLIP_UPLOAD_AUTH` is enabled, nclip enforces API key authentication for all upload endpoints (POST / and POST /burn/). This is intended to protect public-facing instances from abuse.
+When `NCLIP_UPLOAD_AUTH` is enabled, nclip enforces API key authentication for all upload endpoints (POST / and POST /burn/) and the delete endpoint (DELETE /{slug}). This is intended to protect public-facing instances from abuse.
 
 - Env var: `NCLIP_UPLOAD_AUTH=true` to enable
 - Keys: `NCLIP_API_KEYS` should contain one or more comma-separated keys (for example: `key1,key2`).
@@ -324,6 +324,7 @@ export NCLIP_PORT=3000
 - `POST /base64` — Upload base64-encoded content (use `X-Base64` header)
 - `GET /{slug}` — HTML view of paste
 - `GET /raw/{slug}` — Raw content download
+- `DELETE /{slug}` — Delete a paste immediately (returns JSON confirmation)
 
 **Supported Headers:** `X-TTL`, `X-Slug`, `X-Base64`, `X-Burn`, `X-Api-Key` / `Authorization`
 
@@ -333,6 +334,29 @@ export NCLIP_PORT=3000
 
 ### System Endpoints
 - `GET /health` — Health check (200 OK)
+
+### Delete Paste
+
+`DELETE /{slug}` removes a paste immediately. Returns JSON confirmation:
+
+```bash
+# Delete a paste
+curl -sL -X DELETE http://localhost:8080/2F4D6
+# Returns: {"deleted":true,"slug":"2F4D6"}
+
+# Delete with API key (when auth is enabled)
+curl -sL -X DELETE -H "Authorization: Bearer secret-key-1" http://localhost:8080/2F4D6
+```
+
+**Response:**
+```json
+{
+  "deleted": true,
+  "slug": "2F4D6"
+}
+```
+
+**Error responses:** 400 (invalid slug), 404 (paste not found), 401 (missing/invalid API key when auth enabled)
 
 ### Paste Metadata (JSON)
 

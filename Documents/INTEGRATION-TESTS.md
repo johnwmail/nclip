@@ -50,7 +50,8 @@ Unified integration test runner that orchestrates all test modules and provides 
 
 - Preview mode for large files (`test_preview.sh`)bash scripts/integration-test.sh
 
-- Size mismatch detection (`test_size_mismatch.sh`)```
+- Size mismatch detection (`test_size_mismatch.sh`)
+- Paste deletion via DELETE endpoint (`test_delete.sh`)```
 
 
 
@@ -126,7 +127,8 @@ Individual test scripts are located in `scripts/integration/` and can be run ind
 
 | `test_preview.sh` | Large file preview mode |   pkill nclip
 
-| `test_size_mismatch.sh` | Size mismatch detection |   ```
+| `test_size_mismatch.sh` | Size mismatch detection |
+| `test_delete.sh` | Paste deletion via DELETE endpoint |   ```
 
 
 

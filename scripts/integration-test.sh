@@ -32,6 +32,7 @@ SCRIPTS=(
     "$INTEGRATION_DIR/test_xbase64.sh"
     "$INTEGRATION_DIR/test_xburn.sh"
     "$INTEGRATION_DIR/test_xttl.sh"
+    "$INTEGRATION_DIR/test_delete.sh"
 )
 
 # Print test environment configuration
