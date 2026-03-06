@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const viewPasteLink = document.getElementById('view-paste');
     const rawPasteLink = document.getElementById('raw-paste');
     const newPasteBtn = document.getElementById('new-paste');
+    const deletePasteBtn = document.getElementById('delete-paste');
+    let currentSlug = null;
 
     // Capture initial usage examples HTML to restore exactly later
     const usageSection = document.querySelector('.usage-section');
@@ -166,6 +168,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Show result
     function showResult(url, slug) {
+        currentSlug = slug;
         pasteUrlInput.value = url;
         if (viewPasteLink) {
             viewPasteLink.href = '/' + slug;
@@ -222,6 +225,30 @@ document.addEventListener('DOMContentLoaded', function () {
         event.preventDefault();
         window.location.assign('/');
     });
+
+    // Delete Paste button functionality
+    if (deletePasteBtn) {
+        deletePasteBtn.addEventListener('click', function () {
+            if (!currentSlug) return;
+
+            deletePasteBtn.disabled = true;
+            deletePasteBtn.textContent = 'Deleting...';
+
+            fetch('/' + currentSlug, { method: 'DELETE' })
+                .then(async response => {
+                    if (!response.ok) {
+                        const msg = await extractErrorMessage(response);
+                        throw new Error(msg);
+                    }
+                    window.location.assign('/');
+                })
+                .catch(error => {
+                    alert('Delete failed: ' + error.message);
+                    deletePasteBtn.disabled = false;
+                    deletePasteBtn.textContent = 'Delete';
+                });
+        });
+    }
 
 
     // Update usage examples to show how to read the created paste
