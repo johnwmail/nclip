@@ -1,6 +1,6 @@
 module github.com/johnwmail/nclip
 
-go 1.24.0
+go 1.26
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.39.1
@@ -24,7 +24,7 @@ require (
 )
 
 require (
-	github.com/aws/aws-lambda-go v1.49.0
+	github.com/aws/aws-lambda-go v1.55.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.14 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.8 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.8 // indirect
