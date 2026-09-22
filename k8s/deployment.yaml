@@ -51,12 +51,14 @@ spec:
             httpGet:
               path: /health
               port: 8080
-            periodSeconds: 30
+            periodSeconds: 300
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            periodSeconds: 15
+            periodSeconds: 300
+            timeoutSeconds: 5
           securityContext:
             readOnlyRootFilesystem: true
             runAsNonRoot: true

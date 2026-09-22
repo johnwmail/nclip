@@ -55,7 +55,7 @@ ENV NCLIP_PORT=8080
 EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=5m --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:${NCLIP_PORT}/health || exit 1
 
 # Run the application
