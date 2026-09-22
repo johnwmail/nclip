@@ -16,7 +16,7 @@ permissions:
   actions: read
 
 env:
-  GO_VERSION_LATEST: "1.25"
+  GO_VERSION_LATEST: "1.26"
 
 jobs:
   integration-test:
@@ -26,7 +26,7 @@ jobs:
 
     strategy:
       matrix:
-        go-version: ["1.24", "1.25"]
+        go-version: ["1.26"]
         upload_auth: ["true", "false"]
 
     steps:
