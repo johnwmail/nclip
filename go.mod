@@ -3,7 +3,7 @@ module github.com/johnwmail/nclip
 go 1.26.0
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.47.0
+	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.5
 	github.com/gin-gonic/gin v1.12.0
 )
